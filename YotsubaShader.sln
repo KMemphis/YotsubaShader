@@ -1,0 +1,57 @@
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Generator", "YotsubaShader.Generator\YotsubaShader.Generator.csproj", "{1F843514-4769-4385-8242-9F3F88C421F0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Compiler", "YotsubaShader.Compiler\YotsubaShader.Compiler.csproj", "{FFEC20B3-6D51-4143-8DC5-3A4C8027853F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Example", "YotsubaShader.Example\YotsubaShader.Example.csproj", "{6514C171-7C85-4524-BBBA-EED2F14CC883}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Frontend", "YotsubaShader.Frontend\YotsubaShader.Frontend.csproj", "{7E86EA39-8779-4676-A7A8-D0DD3F788E1A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Frontend.Tests", "YotsubaShader.Frontend.Tests\YotsubaShader.Frontend.Tests.csproj", "{620E9153-0582-49E7-BB5E-BC1046611B89}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.IR", "YotsubaShader.IR\YotsubaShader.IR.csproj", "{58507BDD-60D6-4ADF-A25C-64DD79F82695}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Language", "YotsubaShader.Language\YotsubaShader.Language.csproj", "{668A3BBD-6A31-49EA-A576-CBA2C89A22C6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1F843514-4769-4385-8242-9F3F88C421F0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1F843514-4769-4385-8242-9F3F88C421F0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1F843514-4769-4385-8242-9F3F88C421F0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1F843514-4769-4385-8242-9F3F88C421F0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FFEC20B3-6D51-4143-8DC5-3A4C8027853F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FFEC20B3-6D51-4143-8DC5-3A4C8027853F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FFEC20B3-6D51-4143-8DC5-3A4C8027853F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FFEC20B3-6D51-4143-8DC5-3A4C8027853F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6514C171-7C85-4524-BBBA-EED2F14CC883}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6514C171-7C85-4524-BBBA-EED2F14CC883}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6514C171-7C85-4524-BBBA-EED2F14CC883}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6514C171-7C85-4524-BBBA-EED2F14CC883}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7E86EA39-8779-4676-A7A8-D0DD3F788E1A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7E86EA39-8779-4676-A7A8-D0DD3F788E1A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7E86EA39-8779-4676-A7A8-D0DD3F788E1A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7E86EA39-8779-4676-A7A8-D0DD3F788E1A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{620E9153-0582-49E7-BB5E-BC1046611B89}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{620E9153-0582-49E7-BB5E-BC1046611B89}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{620E9153-0582-49E7-BB5E-BC1046611B89}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{620E9153-0582-49E7-BB5E-BC1046611B89}.Release|Any CPU.Build.0 = Release|Any CPU
+		{58507BDD-60D6-4ADF-A25C-64DD79F82695}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{58507BDD-60D6-4ADF-A25C-64DD79F82695}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{58507BDD-60D6-4ADF-A25C-64DD79F82695}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{58507BDD-60D6-4ADF-A25C-64DD79F82695}.Release|Any CPU.Build.0 = Release|Any CPU
+		{668A3BBD-6A31-49EA-A576-CBA2C89A22C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{668A3BBD-6A31-49EA-A576-CBA2C89A22C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{668A3BBD-6A31-49EA-A576-CBA2C89A22C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{668A3BBD-6A31-49EA-A576-CBA2C89A22C6}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

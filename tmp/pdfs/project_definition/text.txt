@@ -1,0 +1,964 @@
+D E F I N I C I Ó N D E P R OY E C TO D E S O F T WA R E
+
+
+
+
+Yotsuba
+Shader Compiler
+YSC · Arquitectura y alcance técnico
+
+
+
+Compilador de shaders C# 14 con Roslyn, Shader IR propio,
+generación SPIR-V bajo demanda e integración con Yotsuba.Graphics.
+
+
+
+
+Versión                    0.1
+
+Fecha                      28 de septiembre de 2026
+
+Responsable                Proyecto Yotsuba
+
+Estado                     Borrador técnico
+
+Distribución               Interna
+YOTSUBA SHADER COMPILER                                                        Definición de proyecto · v0.1
+
+
+
+
+G E S T I Ó N D O C U M E N TA L
+
+
+Control de versiones
+Esta edición consolida el diseño conceptual inicial de Yotsuba Shader Compiler y sus criterios
+de implementación. Las APIs incluidas son ilustrativas y podrán evolucionar durante el
+desarrollo.
+
+Tabla CV-1. Historial del documento
+
+  Versión                        Fecha               Estado                     Descripción
+
+  0.1                            28/09/2026          Borrador                   Definición inicial del
+                                                                                modelo de
+                                                                                programación,
+                                                                                arquitectura, análisis,
+                                                                                compilación diferida y
+                                                                                MVP.
+
+
+
+
+Información de revisión
+Tabla CV-2. Datos administrativos
+
+  Campo                                              Valor
+
+  Proyecto                                           Yotsuba Shader Compiler (YSC)
+
+  Documento                                          Definición de proyecto de software
+
+  Elaboración                                        Propuesta técnica del proyecto Yotsuba
+
+  Aprobación                                         Pendiente
+
+  Confidencialidad                                   Distribución interna
+
+
+
+   Estado del documento. Las funcionalidades expuestas describen requisitos, decisiones propuestas y
+   objetivos técnicos. No representan una implementación ya completada.
+
+
+
+
+Yotsuba · Distribución interna                                                                Página 2 de 18
+YOTSUBA SHADER COMPILER                                                       Definición de proyecto · v0.1
+
+
+
+
+N AV E G AC I Ó N
+
+
+Tabla de contenidos
+Acceda a cada apartado seleccionando el título. La numeración corresponde a las páginas del
+documento.
+
+
+
+1. Visión y objetivos                                                                                    4
+
+2. Modelo de programación                                                                                5
+
+3. Contextos CPU y GPU                                                                                   7
+
+4. Biblioteca estándar Shader                                                                            8
+
+5. Compatibilidad con C# y GPU Lowering                                                                  9
+
+6. Análisis en tiempo de desarrollo                                                                    10
+
+7. Arquitectura del compilador                                                                         11
+
+8. Compilación diferida y Native AOT                                                                   12
+
+9. Caché de compilación                                                                                13
+
+10. Bibliotecas C# externas                                                                            14
+
+11. Integración con Yotsuba.Graphics                                                                   15
+
+12. Alcance del MVP                                                                                    16
+
+13. Identidad técnica                                                                                  17
+
+14. Glosario y referencias                                                                             18
+
+
+
+
+Yotsuba · Distribución interna                                                              Página 3 de 18
+YOTSUBA SHADER COMPILER                                                           Definición de proyecto · v0.1
+
+
+
+
+1. Visión y objetivos
+Yotsuba Shader Compiler (YSC) es un compilador de shaders que permite desarrollar
+programas GPU con sintaxis C# 14 y trabajar con ellos mediante clases administradas del
+mismo proyecto .NET. Los métodos GPU se identifican con atributos, se analizan mediante
+Roslyn y se traducen a una representación intermedia propia para generar SPIR-V.
+
+Su propósito es reducir la separación entre el código del videojuego y el código de shaders,
+conservando una API natural para la construcción, configuración, compilación bajo demanda y
+ejecución de programas GPU.
+
+
+   Principio rector. El shader es un objeto C# desde el punto de vista del desarrollador; YSC traduce
+   únicamente las operaciones GPU compatibles. El CLR no se ejecuta dentro de la GPU.
+
+
+
+1.1 Objetivo principal
+Construir un compilador integrable con Yotsuba.Graphics que permita escribir, validar y
+ejecutar shaders en C#, compartiendo tipos y recursos con el resto de la aplicación.
+
+
+1.2 Objetivos específicos
+ 1. Definir shaders mediante clases C# derivadas de Shader y etapas declaradas por atributos.
+ 2. Proporcionar una biblioteca estándar de intrinsics matemáticos, vectoriales y gráficos.
+ 3. Reutilizar estructuras, funciones y bibliotecas externas que puedan traducirse de forma
+    segura.
+ 4. Ofrecer diagnósticos GPU durante el desarrollo mediante Roslyn Analyzer.
+ 5. Generar SPIR-V a partir de un IR tipado propio y compilar únicamente cuando sea
+    necesario.
+ 6. Separar el estado administrado, los recursos GPU y el código ejecutable por la GPU.
+ 7. Diseñar una ruta viable para aplicaciones Native AOT y backends futuros.
+
+
+
+
+Yotsuba · Distribución interna                                                                  Página 4 de 18
+YOTSUBA SHADER COMPILER                                                 Definición de proyecto · v0.1
+
+
+
+
+2. Modelo de programación
+Cada shader se representa como una clase C# normal que hereda de Shader . El desarrollador
+define constructores y propiedades administradas y marca los métodos destinados a la GPU
+con [ShaderStage] . Los nombres de los métodos son libres; el atributo establece su función.
+
+
+2.1 Contrato de ejemplo
+                                                                                          CSHARP
+   public struct VertexInput
+   {
+       [Location(0)] public Float3 Position;
+       [Location(1)] public Float2 UV;
+   }
+
+   public struct VertexOutput
+   {
+       [BuiltIn(BuiltIn.Position)] public Float4 Position;
+       [Location(0)] public Float2 UV;
+   }
+
+   public sealed partial class MyCustomShader : Shader
+   {
+       [Uniform(Set = 0, Binding = 0)]
+       public CameraData Camera { get; set; }
+
+        [Uniform(Set = 0, Binding = 1)]
+        public Float4 Tint { get; set; }
+
+        [Texture(Set = 0, Binding = 2)]
+        public Texture2D Albedo { get; set; }
+
+        [Sampler(Set = 0, Binding = 3)]
+        public SamplerState LinearSampler { get; set; }
+
+        public MyCustomShader(CameraData camera, Texture2D texture,
+                              SamplerState sampler)
+        {
+            Camera = camera;
+            Albedo = texture;
+            LinearSampler = sampler;
+            Tint = new Float4(1f);
+        }
+
+        [ShaderStage(ShaderStage.Vertex)]
+        private VertexOutput VS(VertexInput input) => new()
+        {
+            Position = Camera.ViewProjection *
+                       new Float4(input.Position, 1f),
+            UV = input.UV
+        };
+
+        [ShaderStage(ShaderStage.Fragment)]
+        private Float4 FS(VertexOutput input) =>
+            Albedo.Sample(LinearSampler, input.UV) * Tint;
+   }
+
+
+
+
+Yotsuba · Distribución interna                                                        Página 5 de 18
+YOTSUBA SHADER COMPILER                                                       Definición de proyecto · v0.1
+
+
+
+
+2.2 Uso desde el videojuego
+                                                                                                CSHARP
+   using var shader = new MyCustomShader(cameraData, texture, sampler);
+   shader.Tint = new Float4(1, 0, 0, 1);
+   shader.Vertex(0, vertexBuffer);
+   shader.Execute(commandList, vertexCount: 3);
+
+
+
+La configuración y actualización de parámetros se realizan sobre la instancia administrada. El
+primer Execute puede activar la compilación si no existe un módulo compatible en caché.
+Modificar un uniform o una textura solo actualiza los datos o bindings; no altera por sí mismo
+el código SPIR-V.
+
+
+   Distinción técnica. Vertex(0, vertexBuffer) asigna un buffer a un binding de vértices. Los
+   atributos Location describen, por separado, las ubicaciones de sus componentes.
+
+
+
+2.3 Compartición de datos
+                                                                                                CSHARP
+   public struct MaterialData
+   {
+       public Float4 Color;
+       public float Roughness;
+       public float Metallic;
+   }
+
+   [Uniform(Set = 0, Binding = 4)]
+   public MaterialData Material { get; set; }
+
+
+
+La estructura se puede utilizar en CPU y representarse como datos GPU. La integración debe
+resolver explícitamente las reglas de alineación y layout de memoria de cada tipo de recurso;
+el objeto CLR no se envía como referencia a la GPU.
+
+
+2.4 Invocación de métodos
+Los métodos de etapa son fuente para el compilador GPU, no una API de ejecución directa en
+CPU. Execute() administra la vinculación de recursos y registra o envía los comandos gráficos;
+no interpreta SPIR-V en el procesador.
+
+
+
+
+Yotsuba · Distribución interna                                                              Página 6 de 18
+YOTSUBA SHADER COMPILER                                                         Definición de proyecto · v0.1
+
+
+
+
+3. Contextos CPU y GPU
+YSC permite coexistir lógica administrada y funciones GPU dentro de una misma clase. Solo los
+métodos alcanzables desde un Entry Point, junto con sus dependencias compatibles, se
+traducen a Shader IR.
+
+Tabla 1. Responsabilidades por contexto
+
+  Managed Context · CPU                              GPU Context
+
+  Constructores, interfaces, herencia de objetos y   Métodos marcados con [ShaderStage]
+  propiedades ordinarias
+
+  LINQ estándar, colecciones y servicios del CLR     Operaciones matemáticas, intrinsics y flujo de
+                                                     control traducible
+
+  Gestión de buffers, texturas, caché y recursos     Lectura de uniforms, storage buffers, texturas y
+                                                     variables de entrada
+
+  Sincronización y comandos del motor                Instrucciones SPIR-V ejecutadas por el dispositivo
+                                                     GPU
+
+
+
+3.1 Regla de alcanzabilidad
+                                                                                                  CSHARP
+   [ShaderStage(ShaderStage.Fragment)]
+   private Float4 FragmentMain(FragmentInput input)
+   {
+       return CalculateColor(input.UV);
+   }
+
+   private Float4 CalculateColor(Float2 uv)
+   {
+       return Albedo.Sample(LinearSampler, uv) * Tint;
+   }
+
+   // Este método permanece en CPU si la GPU no lo referencia.
+   public void RefreshFromDatabase() { /* lógica administrada */ }
+
+
+
+El compilador sigue la llamada desde FragmentMain hasta CalculateColor . No analiza
+indiscriminadamente todos los miembros administrados como si fueran instrucciones GPU.
+
+
+3.2 Clases administradas
+La creación arbitraria de clases, delegados, excepciones, reflexión y llamadas a servicios del
+CLR queda fuera del contexto GPU inicial. De forma opcional, un tipo marcado como
+[ShaderData] podría transformarse en una estructura GPU si todos sus miembros cumplen las
+reglas del layout.
+
+
+
+
+Yotsuba · Distribución interna                                                                Página 7 de 18
+YOTSUBA SHADER COMPILER                                                              Definición de proyecto · v0.1
+
+
+
+
+4. Biblioteca estándar Shader
+La clase base Shader actuará como biblioteca estándar integrada. Ofrecerá funciones
+habituales de HLSL, GLSL y Slang mediante métodos heredados; el desarrollador no tendrá
+que invocar una clase matemática separada para cada operación.
+
+
+4.1 Familias de funciones previstas
+Tabla 2. Familias de funciones previstas
+
+  Categoría                           Ejemplos
+
+  Matemáticas                         Abs, Min, Max, Clamp, Saturate, Pow, Sqrt
+
+  Trigonometría                       Sin, Cos, Tan, Asin, Acos, Atan
+
+  Vectoriales                         Dot, Cross, Length, Normalize, Distance
+
+  Geometría                           Reflect, Refract, FaceForward
+
+  Interpolación                       Lerp, Step, SmoothStep
+
+  Derivadas                           Ddx, Ddy, Fwidth (según etapa y capacidades)
+
+  Reducciones                         Sum y operadores de reducción; distinguirlos de reducciones de
+                                      subgrupo
+
+  GPU                                 Barriers, atomics y operaciones de subgrupo, según backend
+
+  Texturas                            Sample, Load, Gather
+
+
+
+4.2 Traducción de intrinsics
+                                                                                                       CSHARP
+   [ShaderIntrinsic(ShaderIntrinsicOp.Dot)]
+   protected static float Dot(Float3 a, Float3 b)
+       => Intrinsic<float>();
+
+   [ShaderIntrinsic(ShaderIntrinsicOp.Normalize)]
+   protected static Float3 Normalize(Float3 vector)
+       => Intrinsic<Float3>();
+
+
+
+Roslyn resolverá la identidad del símbolo y YSC seleccionará su traducción a IR/SPIR-V. Por
+ejemplo, Dot se representaría mediante OpDot y determinadas funciones matemáticas
+mediante instrucciones extendidas como las de GLSL.std.450 .
+
+
+   Validación por etapa. Una función como Ddx no debe aceptarse universalmente: el analizador
+   comprobará si resulta válida para la etapa y el conjunto de capacidades objetivo.
+
+
+
+
+Yotsuba · Distribución interna                                                                     Página 8 de 18
+YOTSUBA SHADER COMPILER                                                              Definición de proyecto · v0.1
+
+
+
+
+5. Compatibilidad con C# y GPU Lowering
+YSC aceptará construcciones del lenguaje C# cuando puedan reducirse a un comportamiento
+GPU definido. No pretende ejecutar el CLR en la GPU. Las expresiones sin traducción válida
+generarán un diagnóstico antes del backend SPIR-V.
+
+
+5.1 Lowering de LINQ
+Se propone admitir un subconjunto de operadores LINQ sobre fuentes GPU compatibles. La
+combinación de operaciones se fusionará para evitar arrays y colecciones intermedias cuando
+la semántica lo permita.
+
+                                                                                                       CSHARP
+   float intensity = Lights
+       .Where(x => x.Enabled)
+       .Select(x => x.Intensity)
+       .Sum();
+
+
+
+Equivalencia semántica del Lowering:
+
+                                                                                                       CSHARP
+   float intensity = 0f;
+   for (int i = 0; i < Lights.Length; i++)
+   {
+       var light = Lights[i];
+       if (!light.Enabled) continue;
+       intensity += light.Intensity;
+   }
+
+
+Tabla 3. Primeras reglas de LINQ propuestas
+
+  Operador                       Transformación
+
+  Where                          Predicado if y filtrado del flujo
+
+  Select                         Proyección del valor
+
+  Any / All                      Recorrido con condición y salida anticipada
+
+  Count / Sum                    Contador o acumulador
+
+  Min / Max                      Reducción por comparación
+
+  Take / Skip                    Control lógico del recorrido
+
+  ToArray                        Solo si existe representación y destino GPU compatibles; no es descartable
+                                 en todos los casos
+
+
+
+
+Yotsuba · Distribución interna                                                                     Página 9 de 18
+YOTSUBA SHADER COMPILER                                                                 Definición de proyecto · v0.1
+
+
+
+
+6. Análisis en tiempo de desarrollo
+YSC dispondrá de un Roslyn Diagnostic Analyzer que inspeccionará los métodos marcados
+con [ShaderStage] , sus auxiliares alcanzables y las dependencias relevantes. Los avisos y
+errores aparecerán en el IDE sin necesidad de ejecutar el videojuego.
+
+
+6.1 Ejemplo de diagnóstico
+                                                                                                          CSHARP
+   [ShaderStage(ShaderStage.Fragment)]
+   private Float4 FragmentMain()
+   {
+       var values = new List<float>(); // YSC0012
+       Console.WriteLine("Hello GPU"); // YSC0021
+       return new Float4(1f);
+   }
+
+
+Tabla 4. Diagnósticos iniciales propuestos
+
+  Código                 Severidad           Descripción
+
+  YSC0012                Error               Asignación de tipo administrado no compatible con GPU.
+
+  YSC0021                Error               Llamada sin traducción GPU: Console.WriteLine .
+
+  YSC0023                Error               Control por excepciones no compatible con el perfil.
+
+  YSC0030                Error               Operación no disponible para la etapa o capacidades objetivo.
+
+  YSC0040                Error               Dependencia externa sin implementación traducible.
+
+
+
+6.2 Implementación
+El analizador utilizará las APIs de SemanticModel y IOperation , de modo que las reglas se
+apliquen a símbolos y operaciones reales en lugar de sustituir texto. Se implementará además
+un grafo de llamadas para validar funciones auxiliares y detectar referencias indirectas o
+recursividad no admitida.
+
+
+6.3 Una única fuente de reglas
+El frontend de desarrollo y el compilador de runtime compartirán un módulo
+GpuCompatibilityCore . De esa forma, al incorporar un nuevo Lowering, el analizador y el
+compilador ofrecerán el mismo criterio de aceptación. CodeFixProvider podrá sugerir
+sustituciones como MathF.Sin(x) → Sin(x) , si ese mapping es el adoptado.
+
+
+
+
+Yotsuba · Distribución interna                                                                      Página 10 de 18
+YOTSUBA SHADER COMPILER                                                                Definición de proyecto · v0.1
+
+
+
+
+7. Arquitectura del compilador
+La arquitectura separará el análisis de C# y la generación SPIR-V. Un IR propio facilita
+mantener una única semántica, aplicar optimizaciones y añadir otros backends sin acoplar la
+implementación al árbol sintáctico de Roslyn.
+
+
+
+     C# 14      →     Roslyn     →     Validación GPU     →     Lowering    →     Shader IR     →       SPIR-V
+
+
+
+Figura 1. Canal lógico de compilación YSC.
+
+
+7.1 Componentes
+Tabla 5. Componentes de arquitectura
+
+  Componente                           Responsabilidad
+
+  Roslyn Frontend                      SyntaxTree, resolución semántica y extracción de Entry Points.
+
+  GPU Compatibility Analyzer           Reglas de tipos, etapas, recursos y dependencias.
+
+  C# Lowering                          Conversión de expresiones, LINQ soportado e intrinsics a operaciones
+                                       explícitas.
+
+  Yotsuba Shader IR                    Modelo tipado de instrucciones, funciones y recursos; CFG y SSA.
+
+  Optimization Passes                  Simplificación, propagación de constantes y fusión de recorridos cuando
+                                       proceda.
+
+  SPIR-V Backend                       Emisión de instrucciones, tipos, decoraciones y módulos binarios.
+
+  Validation & Reflection              Comprobación del módulo y exposición de entradas, salidas y bindings.
+
+
+
+7.2 Evolución de backends
+La primera salida será SPIR-V. El desacoplamiento del IR deja abierta la incorporación futura de
+traductores o rutas hacia DXIL, MSL y WGSL, con las limitaciones particulares de cada API. Esta
+ampliación no forma parte del MVP.
+
+
+
+
+Yotsuba · Distribución interna                                                                      Página 11 de 18
+YOTSUBA SHADER COMPILER                                                       Definición de proyecto · v0.1
+
+
+
+
+8. Compilación diferida y Native AOT
+YSC utilizará compilación lazy: no se generará SPIR-V únicamente porque una clase Shader
+exista en el proyecto. La compilación tendrá lugar cuando una instancia necesite ejecutar una
+variante no disponible en caché.
+
+
+8.1 Ciclo de vida previsto
+
+         new                                  Execute(          ¿En        Compilar /
+     Shader()
+                    →      Configurar   →       )
+                                                         →   caché?
+                                                                      →   reutilizar
+                                                                                          →     GPU
+
+
+
+
+Figura 2. Compilación bajo demanda y reutilización.
+
+
+ 1. El código administrado instancia el shader y asigna valores y recursos.
+ 2. La primera llamada que requiere ejecución consulta el caché de módulos y pipelines.
+ 3. Ante una variante ausente, YSC recupera la definición preservada y genera el Shader IR y
+    SPIR-V.
+ 4. El runtime crea el módulo o pipeline correspondiente y vincula los recursos.
+ 5. Las siguientes ejecuciones reutilizan lo compilado mientras se conserve la misma
+    identidad de variante.
+
+
+8.2 Conservación de definiciones en AOT
+Que Native AOT conserve una clase instanciada no significa que conserve su código fuente
+original ni todos los metadatos de métodos GPU sin referencias administradas. Se prevé un
+proceso de build que capture las definiciones GPU necesarias y las asocie a sus clases sin
+generar anticipadamente SPIR-V.
+
+                                                                                                  FLUJO
+   Build: C# + Analyzer → definiciones GPU preservadas + EXE
+   Runtime: new WaterShader(...) → Execute() → IR/SPIR-V si falta
+   CPU: objeto Shader, parámetros, recursos y comandos
+   GPU: módulo y recursos vinculados
+
+
+
+
+8.3 Compatibilidad Roslyn / Native AOT
+La ejecución del subconjunto de Roslyn requerido para análisis sintáctico y semántico en un
+binario Native AOT se tratará como objetivo de ingeniería sujeto a pruebas. Las referencias de
+metadatos necesarias deberán estar disponibles de modo compatible con la publicación; no se
+supondrá que existe una ruta física a las DLL originales.
+
+
+
+
+Yotsuba · Distribución interna                                                            Página 12 de 18
+YOTSUBA SHADER COMPILER                                                                 Definición de proyecto · v0.1
+
+
+
+
+9. Caché de compilación
+Las instancias administradas tendrán estados independientes, pero podrán compartir un
+mismo módulo compilado cuando el código GPU y la variante sean idénticos.
+
+                                                                                                          CSHARP
+   var shaderA = new WaterShader(textureA);
+   var shaderB = new WaterShader(textureB);
+
+   // Dos objetos C#; un módulo SPIR-V compartible,
+   // siempre que su variante estática sea equivalente.
+
+
+
+
+9.1 Identidad y recursos
+Tabla 6. Información utilizada para la reutilización
+
+  Elemento                                        Impacto en caché
+
+  Definición y dependencias del shader            Forma parte de la identidad del módulo.
+
+  Versión de YSC                                  Invalida resultados si cambia la semántica o emisión.
+
+  Backend y capacidades objetivo                  Diferencia módulos para dispositivos o targets incompatibles.
+
+  Constantes de especialización                   Pueden generar variantes o parametrizar el pipeline.
+
+  Valores ordinarios de UniformBuffer             No requieren recompilar el SPIR-V.
+
+  Texturas y buffers asociados                    Son bindings de instancia; normalmente no cambian el
+                                                  módulo.
+
+  Estado gráfico y formatos                       Pueden formar parte de una caché de pipelines
+                                                  independiente.
+
+
+
+9.2 Política de compilación anticipada
+Además del modo diferido, se podrá exponer Compile() o una API de precalentamiento para
+que los juegos preparen voluntariamente variantes conocidas y reduzcan interrupciones en la
+primera ejecución.
+
+
+   Criterio de implementación. La caché de SPIR-V y la caché de pipelines deben tratarse como capas
+   diferentes. El módulo compilado no encapsula por sí solo todos los estados requeridos para dibujar.
+
+
+
+
+Yotsuba · Distribución interna                                                                      Página 13 de 18
+YOTSUBA SHADER COMPILER                                                             Definición de proyecto · v0.1
+
+
+
+
+10. Bibliotecas C# externas
+YSC podrá reconocer llamadas a bibliotecas C# utilizadas desde los métodos GPU. La
+compatibilidad de una dependencia externa no será automática: el compilador necesita
+comprender la semántica de los métodos utilizados para convertirlos a operaciones GPU.
+
+
+10.1 Rutas de resolución
+Tabla 7. Opciones de interoperabilidad
+
+  Mecanismo                         Descripción y alcance
+
+  Source Lowering                   Analizar árboles de sintaxis de dependencias con código fuente
+                                    disponible.
+
+  IL Lowering                       Leer y convertir un subconjunto de IL desde DLL administradas, como
+                                    funcionalidad posterior.
+
+  Intrinsic Mapping                 Reconocer símbolos conocidos y generar operaciones GPU específicas.
+
+  IR precompilado                   Importar representaciones GPU distribuidas expresamente con una
+                                    biblioteca compatible con YSC.
+
+
+
+10.2 Ejemplo de reutilización
+                                                                                                      CSHARP
+   // Código de una biblioteca referenciada.
+   public static class MathUtils
+   {
+       public static float Brightness(Float3 color) =>
+           color.X * 0.2126f +
+           color.Y * 0.7152f +
+           color.Z * 0.0722f;
+   }
+
+   // Código dentro de un shader.
+   float luminance = MathUtils.Brightness(color);
+
+
+
+Si la implementación de Brightness está disponible como fuente, IL admitido o IR compatible,
+el compilador podrá integrarla en el grafo de dependencias. Para funciones conocidas como
+MathF.Sin , un mapping explícito evita examinar su implementación interna.
+
+
+
+10.3 Criterio de error
+Cuando una llamada externa carezca de traducción comprobable, el analizador emitirá un
+diagnóstico localizado. Se evitará asumir que una DLL arbitraria es ejecutable en GPU solo
+porque puede referenciarse desde el proyecto .NET.
+
+
+
+
+Yotsuba · Distribución interna                                                                  Página 14 de 18
+YOTSUBA SHADER COMPILER                                                  Definición de proyecto · v0.1
+
+
+
+
+11. Integración con Yotsuba.Graphics
+YSC será un componente separado del motor, con contratos diseñados inicialmente para
+Yotsuba.Graphics. El compilador comprende y transforma los programas GPU; el motor
+mantiene la responsabilidad sobre los dispositivos, recursos, pipelines y envío de comandos.
+
+
+11.1 Organización de módulos
+                                                                                     ESTRUCTURA
+   YotsubaEngine/
+     Yotsuba.Graphics/
+       Device/
+       CommandList/
+       Buffers/
+       Textures/
+       Pipelines/
+     Yotsuba.Shaders/
+       Shader.cs
+       Attributes/
+       Types/
+       Intrinsics/
+     Yotsuba.ShaderCompiler/
+       Core/
+       Roslyn/
+       Analyzers/
+       Lowering/
+       IR/
+       SPIRV/
+       Runtime/
+
+
+
+
+11.2 Contrato de ejecución
+                                                                                           CSHARP
+   using var shader = new MyCustomShader(camera, texture, sampler);
+   shader.Vertex(0, vertexBuffer);
+   shader.Tint = tint;
+   shader.Execute(commandList, vertexCount: vertexCount);
+
+
+
+La instancia administrada conserva los parámetros; Yotsuba.Graphics sincroniza los valores
+modificados con uniforms y vincula textures, samplers y vertex buffers. El runtime consulta el
+compilador únicamente cuando falta una variante compatible.
+
+
+11.3 Responsabilidades separadas
+Shaders expone la API, ShaderCompiler valida y genera el código, Graphics administra
+recursos y comandos, y el juego crea y configura cada instancia.
+
+
+
+
+Yotsuba · Distribución interna                                                       Página 15 de 18
+YOTSUBA SHADER COMPILER                                                   Definición de proyecto · v0.1
+
+
+
+
+12. Alcance del MVP
+La primera versión se enfocará en una ruta completa, pequeña y comprobable: escribir una
+clase shader C#, recibir diagnósticos, generar SPIR-V bajo demanda y renderizar con
+Yotsuba.Graphics.
+
+Tabla 8. Funcionalidades de la primera versión
+
+  Funcionalidad                                                          Estado objetivo
+
+  Frontend C# 14 + Roslyn                                                MVP
+
+  Clase base Shader y atributos de etapas                                MVP
+
+  Vertex / Fragment / Compute                                            MVP
+
+  Escalares, vectores, matrices y structs compatibles                    MVP
+
+  Intrinsics principales                                                 MVP
+
+  Uniform, VertexBuffer, Texture y Sampler                               MVP
+
+  Roslyn Diagnostic Analyzer                                             MVP
+
+  IR tipado y backend SPIR-V                                             MVP
+
+  Compilación diferida y caché                                           MVP
+
+  Lowering de LINQ ampliado                                              Posterior
+
+  Lectura y Lowering de IL externo                                       Posterior
+
+  Transformación general de clases administradas                         Posterior
+
+  Backends adicionales                                                   Posterior
+
+
+
+12.1 Criterios de aceptación
+ 1. Definir una clase derivada de Shader en el mismo proyecto del juego.
+ 2. Declarar al menos un Vertex y un Fragment mediante atributos.
+ 3. Obtener diagnósticos claros ante operaciones no traducibles.
+ 4. Instanciar el shader y pasar parámetros, textures y vertex buffers desde C#.
+ 5. Generar un módulo SPIR-V válido al solicitar su primera ejecución.
+ 6. Renderizar mediante Yotsuba.Graphics y mantener uniforme el estado compartido.
+ 7. Reutilizar el módulo generado entre instancias equivalentes sin recompilarlo por cambios
+    ordinarios de parámetros.
+
+
+
+
+Yotsuba · Distribución interna                                                        Página 16 de 18
+YOTSUBA SHADER COMPILER                                                                 Definición de proyecto · v0.1
+
+
+
+
+13. Identidad técnica
+YSC se presenta como un compilador de shaders C# y un runtime de integración GPU. No es
+un nuevo CLR para ejecutar código administrado sobre una GPU, ni un reemplazo completo
+del lenguaje C#; define un perfil GPU con transformaciones explícitas y verificables.
+
+Tabla 9. Identidad y posicionamiento
+
+  Elemento                             Definición
+
+  Nombre comercial                     Yotsuba Shader Compiler
+
+  Abreviatura                          YSC
+
+  Descripción técnica                  Compilador C# → Shader IR → SPIR-V con modelo de clases
+                                       administradas.
+
+  Lenguaje fuente                      C# 14, limitado a operaciones traducibles dentro del contexto GPU.
+
+  Modelo de usuario                    Instancias Shader con propiedades, bindings y métodos Entry Point
+                                       anotados.
+
+  Motor inicial                        Yotsuba.Graphics
+
+  Objetivo de distribución             Paquetes reutilizables del compilador, analizador y runtime.
+
+  Native AOT                           Objetivo de compatibilidad sujeto a validación y preservación de
+                                       definiciones.
+
+
+
+13.1 Definición breve
+Yotsuba Shader Compiler (YSC) es un compilador de shaders basado en C# que permite
+desarrollar programas GPU utilizando clases administradas, tipos compartidos y funciones
+integradas del ecosistema .NET. Mediante Roslyn, identifica y valida los métodos destinados a
+la GPU y los transforma en SPIR-V bajo demanda, conectando su configuración y ejecución con
+el código de la aplicación.
+
+
+13.2 Propuesta de valor
+
+   Write shaders as C# objects. Let Yotsuba handle the GPU.
+
+Escribe shaders como objetos C#. Deja que Yotsuba se encargue de la GPU.
+
+
+13.3 Decisiones abiertas que validar
+  • Viabilidad y tamaño del frontend Roslyn incluido en una publicación Native AOT.
+  • Formato de conservación de las definiciones y dependencias GPU durante el build.
+  • Reglas de layout interoperable y política de sincronización de propiedades administradas.
+
+
+
+Yotsuba · Distribución interna                                                                        Página 17 de 18
+YOTSUBA SHADER COMPILER                                                                    Definición de proyecto · v0.1
+
+
+
+
+14. Glosario y referencias
+Los términos siguientes fijan el significado empleado a lo largo de esta versión del documento.
+
+Tabla 10. Glosario de términos
+
+  Término                        Definición
+
+  Entry Point                    Método marcado como inicio de una etapa GPU.
+
+  Lowering                       Transformación de una construcción de alto nivel a operaciones más explícitas
+                                 del IR.
+
+  Shader IR                      Representación intermedia tipada propia de YSC.
+
+  Lazy Compilation               Generación de la variante GPU cuando se necesita, no al declarar la clase.
+
+  Uniform                        Dato suministrado por CPU a la ejecución GPU mediante un recurso compatible.
+
+  Binding                        Asociación entre una declaración del shader y un recurso del dispositivo.
+
+  CFG / SSA                      Representaciones de control de flujo y valores utilizadas por el compilador.
+
+  Native AOT                     Publicación de .NET como aplicación compilada anticipadamente a código
+                                 nativo.
+
+  SPIR-V                         Formato intermedio binario para programas GPU, empleado como primera
+                                 salida de YSC.
+
+
+
+14.1 Documentación técnica de referencia
+  • Microsoft Roslyn SDK — análisis de sintaxis, símbolos y diagnósticos.
+  • Khronos SPIR-V Registry — formato, instrucciones y reglas de módulos.
+  • .NET Native AOT — modelo de publicación y restricciones.
+
+Estas referencias apoyan la implementación futura; el presente texto define el alcance conceptual del proyecto y no
+afirma que las características propuestas estén ya implementadas.
+
+
+
+
+Yotsuba · Distribución interna                                                                          Página 18 de 18
+
