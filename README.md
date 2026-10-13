@@ -5,55 +5,55 @@
 <h1 align="center">YotsubaShader</h1>
 
 <p align="center">
-  Un lenguaje de shaders en C# para equipos que quieren escribir una vez, conservar sus convenciones favoritas y compilar hacia el backend que elijan.
+  A C# shader language for teams that want to write once, use familiar conventions, and compile for the backend they choose.
 </p>
 
 <p align="center">
-  <a href="https://github.com/KMemphis/YotsubaShader">Repositorio</a>
+  <a href="https://github.com/KMemphis/YotsubaShader">Repository</a>
   ·
-  <a href="docs/SPIRV_GENERATOR.md">Notas de SPIR-V</a>
+  <a href="docs/SPIRV_GENERATOR.md">SPIR-V notes</a>
   ·
-  <a href="website/README.md">Sitio web</a>
+  <a href="website/README.md">Website</a>
 </p>
 
-## El producto
+## The product
 
-YotsubaShader aspira a ser la capa de autoría de shaders de tu motor, framework o herramienta de contenido. El equipo escribe shaders como código C# con tipos, estructuras y atributos; el compilador interpreta sus interfaces y etapas, las lleva a una representación intermedia común y genera el artefacto del backend solicitado.
+YotsubaShader aims to be the shader authoring layer for your engine, framework, or content tool. Your team writes shaders in C# using types, structures, and attributes. The compiler interprets their interfaces and stages, lowers them to a shared intermediate representation, and generates output for the selected backend.
 
-La idea central es sencilla: **el estilo con el que anotas un shader no decide su destino**. HLSL, GLSL, Metal, Vulkan y WGSL son vocabularios de autoría equivalentes. Elige el que resulte más natural para tu equipo; después selecciona SPIR-V u otro backend en la compilación.
+The central idea is simple: **the attribute style you use does not determine the output target**. HLSL, GLSL, Metal, Vulkan, and WGSL provide equivalent authoring vocabularies. Choose the one your team knows best, then select SPIR-V or another backend when compiling.
 
 ```text
-C# con atributos familiares
+C# with familiar attributes
           ↓
-análisis semántico y validación
+semantic analysis and validation
           ↓
 Yotsuba IR
           ↓
-SPIR-V · y futuros backends
+SPIR-V · future backends
 ```
 
-## Por qué YotsubaShader
+## Why YotsubaShader
 
-- Escribe shaders junto a tu código C#, con estructuras, tipos y convenciones del proyecto.
-- Conserva el vocabulario de shader que tu equipo ya conoce.
-- Describe entradas, salidas, recursos, ubicaciones, bindings y etapas de forma explícita.
-- Separa el lenguaje de autoría del formato final: el mismo shader puede viajar por una sola canalización hacia distintos targets.
-- Integra la compilación en CI, en la herramienta de contenido o directamente en el build de tu engine.
+- Write shaders alongside your C# code using your project's structures, types, and conventions.
+- Keep the shader vocabulary your team already knows.
+- Describe inputs, outputs, resources, locations, bindings, and stages explicitly.
+- Choose the output backend independently of the authoring style.
+- Integrate compilation into CI, a content tool, or your engine's build process.
 
-## Un shader, cinco estilos de autoría
+## One shader, five authoring styles
 
-Los cinco ejemplos siguientes expresan la misma intención: declarar un vertex shader y asociar su salida con la posición que espera la GPU. Algunos también muestran el identificador del vértice para que veas cómo se expresa una entrada built-in en cada vocabulario.
+The five examples below express the same basic intent: declare a vertex shader and identify its GPU position output. Some also show how each vocabulary names the built-in vertex index.
 
-> Estos estilos no son “HLSL para HLSL”, “WGSL para WebGPU”, etc. Son opciones ergonómicas de C#; el target se elige después, al compilar.
+> An HLSL-like style does not require an HLSL target, and a WGSL-like style does not require WebGPU. These are C# authoring choices; the compilation target is selected separately.
 
-### HLSL Like code Style: un shader de color claro y familiar
+### HLSL-like code style: a familiar color shader
 
-HLSL es el estilo recomendado para empezar porque hace muy visible la relación entre la etapa, los datos de entrada, la posición de salida y el color que recibe el fragment shader. Este ejemplo recibe una posición y un color por vértice, conserva ambos datos y devuelve el color en la etapa de fragmentos.
+The HLSL-like style is a good place to start because the relationship between stages, inputs, position, and fragment color is easy to see. This example receives a position and color for each vertex, passes the color through, and returns it from the fragment stage.
 
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.Attributes.HlslStyle; // Vocabulario de atributos inspirado en HLSL.
+using YotsubaShader.Language.Attributes.HlslStyle; // Attribute names inspired by HLSL.
 using YotsubaShader.Language.Attributes;
 
 public struct VertexInput
@@ -101,23 +101,23 @@ public static class BasicColorShader
 }
 ```
 
-Este pequeño shader ya muestra las piezas esenciales del lenguaje:
+This small shader shows the essential pieces of the language:
 
-- `VertexInput` define los datos que llegan desde el motor.
-- `[Location(0)]` y `[Location(1)]` conectan esos datos con las entradas del pipeline.
-- `VertexOutput` define lo que el vertex shader entrega a la siguiente etapa.
-- `[SV_Position]` marca la posición que necesita la GPU.
-- `[ShaderStage]` separa vertex y fragment shader.
-- `Location(0)` permite transportar el color entre ambas etapas.
+- `VertexInput` defines the data supplied by the engine.
+- `[Location(0)]` and `[Location(1)]` identify the pipeline inputs.
+- `VertexOutput` defines what the vertex shader passes to the next stage.
+- `[SV_Position]` marks the position required by the GPU.
+- `[ShaderStage]` identifies the vertex and fragment stages.
+- `[Location(0)]` carries color between those stages.
 
-La misma clase puede crecer con uniforms, texturas, buffers y más etapas. Lo importante es que los nombres `SV_Position` y `Location` describen la interfaz semántica; el backend final se selecciona en la compilación.
+The same class can grow to include uniforms, textures, buffers, and other stages. `SV_Position` and `Location` describe the shader interface; the output backend is chosen when compiling.
 
-### GLSL Like code Style
+### GLSL-like code style
 
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.Attributes.GlslStyle; // Vocabulario de atributos inspirado en GLSL.
+using YotsubaShader.Language.Attributes.GlslStyle; // Attribute names inspired by GLSL.
 
 public struct VertexOutput
 {
@@ -135,12 +135,12 @@ public static class Triangle
 }
 ```
 
-### Metal Like code Style
+### Metal-like code style
 
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.Attributes.MetalStyle; // Vocabulario de atributos inspirado en Metal Shading Language.
+using YotsubaShader.Language.Attributes.MetalStyle; // Attribute names inspired by Metal Shading Language.
 
 public struct VertexOutput
 {
@@ -158,12 +158,12 @@ public static class Triangle
 }
 ```
 
-### Vulkan Like code Style
+### Vulkan-like code style
 
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.Attributes.VulkanStyle; // Vocabulario de atributos inspirado en Vulkan/SPIR-V.
+using YotsubaShader.Language.Attributes.VulkanStyle; // Attribute names inspired by Vulkan/SPIR-V.
 
 public struct VertexOutput
 {
@@ -181,12 +181,12 @@ public static class Triangle
 }
 ```
 
-### WGSL Like code Style
+### WGSL-like code style
 
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.Attributes.WgslStyle; // Vocabulario de atributos inspirado en WGSL.
+using YotsubaShader.Language.Attributes.WgslStyle; // Attribute names inspired by WGSL.
 
 public struct VertexOutput
 {
@@ -204,11 +204,11 @@ public static class Triangle
 }
 ```
 
-Los nombres conservan deliberadamente la forma del lenguaje de origen. En C#, las anotaciones WGSL usan `@` en el identificador —por ejemplo, `[@builtin_position]`— para seguir siendo fieles a su sintaxis sin dejar de ser código C# válido.
+These names deliberately resemble their source languages. In C#, WGSL-inspired attributes use `@` in the identifier, as in `[@builtin_position]`, while remaining valid C#.
 
-## Interfaces y recursos
+## Interfaces and resources
 
-Además de los built-ins, puedes describir una interfaz con ubicaciones y recursos con atributos. `[Location(n)]` se usa para campos o propiedades de entrada/salida; el proyecto también incluye atributos para uniforms, storage buffers, bindings, descriptor sets y los equivalentes de los distintos estilos.
+You can describe interfaces with locations and resources with attributes. Use `[Location(n)]` on input and output fields or properties. The project also includes attributes for uniforms, storage buffers, bindings, descriptor sets, and their counterparts in the different styles.
 
 ```csharp
 using Microsoft.Xna.Framework;
@@ -231,11 +231,11 @@ public sealed class Material
 }
 ```
 
-## Compilar para SPIR-V
+## Compiling to SPIR-V
 
-### CLI de compilación — interfaz objetivo
+### Compilation CLI — planned interface
 
-La CLI es la experiencia prevista para builds, CI y herramientas de contenido. Aún no forma parte de la distribución actual; este es el contrato de uso que persigue el producto.
+The CLI is intended for builds, CI, and content tools. It is not part of the current distribution; the following command illustrates the planned product interface.
 
 ```bash
 yotsuba compile shaders/Triangle.cs \
@@ -244,11 +244,11 @@ yotsuba compile shaders/Triangle.cs \
   --output artifacts/triangle.spv
 ```
 
-El comando descubrirá la entrada marcada con `[ShaderStage]`, validará su interfaz, generará Yotsuba IR y emitirá el módulo `.spv`. La opción `--target` selecciona el backend: no la familia de atributos usada al escribir el shader.
+The command would find the entry point marked with `[ShaderStage]`, validate its interface, generate Yotsuba IR, and emit a `.spv` module. `--target` selects the backend independently of the attributes used to write the shader.
 
-### Biblioteca de compilación — interfaz objetivo
+### Compilation library — planned interface
 
-Un engine o framework podrá hacer lo mismo sin arrancar un proceso externo:
+An engine or framework could compile the same shader without starting a separate process:
 
 ```csharp
 using YotsubaShader.Compilation;
@@ -267,63 +267,63 @@ await File.WriteAllBytesAsync(
     result.Binary);
 ```
 
-Esta API también es de producto objetivo; los nombres y paquetes se estabilizarán antes de su primera versión pública. La intención es que CLI y biblioteca produzcan el mismo resultado y compartan diagnósticos, validación y configuración.
+This API is also planned; names and packages may change before its first release. The CLI and library are intended to share compilation behavior, diagnostics, validation, and configuration.
 
-## Estado de la implementación
+## Implementation status
 
-YotsubaShader está en desarrollo activo. El repositorio ya contiene:
+YotsubaShader is under active development. The repository currently contains:
 
-- Atributos de lenguaje para HLSL, GLSL, Metal, Vulkan y WGSL.
-- Descubrimiento de clases y métodos C# marcados con `[ShaderStage]` mediante Roslyn.
-- Un modelo de representación intermedia para etapas, funciones, almacenamientos, tipos, slots y expresiones.
-- Un ensamblador de bajo nivel de módulos SPIR-V 1.6: `SpirVModule` + `SpirVCompiler`.
-- Ayudantes para tipos escalares, vectores, matrices, imágenes, samplers, arrays y punteros de SPIR-V.
+- Language attributes for HLSL, GLSL, Metal, Vulkan, and WGSL styles.
+- Roslyn-based discovery of C# classes and methods marked with `[ShaderStage]`.
+- An intermediate representation for stages, functions, storage, types, interface slots, and expressions.
+- Low-level SPIR-V 1.6 module construction through `SpirVModule` and `SpirVCompiler`.
+- Helpers for SPIR-V scalar, vector, matrix, image, sampler, array, and pointer types.
 
-Todavía se están uniendo las piezas que convierten una clase de shader C# completa en IR y después en SPIR-V; la CLI y la API de alto nivel descritas arriba aún no están publicadas. Los ejemplos de autoría muestran el lenguaje que el producto busca ofrecer, no una promesa de que toda operación de su cuerpo ya sea compilable hoy.
+The pipeline that converts a complete C# shader class to IR and then SPIR-V is still being assembled. The CLI and high-level API shown above have not been released. The authoring examples show the intended language; not every operation in a shader body can be compiled yet.
 
-## Trabajar con el repositorio
+## Working with the repository
 
-Requisitos:
+Requirements:
 
 - .NET 8 SDK
-- macOS, Linux o Windows con un SDK compatible
+- macOS, Linux, or Windows with a compatible SDK
 
 ```bash
 dotnet build YotsubaShader.sln
 ```
 
-El proyecto de ejemplo actual construye un módulo SPIR-V de bajo nivel de forma explícita:
+The current example project constructs a low-level SPIR-V module explicitly:
 
 ```bash
 dotnet run --project YotsubaShader.Example/YotsubaShader.Example.csproj
 ```
 
-Esto crea `mi modulo spirv.spv` en el directorio de trabajo. Para conocer el formato del encabezado y validarlo con SPIRV-Tools, consulta [docs/SPIRV_GENERATOR.md](docs/SPIRV_GENERATOR.md).
+This creates `mi modulo spirv.spv` in the working directory. For details on the module header and validation with SPIRV-Tools, see [docs/SPIRV_GENERATOR.md](docs/SPIRV_GENERATOR.md).
 
-## Arquitectura del repositorio
+## Repository architecture
 
-| Proyecto | Papel en el producto |
+| Project | Role |
 | --- | --- |
-| `YotsubaShader.Language` | Lenguaje de autoría: etapas, atributos, recursos y tipos. |
-| `YotsubaShader.Frontend` | Descubrimiento y análisis semántico de shaders escritos en C#. |
-| `YotsubaShader.IR` | Modelo común entre el frontend y los backends. |
-| `YotsubaShader.Compiler` | Construcción y codificación de módulos SPIR-V. |
-| `YotsubaShader.Generator` | Generador de la tabla de operaciones SPIR-V desde la gramática de Khronos. |
-| `YotsubaShader.Example` | Ejemplo ejecutable del ensamblador SPIR-V de bajo nivel. |
-| `YotsubaShader.Frontend.Tests` | Pruebas de descubrimiento y análisis del frontend. |
+| `YotsubaShader.Language` | Authoring language: stages, attributes, resources, and types. |
+| `YotsubaShader.Frontend` | Discovery and semantic analysis of C# shaders. |
+| `YotsubaShader.IR` | Shared model between the frontend and backends. |
+| `YotsubaShader.Compiler` | SPIR-V module construction and encoding. |
+| `YotsubaShader.Generator` | SPIR-V operation table generated from the Khronos grammar. |
+| `YotsubaShader.Example` | Executable example of low-level SPIR-V assembly. |
+| `YotsubaShader.Frontend.Tests` | Frontend discovery and analysis tests. |
 
-## Contribuir
+## Contributing
 
-Las contribuciones son bienvenidas. Para cambios de diseño, abre primero un issue con el problema, la propuesta y un ejemplo de shader o backend que la motive. Los cambios de atributos deben explicar su equivalencia semántica y añadir pruebas cuando corresponda.
+Contributions are welcome. For design changes, open an issue describing the problem, your proposal, and a motivating shader or backend example. Attribute changes should explain their semantic equivalence and include tests where appropriate.
 
-## Licencia
+## License
 
-La distribución pública de YotsubaShader se ofrece bajo la **GNU Affero General Public License, versión 3.0 (AGPL-3.0-only)**. Consulta el texto completo en [LICENSE](LICENSE).
+The public distribution of YotsubaShader is licensed under the **GNU Affero General Public License, version 3.0 only (AGPL-3.0-only)**. See [LICENSE](LICENSE) for the full text.
 
-Esto no autoriza automáticamente el uso de versiones posteriores de la licencia.
+Later versions of the license are not automatically permitted.
 
-### Licencia comercial para patrocinadores
+### Commercial license for sponsors
 
-Los patrocinadores comerciales que aparezcan publicados en la página pública **Sponsors** del sitio oficial de YotsubaShader pueden recibir una licencia alternativa para integrar YotsubaShader en un producto independiente, como un motor de videojuegos o framework. Entre sus beneficios, permite integrar y adaptar YotsubaShader en productos propietarios, distribuir el componente integrado en binario sin publicar el código propio del producto y conservar los derechos sobre las versiones ya cubiertas.
+Commercial sponsors listed on the official YotsubaShader website's public **Sponsors** page may receive an alternative license to integrate YotsubaShader into an independent product, such as a game engine or framework. This permits integration and adaptation in proprietary products, distribution of the integrated component in binary form without publishing the product's own source code, and continued use of covered versions.
 
-La página **Sponsors** es el registro público que determina quién se considera sponsor; debe identificar el nombre, periodo, nivel y versiones cubiertas. El patrocinio por sí solo no concede derechos comerciales mientras el sponsor no aparezca publicado allí. La licencia comercial no autoriza crear o comercializar un compilador, biblioteca o fork de shaders que compita con YotsubaShader. Consulta [SPONSOR_COMMERCIAL_LICENSE.md](SPONSOR_COMMERCIAL_LICENSE.md).
+The **Sponsors** page is the public record of eligibility and must identify each sponsor's name, sponsorship period, tier, and covered versions. Sponsorship alone does not grant commercial rights until the sponsor is listed there. The commercial license does not permit a competing shader compiler, library, or fork. See [SPONSOR_COMMERCIAL_LICENSE.md](SPONSOR_COMMERCIAL_LICENSE.md).
