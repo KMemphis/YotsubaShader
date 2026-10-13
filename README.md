@@ -74,10 +74,10 @@ public struct VertexOutput
     public Vector4 Color;
 }
 
-public static class BasicColorShader
+public class BasicColorShader
 {
     [ShaderStage(Stage.Vertex)]
-    public static VertexOutput Vertex(VertexInput input)
+    public VertexOutput Vertex(VertexInput input)
     {
         VertexOutput output;
 
@@ -94,7 +94,7 @@ public static class BasicColorShader
     }
 
     [ShaderStage(Stage.Fragment)]
-    public static Vector4 Fragment(VertexOutput input)
+    public Vector4 Fragment(VertexOutput input)
     {
         return input.Color;
     }
@@ -125,10 +125,10 @@ public struct VertexOutput
     public Vector4 Position;
 }
 
-public static class Triangle
+public class Triangle
 {
     [ShaderStage(Stage.Vertex)]
-    public static VertexOutput Vertex([gl_VertexIndex] uint vertexIndex) => new()
+    public VertexOutput Vertex([gl_VertexIndex] uint vertexIndex) => new()
     {
         Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f)
     };
@@ -148,10 +148,10 @@ public struct VertexOutput
     public Vector4 Position;
 }
 
-public static class Triangle
+public class Triangle
 {
     [ShaderStage(Stage.Vertex)]
-    public static VertexOutput Vertex([vertex_id] uint vertexId) => new()
+    public VertexOutput Vertex([vertex_id] uint vertexId) => new()
     {
         Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f)
     };
@@ -171,10 +171,10 @@ public struct VertexOutput
     public Vector4 Position;
 }
 
-public static class Triangle
+public class Triangle
 {
     [ShaderStage(Stage.Vertex)]
-    public static VertexOutput Vertex([BuiltIn_VertexIndex] uint vertexIndex) => new()
+    public VertexOutput Vertex([BuiltIn_VertexIndex] uint vertexIndex) => new()
     {
         Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f)
     };
@@ -194,10 +194,10 @@ public struct VertexOutput
     public Vector4 Position;
 }
 
-public static class Triangle
+public class Triangle
 {
     [ShaderStage(Stage.Vertex)]
-    public static VertexOutput Vertex([@builtin_vertex_index] uint vertexIndex) => new()
+    public VertexOutput Vertex([@builtin_vertex_index] uint vertexIndex) => new()
     {
         Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f)
     };
