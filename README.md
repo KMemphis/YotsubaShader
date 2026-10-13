@@ -12,8 +12,6 @@
   <a href="https://github.com/KMemphis/YotsubaShader">Repository</a>
   ·
   <a href="docs/SPIRV_GENERATOR.md">SPIR-V notes</a>
-  ·
-  <a href="website/README.md">Website</a>
 </p>
 
 ## The product

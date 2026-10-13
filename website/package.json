@@ -1,1 +1,0 @@
-{"name":"yotsuba-shader-site","private":true,"scripts":{"build":"node build.mjs","dev":"python3 -m http.server 4173 --directory dist","test":"node verify.mjs"}}
