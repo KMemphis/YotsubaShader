@@ -152,5 +152,13 @@ Las contribuciones son bienvenidas. Para cambios importantes, abre primero un is
 
 ## Licencia
 
-Consulta la licencia del repositorio antes de redistribuir el proyecto. Si todavía no aparece un archivo de licencia, el código debe considerarse sin licencia explícita.
+La distribución pública de YotsubaShader se ofrece exclusivamente bajo la **GNU Affero General Public License, versión 3.0 (AGPL-3.0-only)**. Consulta el texto completo en [LICENSE](LICENSE).
+
+Esto no autoriza el uso de versiones posteriores de la licencia salvo que los titulares de los derechos concedan ese permiso de forma expresa.
+
+### Licencia comercial para patrocinadores
+
+Los patrocinadores comerciales confirmados por el titular de los derechos pueden recibir una licencia alternativa para integrar YotsubaShader en un producto independiente, como un motor de videojuegos o framework. Esta licencia no autoriza crear o comercializar un compilador, biblioteca o fork de shaders que compita con YotsubaShader. Consulta los términos en [SPONSOR_COMMERCIAL_LICENSE.md](SPONSOR_COMMERCIAL_LICENSE.md).
+
+La licencia comercial se entrega mediante una confirmación escrita que identifica al patrocinador y las versiones cubiertas. El patrocinio por sí solo no concede derechos comerciales hasta recibir esa confirmación.
 
