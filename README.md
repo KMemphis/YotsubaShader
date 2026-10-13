@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/Yotsuba%20Shader%20Small.jpeg" alt="Yotsuba Shader" width="220" />
+  <img src="assets/Yotsuba%20Hybrid%20Logo.webp" alt="Yotsuba Shader" width="220" />
 </p>
 
 <h1 align="center">YotsubaShader</h1>
