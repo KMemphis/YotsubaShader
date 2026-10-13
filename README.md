@@ -10,8 +10,6 @@
 
 <p align="center">
   <a href="https://github.com/KMemphis/YotsubaShader">Repository</a>
-  ·
-  <a href="docs/SPIRV_GENERATOR.md">SPIR-V notes</a>
 </p>
 
 ## The product
@@ -314,14 +312,17 @@ This creates `mi modulo spirv.spv` in the working directory. For details on the 
 
 Contributions are welcome. For design changes, open an issue describing the problem, your proposal, and a motivating shader or backend example. Attribute changes should explain their semantic equivalence and include tests where appropriate.
 
-## License
+## Licensing
 
-The public distribution of YotsubaShader is licensed under the **GNU Affero General Public License, version 3.0 only (AGPL-3.0-only)**. See [LICENSE](LICENSE) for the full text.
+- Public use: [AGPL-3.0-only](LICENSE)
+- Sponsor commercial use: [Sponsor Commercial License](LICENSE-SPONSOR-COMMERCIAL.md)
 
-Later versions of the license are not automatically permitted.
+The sponsor license applies only to sponsors publicly listed on the official YotsubaShader Sponsors page.
+
+The public distribution of YotsubaShader is licensed under the **GNU Affero General Public License, version 3.0 only (AGPL-3.0-only)**. Later versions of the license are not automatically permitted.
 
 ### Commercial license for sponsors
 
 Commercial sponsors listed on the official YotsubaShader website's public **Sponsors** page may receive an alternative license to integrate YotsubaShader into an independent product, such as a game engine or framework. This permits integration and adaptation in proprietary products, distribution of the integrated component in binary form without publishing the product's own source code, and continued use of covered versions.
 
-The **Sponsors** page is the public record of eligibility and must identify each sponsor's name, sponsorship period, tier, and covered versions. Sponsorship alone does not grant commercial rights until the sponsor is listed there. The commercial license does not permit a competing shader compiler, library, or fork. See [SPONSOR_COMMERCIAL_LICENSE.md](SPONSOR_COMMERCIAL_LICENSE.md).
+The **Sponsors** page is the public record of eligibility and must identify each sponsor's name, sponsorship period, tier, and covered versions. Sponsorship alone does not grant commercial rights until the sponsor is listed there. The commercial license does not permit a competing shader compiler, library, or fork. See [LICENSE-SPONSOR-COMMERCIAL.md](LICENSE-SPONSOR-COMMERCIAL.md).
