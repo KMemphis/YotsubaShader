@@ -54,7 +54,7 @@ HLSL es el estilo recomendado para empezar porque hace muy visible la relación 
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
 using YotsubaShader.Language.Attributes;
-using Hlsl = YotsubaShader.Language.Attributes.HlslStyle;
+using YotsubaShader.Language.Attributes.HlslStyle; // Vocabulario de atributos inspirado en HLSL.
 
 public readonly struct VertexData(Vector2 position, Vector4 color)
 {
@@ -64,7 +64,7 @@ public readonly struct VertexData(Vector2 position, Vector4 color)
 
 public struct VertexOutput
 {
-    [Hlsl.SV_Position]
+    [SV_Position]
     public Vector4 Position;
 
     [Location(0)]
@@ -74,7 +74,7 @@ public struct VertexOutput
 public static class HlslColorfulTriangle
 {
     [ShaderStage(Stage.Vertex)]
-    public static VertexOutput Vertex([Hlsl.SV_VertexID] uint vertexId)
+    public static VertexOutput Vertex([SV_VertexID] uint vertexId)
     {
         VertexData vertex = vertexId switch
         {
@@ -111,18 +111,18 @@ La misma clase puede crecer con uniforms, texturas, buffers y más etapas. Lo im
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using Glsl = YotsubaShader.Language.Attributes.GlslStyle;
+using YotsubaShader.Language.Attributes.GlslStyle; // Vocabulario de atributos inspirado en GLSL.
 
 public struct VertexOutput
 {
-    [Glsl.gl_Position]
+    [gl_Position]
     public Vector4 Position;
 }
 
 public static class Triangle
 {
     [ShaderStage(Stage.Vertex)]
-    public static VertexOutput Vertex([Glsl.gl_VertexIndex] uint vertexIndex) => new()
+    public static VertexOutput Vertex([gl_VertexIndex] uint vertexIndex) => new()
     {
         Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f)
     };
@@ -134,18 +134,18 @@ public static class Triangle
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using Metal = YotsubaShader.Language.Attributes.MetalStyle;
+using YotsubaShader.Language.Attributes.MetalStyle; // Vocabulario de atributos inspirado en Metal Shading Language.
 
 public struct VertexOutput
 {
-    [Metal.position]
+    [position]
     public Vector4 Position;
 }
 
 public static class Triangle
 {
     [ShaderStage(Stage.Vertex)]
-    public static VertexOutput Vertex([Metal.vertex_id] uint vertexId) => new()
+    public static VertexOutput Vertex([vertex_id] uint vertexId) => new()
     {
         Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f)
     };
@@ -157,7 +157,7 @@ public static class Triangle
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.Attributes.VulkanStyle;
+using YotsubaShader.Language.Attributes.VulkanStyle; // Vocabulario de atributos inspirado en Vulkan/SPIR-V.
 
 public struct VertexOutput
 {
@@ -180,25 +180,25 @@ public static class Triangle
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using Wgsl = YotsubaShader.Language.Attributes.WgslStyle;
+using YotsubaShader.Language.Attributes.WgslStyle; // Vocabulario de atributos inspirado en WGSL.
 
 public struct VertexOutput
 {
-    [Wgsl.@builtin_position]
+    [@builtin_position]
     public Vector4 Position;
 }
 
 public static class Triangle
 {
     [ShaderStage(Stage.Vertex)]
-    public static VertexOutput Vertex([Wgsl.@builtin_vertex_index] uint vertexIndex) => new()
+    public static VertexOutput Vertex([@builtin_vertex_index] uint vertexIndex) => new()
     {
         Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f)
     };
 }
 ```
 
-Los nombres conservan deliberadamente la forma del lenguaje de origen. En C#, las anotaciones WGSL usan `@` en el identificador —por ejemplo, `[Wgsl.@builtin_position]`— para seguir siendo fieles a su sintaxis sin dejar de ser código C# válido.
+Los nombres conservan deliberadamente la forma del lenguaje de origen. En C#, las anotaciones WGSL usan `@` en el identificador —por ejemplo, `[@builtin_position]`— para seguir siendo fieles a su sintaxis sin dejar de ser código C# válido.
 
 ## Interfaces y recursos
 
