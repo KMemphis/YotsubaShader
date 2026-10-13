@@ -46,25 +46,65 @@ Los cinco ejemplos siguientes expresan la misma intención: una salida de posici
 
 > Estos estilos no son “HLSL para HLSL”, “WGSL para WebGPU”, etc. Son opciones ergonómicas de C#; el target se elige después, al compilar.
 
-### HLSL
+### HLSL: ejemplo completo de un triángulo con color
+
+HLSL es el estilo recomendado para empezar porque hace muy visible la relación entre la etapa, los datos de entrada, la posición de salida y el color que recibe el fragment shader. Este ejemplo crea tres vértices con `SV_VertexID`, interpola un color distinto para cada uno y entrega un triángulo RGB.
 
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
+using YotsubaShader.Language.Attributes;
 using Hlsl = YotsubaShader.Language.Attributes.HlslStyle;
+
+public readonly struct VertexData(Vector2 position, Vector4 color)
+{
+    public Vector2 Position { get; } = position;
+    public Vector4 Color { get; } = color;
+}
 
 public struct VertexOutput
 {
     [Hlsl.SV_Position]
     public Vector4 Position;
+
+    [Location(0)]
+    public Vector4 Color;
 }
 
-public static class Triangle
+public static class HlslColorfulTriangle
 {
     [ShaderStage(Stage.Vertex)]
-    public static VertexOutput Vertex([Hlsl.SV_VertexID] uint vertexId) => default;
+    public static VertexOutput Vertex([Hlsl.SV_VertexID] uint vertexId)
+    {
+        VertexData vertex = vertexId switch
+        {
+            0u => new VertexData(
+                new Vector2(0.0f, 0.8f),
+                new Vector4(1.0f, 0.1f, 0.1f, 1.0f)),
+            1u => new VertexData(
+                new Vector2(-0.8f, -0.8f),
+                new Vector4(0.1f, 1.0f, 0.1f, 1.0f)),
+            2u => new VertexData(
+                new Vector2(0.8f, -0.8f),
+                new Vector4(0.1f, 0.3f, 1.0f, 1.0f)),
+            _ => new VertexData(
+                new Vector2(0.0f, 0.0f),
+                new Vector4(0.0f, 0.0f, 0.0f, 1.0f))
+        };
+
+        return new VertexOutput
+        {
+            Position = new Vector4(vertex.Position.X, vertex.Position.Y, 0.0f, 1.0f),
+            Color = vertex.Color
+        };
+    }
+
+    [ShaderStage(Stage.Fragment)]
+    public static Vector4 Fragment(VertexOutput input) => input.Color;
 }
 ```
+
+La misma clase puede crecer con uniforms, texturas, buffers y más etapas. Lo importante es que los nombres `SV_Position` y `SV_VertexID` describen la interfaz semántica; el backend final se selecciona en la compilación.
 
 ### GLSL
 
@@ -82,7 +122,10 @@ public struct VertexOutput
 public static class Triangle
 {
     [ShaderStage(Stage.Vertex)]
-    public static VertexOutput Vertex([Glsl.gl_VertexIndex] uint vertexIndex) => default;
+    public static VertexOutput Vertex([Glsl.gl_VertexIndex] uint vertexIndex) => new()
+    {
+        Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f)
+    };
 }
 ```
 
@@ -102,7 +145,10 @@ public struct VertexOutput
 public static class Triangle
 {
     [ShaderStage(Stage.Vertex)]
-    public static VertexOutput Vertex([Metal.vertex_id] uint vertexId) => default;
+    public static VertexOutput Vertex([Metal.vertex_id] uint vertexId) => new()
+    {
+        Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f)
+    };
 }
 ```
 
@@ -122,7 +168,10 @@ public struct VertexOutput
 public static class Triangle
 {
     [ShaderStage(Stage.Vertex)]
-    public static VertexOutput Vertex([Vulkan.BuiltIn_VertexIndex] uint vertexIndex) => default;
+    public static VertexOutput Vertex([Vulkan.BuiltIn_VertexIndex] uint vertexIndex) => new()
+    {
+        Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f)
+    };
 }
 ```
 
@@ -142,7 +191,10 @@ public struct VertexOutput
 public static class Triangle
 {
     [ShaderStage(Stage.Vertex)]
-    public static VertexOutput Vertex([Wgsl.@builtin_vertex_index] uint vertexIndex) => default;
+    public static VertexOutput Vertex([Wgsl.@builtin_vertex_index] uint vertexIndex) => new()
+    {
+        Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f)
+    };
 }
 ```
 
