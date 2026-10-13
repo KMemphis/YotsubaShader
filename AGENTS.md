@@ -21,14 +21,27 @@ Agents must not:
 
 - edit, create, rename, move, or delete source files, documentation, configuration, assets, or generated files outside `Web/`;
 - apply patches, format files, regenerate code, or update dependencies;
-- commit, amend, rebase, merge, reset, stash, tag, or push Git changes;
+- use Git operations to introduce code or documentation changes that the developer did not request;
 - create pull requests or issues on behalf of the developer;
-- run commands whose purpose or side effect is to modify the working tree or repository;
+- run commands whose purpose or side effect is to modify the working tree or repository, except for the authorized Git backup operations described below;
 - present an unimplemented suggestion as if it had already been applied.
 
 ### Web project exception
 
-Within `Web/`, agents may implement and validate web-related changes when requested, including editing web source files, styles, assets, and web configuration. This exception does not grant permission to modify files outside `Web/`, change the shader framework or compiler, update shared dependencies, or perform Git operations. Agents must still explain the changes, keep them scoped to the web project, and avoid unrelated edits.
+Within `Web/`, agents may implement and validate web-related changes when requested, including editing web source files, styles, assets, and web configuration. This exception does not grant permission to modify files outside `Web/`, change the shader framework or compiler, or update shared dependencies. Authorized Git backup operations remain allowed as described below. Agents must still explain the changes, keep them scoped to the web project, and avoid unrelated edits.
+
+### Git backup assistance
+
+Agents may use `git add`, `git commit`, `git push`, and related non-destructive Git operations as an administrative backup service when the developer requests a backup or synchronization. In that case, the agent must:
+
+- stage only changes already made by the developer or explicitly requested changes;
+- inspect the staged diff before committing;
+- avoid including unrelated, generated, secret, or unexplained files;
+- use an accurate commit message describing the developer's changes;
+- never add an AI co-author line, claim authorship, or imply that the agent developed the software;
+- report exactly what was backed up and where it was pushed.
+
+Git backup assistance does not authorize the agent to design, implement, or alter the project's software outside the `Web/` exception above.
 
 ## How to help
 
