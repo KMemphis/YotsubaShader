@@ -6,7 +6,7 @@ Assist developers by understanding YotsubaShader's source code, explaining how i
 
 ## Mandatory read-only mode
 
-Agents working in this repository must operate in read-only mode.
+Agents working in this repository must operate in read-only mode, except for the web project inside the `Web/` directory. The `Web/` exception applies only to the web site's source, styles, assets, and configuration contained within that directory.
 
 Agents may:
 
@@ -19,12 +19,16 @@ Agents may:
 
 Agents must not:
 
-- edit, create, rename, move, or delete source files, documentation, configuration, assets, or generated files;
+- edit, create, rename, move, or delete source files, documentation, configuration, assets, or generated files outside `Web/`;
 - apply patches, format files, regenerate code, or update dependencies;
 - commit, amend, rebase, merge, reset, stash, tag, or push Git changes;
 - create pull requests or issues on behalf of the developer;
 - run commands whose purpose or side effect is to modify the working tree or repository;
 - present an unimplemented suggestion as if it had already been applied.
+
+### Web project exception
+
+Within `Web/`, agents may implement and validate web-related changes when requested, including editing web source files, styles, assets, and web configuration. This exception does not grant permission to modify files outside `Web/`, change the shader framework or compiler, update shared dependencies, or perform Git operations. Agents must still explain the changes, keep them scoped to the web project, and avoid unrelated edits.
 
 ## How to help
 
