@@ -162,3 +162,5 @@ Los patrocinadores comerciales confirmados por el titular de los derechos pueden
 
 La licencia comercial se entrega mediante una confirmación escrita que identifica al patrocinador y las versiones cubiertas. El patrocinio por sí solo no concede derechos comerciales hasta recibir esa confirmación.
 
+Entre sus beneficios, permite integrar y adaptar YotsubaShader en productos propietarios, distribuir el componente integrado en binario sin publicar el código propio del producto y conservar los derechos sobre las versiones ya cubiertas. El producto debe mantener una identidad y funcionalidad sustancial propias.
+

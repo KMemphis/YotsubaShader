@@ -2,6 +2,20 @@
 
 > **Borrador contractual.** Este documento debe revisarse por un abogado competente antes de utilizarse para conceder licencias comerciales.
 
+## Beneficios para patrocinadores
+
+Como patrocinador comercial confirmado, puedes obtener estos permisos para las versiones cubiertas:
+
+| Puedes | En la práctica |
+| --- | --- |
+| Integrar YotsubaShader en productos propietarios | Incluirlo en un motor de videojuegos, framework, editor, aplicación o plataforma comercial. |
+| Adaptarlo a tu arquitectura | Modificar, compilar y mantener los cambios necesarios para que funcione dentro de tu producto. |
+| Distribuir tu producto sin abrir su código propio | Entregar el componente integrado en binario u objeto sin que la AGPL te obligue a publicar el código de tu Producto Independiente. |
+| Presentarlo como una característica | Comunicar que tu motor o framework incluye funciones basadas en YotsubaShader, manteniendo la identidad de tu propio producto. |
+| Conservar los derechos recibidos | Seguir usando comercialmente las versiones ya cubiertas aunque más adelante dejes de patrocinar, siempre que cumplas esta Licencia. |
+
+Estos permisos existen para que puedas construir productos propios sobre YotsubaShader. Las restricciones posteriores solo evitan convertir el propio Software en un compilador, biblioteca, fork o sustituto autónomo que compita con YotsubaShader.
+
 ## 1. Partes y aceptación
 
 Esta licencia (la **Licencia**) se celebra entre el titular o los titulares de los derechos de autor de YotsubaShader (el **Licenciante**) y la persona física o jurídica a la que el Licenciante haya confirmado por escrito como patrocinador comercial (el **Licenciatario**).
