@@ -42,24 +42,27 @@ SPIR-V · y futuros backends
 
 ## Un shader, cinco estilos de autoría
 
-Los cinco ejemplos siguientes expresan la misma intención: una salida de posición del vertex shader y el índice del vértice actual. Cambia únicamente el vocabulario de los atributos.
+Los cinco ejemplos siguientes expresan la misma intención: declarar un vertex shader y asociar su salida con la posición que espera la GPU. Algunos también muestran el identificador del vértice para que veas cómo se expresa una entrada built-in en cada vocabulario.
 
 > Estos estilos no son “HLSL para HLSL”, “WGSL para WebGPU”, etc. Son opciones ergonómicas de C#; el target se elige después, al compilar.
 
-### HLSL Like code Style: ejemplo completo de un triángulo con color
+### HLSL Like code Style: un shader de color claro y familiar
 
-HLSL es el estilo recomendado para empezar porque hace muy visible la relación entre la etapa, los datos de entrada, la posición de salida y el color que recibe el fragment shader. Este ejemplo crea tres vértices con `SV_VertexID`, interpola un color distinto para cada uno y entrega un triángulo RGB.
+HLSL es el estilo recomendado para empezar porque hace muy visible la relación entre la etapa, los datos de entrada, la posición de salida y el color que recibe el fragment shader. Este ejemplo recibe una posición y un color por vértice, conserva ambos datos y devuelve el color en la etapa de fragmentos.
 
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.Attributes;
 using YotsubaShader.Language.Attributes.HlslStyle; // Vocabulario de atributos inspirado en HLSL.
+using YotsubaShader.Language.Attributes;
 
-public readonly struct VertexData(Vector2 position, Vector4 color)
+public struct VertexInput
 {
-    public Vector2 Position { get; } = position;
-    public Vector4 Color { get; } = color;
+    [Location(0)]
+    public Vector2 Position;
+
+    [Location(1)]
+    public Vector4 Color;
 }
 
 public struct VertexOutput
@@ -71,40 +74,43 @@ public struct VertexOutput
     public Vector4 Color;
 }
 
-public static class HlslColorfulTriangle
+public static class BasicColorShader
 {
     [ShaderStage(Stage.Vertex)]
-    public static VertexOutput Vertex([SV_VertexID] uint vertexId)
+    public static VertexOutput Vertex(VertexInput input)
     {
-        VertexData vertex = vertexId switch
-        {
-            0u => new VertexData(
-                new Vector2(0.0f, 0.8f),
-                new Vector4(1.0f, 0.1f, 0.1f, 1.0f)),
-            1u => new VertexData(
-                new Vector2(-0.8f, -0.8f),
-                new Vector4(0.1f, 1.0f, 0.1f, 1.0f)),
-            2u => new VertexData(
-                new Vector2(0.8f, -0.8f),
-                new Vector4(0.1f, 0.3f, 1.0f, 1.0f)),
-            _ => new VertexData(
-                new Vector2(0.0f, 0.0f),
-                new Vector4(0.0f, 0.0f, 0.0f, 1.0f))
-        };
+        VertexOutput output;
 
-        return new VertexOutput
-        {
-            Position = new Vector4(vertex.Position.X, vertex.Position.Y, 0.0f, 1.0f),
-            Color = vertex.Color
-        };
+        output.Position = new Vector4(
+            input.Position.X,
+            input.Position.Y,
+            0.0f,
+            1.0f
+        );
+
+        output.Color = input.Color;
+
+        return output;
     }
 
     [ShaderStage(Stage.Fragment)]
-    public static Vector4 Fragment(VertexOutput input) => input.Color;
+    public static Vector4 Fragment(VertexOutput input)
+    {
+        return input.Color;
+    }
 }
 ```
 
-La misma clase puede crecer con uniforms, texturas, buffers y más etapas. Lo importante es que los nombres `SV_Position` y `SV_VertexID` describen la interfaz semántica; el backend final se selecciona en la compilación.
+Este pequeño shader ya muestra las piezas esenciales del lenguaje:
+
+- `VertexInput` define los datos que llegan desde el motor.
+- `[Location(0)]` y `[Location(1)]` conectan esos datos con las entradas del pipeline.
+- `VertexOutput` define lo que el vertex shader entrega a la siguiente etapa.
+- `[SV_Position]` marca la posición que necesita la GPU.
+- `[ShaderStage]` separa vertex y fragment shader.
+- `Location(0)` permite transportar el color entre ambas etapas.
+
+La misma clase puede crecer con uniforms, texturas, buffers y más etapas. Lo importante es que los nombres `SV_Position` y `Location` describen la interfaz semántica; el backend final se selecciona en la compilación.
 
 ### GLSL Like code Style
 
