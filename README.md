@@ -157,18 +157,18 @@ public static class Triangle
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using Vulkan = YotsubaShader.Language.Attributes.VulkanStyle;
+using YotsubaShader.Language.Attributes.VulkanStyle;
 
 public struct VertexOutput
 {
-    [Vulkan.BuiltIn_Position]
+    [BuiltIn_Position]
     public Vector4 Position;
 }
 
 public static class Triangle
 {
     [ShaderStage(Stage.Vertex)]
-    public static VertexOutput Vertex([Vulkan.BuiltIn_VertexIndex] uint vertexIndex) => new()
+    public static VertexOutput Vertex([BuiltIn_VertexIndex] uint vertexIndex) => new()
     {
         Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f)
     };
