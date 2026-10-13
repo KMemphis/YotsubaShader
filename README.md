@@ -46,7 +46,7 @@ Los cinco ejemplos siguientes expresan la misma intención: una salida de posici
 
 > Estos estilos no son “HLSL para HLSL”, “WGSL para WebGPU”, etc. Son opciones ergonómicas de C#; el target se elige después, al compilar.
 
-### HLSL: ejemplo completo de un triángulo con color
+### HLSL Like code Style: ejemplo completo de un triángulo con color
 
 HLSL es el estilo recomendado para empezar porque hace muy visible la relación entre la etapa, los datos de entrada, la posición de salida y el color que recibe el fragment shader. Este ejemplo crea tres vértices con `SV_VertexID`, interpola un color distinto para cada uno y entrega un triángulo RGB.
 
@@ -106,7 +106,7 @@ public static class HlslColorfulTriangle
 
 La misma clase puede crecer con uniforms, texturas, buffers y más etapas. Lo importante es que los nombres `SV_Position` y `SV_VertexID` describen la interfaz semántica; el backend final se selecciona en la compilación.
 
-### GLSL
+### GLSL Like code Style
 
 ```csharp
 using Microsoft.Xna.Framework;
@@ -129,7 +129,7 @@ public static class Triangle
 }
 ```
 
-### Metal
+### Metal Like code Style
 
 ```csharp
 using Microsoft.Xna.Framework;
@@ -152,7 +152,7 @@ public static class Triangle
 }
 ```
 
-### Vulkan / SPIR-V
+### Vulkan Like code Style
 
 ```csharp
 using Microsoft.Xna.Framework;
@@ -175,7 +175,7 @@ public static class Triangle
 }
 ```
 
-### WGSL
+### WGSL Like code Style
 
 ```csharp
 using Microsoft.Xna.Framework;
