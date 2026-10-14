@@ -1,8 +1,7 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
-using Microsoft.Xna.Framework;
-using YotsubaShader.Compiler.Stages;
 using YotsubaShader.Frontend.Model;
+using YotsubaShader.Language;
 
 namespace YotsubaShader.Frontend;
 
@@ -13,7 +12,7 @@ namespace YotsubaShader.Frontend;
 /// </summary>
 public static class ShaderDiscovery
 {
-    public const string ShaderStageAttributeMetadataName = "YotsubaShader.Compiler.Stages.ShaderStageAttribute";
+    public const string ShaderStageAttributeMetadataName = "YotsubaShader.Language.ShaderStageAttribute";
 
     public static ImmutableArray<ShaderInfo> Find(Compilation compilation, CancellationToken cancellationToken = default)
     {
@@ -52,13 +51,13 @@ public static class ShaderDiscovery
                 continue;
             }
 
-            if (!TryGetStage(method, stageAttribute, out ShaderStage stage))
+            if (!TryGetStage(method, stageAttribute, out Stage stage))
             {
                 continue;
             }
 
             ImmutableArray<ParameterInfo> parameters = method.Parameters
-                .Select(p => new ParameterInfo(p.Name, p.Type, p.RefKind))
+                .Select(p => new ParameterInfo(p))
                 .ToImmutableArray();
 
             entryPoints.Add(new EntryPointInfo(method, stage, parameters, method.ReturnType));
@@ -67,7 +66,7 @@ public static class ShaderDiscovery
         return entryPoints.ToImmutable();
     }
 
-    private static bool TryGetStage(IMethodSymbol method, INamedTypeSymbol stageAttribute, out ShaderStage stage)
+    private static bool TryGetStage(IMethodSymbol method, INamedTypeSymbol stageAttribute, out Stage stage)
     {
         // GetAttributes() solo devuelve los atributos aplicados directamente al método
         // (no los de un método que este sobrescribe).
@@ -79,9 +78,9 @@ public static class ShaderDiscovery
             }
 
             // El valor de un enum llega como su número, no como su nombre.
-            if (attribute.ConstructorArguments is [{ Value: int value }] && Enum.IsDefined(typeof(ShaderStage), value))
+            if (attribute.ConstructorArguments is [{ Value: int value }] && Enum.IsDefined(typeof(Stage), value))
             {
-                stage = (ShaderStage)value;
+                stage = (Stage)value;
                 return true;
             }
         }

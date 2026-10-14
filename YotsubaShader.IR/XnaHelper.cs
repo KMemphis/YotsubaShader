@@ -7,7 +7,6 @@ namespace YotsubaShader.IR;
 
 public static class XnaHelper
 {
-    
     #region XNA Vectors
 
     public static Vector XNA_CreateVector2(string humanName, StorageKind kind, InterfaceSlot slot, float x, float y)
@@ -47,7 +46,7 @@ public static class XnaHelper
         {
             Dimensions = TextureDimensions.Texture_2D,
             TextureComponentsType = TextureComponentTypes.Float,
-            Depth = false,
+            Depth = TextureDepth.No,
             Arrayed = false,
             Multisampled = false,
             Usage = TextureUsage.Sampled,
@@ -56,6 +55,4 @@ public static class XnaHelper
     }
 
     #endregion
-
-   
 }

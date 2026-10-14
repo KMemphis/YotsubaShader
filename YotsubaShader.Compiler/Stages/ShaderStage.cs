@@ -1,6 +1,6 @@
 namespace YotsubaShader.Compiler.Stages;
 
-public enum ShaderStage
+internal enum ShaderStage
 {
     Vertex,
     Fragment,

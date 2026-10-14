@@ -14,6 +14,7 @@
     <ItemGroup>
         <ProjectReference Include="..\YotsubaShader.IR\YotsubaShader.IR.csproj" />
         <ProjectReference Include="..\YotsubaShader.Compiler\YotsubaShader.Compiler.csproj" />
+        <ProjectReference Include="..\YotsubaShader.Language\YotsubaShader.Language.csproj" />
     </ItemGroup>
 
 </Project>

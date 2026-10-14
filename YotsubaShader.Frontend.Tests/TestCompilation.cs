@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using YotsubaShader.Stages;
+using YotsubaShader.Compiler.Stages;
+using YotsubaShader.Language;
 
 namespace YotsubaShader.Frontend.Tests;
 

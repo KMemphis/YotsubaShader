@@ -11,7 +11,7 @@ public record Texture(string HumanName, StorageKind Kind, InterfaceSlot? Slot) :
     /// </summary>
     public required TextureComponentTypes TextureComponentsType;
 
-    public required bool Depth;
+    public required TextureDepth Depth;
 
     public required bool Arrayed;
 
@@ -56,4 +56,11 @@ public enum TextureFormat
     R32i = 24,
     Rgba32ui = 30,
     R32ui = 33
+}
+
+public enum TextureDepth
+{
+    No = 0,
+    Yes = 1,
+    Unknown = 2
 }

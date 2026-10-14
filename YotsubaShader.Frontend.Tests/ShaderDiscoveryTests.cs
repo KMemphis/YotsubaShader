@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using YotsubaShader.Frontend.Model;
-using YotsubaShader.Stages;
+using YotsubaShader.Language;
 
 namespace YotsubaShader.Frontend.Tests;
 
@@ -39,7 +39,7 @@ public class ShaderDiscoveryTests
         ShaderInfo shader = Assert.Single(shaders);
         Assert.Equal("Game.MegaShader", shader.FullName);
         Assert.Equal(["VS", "FS"], shader.EntryPoints.Select(e => e.Name));
-        Assert.Equal([ShaderStage.Vertex, ShaderStage.Fragment], shader.EntryPoints.Select(e => e.Stage));
+        Assert.Equal([Stage.Vertex, Stage.Fragment], shader.EntryPoints.Select(e => e.Stage));
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class ShaderDiscoveryTests
         ImmutableArray<ShaderInfo> shaders = ShaderDiscovery.Find(TestCompilation.Create(code));
 
         Assert.Equal(["A.B.Outer.Inner", "TopLevel"], shaders.Select(s => s.FullName).OrderBy(n => n));
-        Assert.Equal(ShaderStage.Compute, shaders.Single(s => s.Name == "Inner").EntryPoints[0].Stage);
+        Assert.Equal(Stage.Compute, shaders.Single(s => s.Name == "Inner").EntryPoints[0].Stage);
     }
 
     [Theory]
@@ -127,7 +127,7 @@ public class ShaderDiscoveryTests
             """;
 
         ShaderInfo shader = Assert.Single(ShaderDiscovery.Find(TestCompilation.Create(code)));
-        Assert.Equal(ShaderStage.Fragment, Assert.Single(shader.EntryPoints).Stage);
+        Assert.Equal(Stage.Fragment, Assert.Single(shader.EntryPoints).Stage);
     }
 
     [Fact]

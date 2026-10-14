@@ -5,7 +5,7 @@ namespace YotsubaShader.IR.Intermediate.Types;
 public record Vector(string HumanName, StorageKind Kind, InterfaceSlot? Slot) : Storage(HumanName, Kind, Slot)
 {
     public required VectorComponentsType ComponentsType;
-    public required uint ComponentsLength;
+    public required int ComponentsLength;
     public IReadOnlyList<string>? ComponentsDefaultValues;
 }
 
