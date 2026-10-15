@@ -1,7 +1,7 @@
-namespace YotsubaShader.Language.Attributes.HlslStyle;
+namespace YotsubaShader.Language.StylesAttributes.HlslStyle;
 
 [AttributeUsage(AttributeUsagesTable.InputOutput)]
-public class SV_ClipDistanceN : Attribute
+public class SV_ClipDistanceN : YotsubaShaderAttribute
 {
     
 }

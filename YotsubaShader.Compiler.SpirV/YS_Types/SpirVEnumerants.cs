@@ -1,4 +1,4 @@
-namespace YotsubaShader.Compiler.YS_Types;
+namespace YotsubaShader.Compiler.SpirV.YS_Types;
 
 // Un enum por tipo de operando de la especificación: así dos nombres iguales con valores distintos
 // (Uniform = 2 como StorageClass, Uniform = 26 como Decoration) no chocan, y el compilador de C#

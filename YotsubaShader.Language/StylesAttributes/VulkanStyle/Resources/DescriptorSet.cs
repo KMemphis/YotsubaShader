@@ -1,7 +1,7 @@
-namespace YotsubaShader.Language.Attributes.VulkanStyle;
+namespace YotsubaShader.Language.StylesAttributes.VulkanStyle.Resources;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
-public class DescriptorSet(int s) : Attribute
+public class DescriptorSet(int s) : YotsubaShaderAttribute
 {
     public int S = s;
 }

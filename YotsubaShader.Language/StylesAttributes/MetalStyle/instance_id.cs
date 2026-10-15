@@ -1,4 +1,4 @@
-namespace YotsubaShader.Language.Attributes.MetalStyle;
+namespace YotsubaShader.Language.StylesAttributes.MetalStyle;
 
 [AttributeUsage(AttributeUsagesTable.Input)]
-public class instance_id : Attribute;
+public class instance_id : YotsubaShaderAttribute;

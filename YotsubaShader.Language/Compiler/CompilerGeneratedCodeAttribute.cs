@@ -1,7 +1,7 @@
 namespace YotsubaShader.Language.Compiler;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
-public class CompilerGeneratedCodeAttribute(Binaries binariesFormats) : Attribute
+public class CompilerGeneratedCodeAttribute(Binaries binariesFormats) : YotsubaShaderAttribute
 {
     public Binaries BinaryFormat = binariesFormats;
 

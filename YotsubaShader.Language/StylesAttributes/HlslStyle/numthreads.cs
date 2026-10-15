@@ -1,7 +1,7 @@
-namespace YotsubaShader.Language.Attributes.HlslStyle;
+namespace YotsubaShader.Language.StylesAttributes.HlslStyle;
 
 [AttributeUsage(AttributeUsagesTable.Method)]
-public class numthreads(uint x, uint y, uint z) : Attribute
+public class numthreads(uint x, uint y, uint z) : YotsubaShaderAttribute
 {
     public uint X { get; } = x;
     public uint Y { get; } = y;

@@ -1,4 +1,4 @@
-namespace YotsubaShader.Language.Attributes.VulkanStyle;
+namespace YotsubaShader.Language.StylesAttributes.VulkanStyle.Resources;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
-public class StorageBuffer : Attribute;
+public class StorageBuffer : YotsubaShaderAttribute;

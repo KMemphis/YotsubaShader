@@ -1,8 +1,8 @@
 using System.Globalization;
 using System.Text;
-using YotsubaShader.Compiler.Builder;
+using YotsubaShader.Compiler.SpirV.Builder;
 
-namespace YotsubaShader.Compiler.Compiler;
+namespace YotsubaShader.Compiler.SpirV.Compiler;
 
 public class SpirVCompiler
 {

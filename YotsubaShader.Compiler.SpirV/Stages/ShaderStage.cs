@@ -1,4 +1,4 @@
-namespace YotsubaShader.Compiler.Stages;
+namespace YotsubaShader.Compiler.SpirV.Stages;
 
 internal enum ShaderStage
 {

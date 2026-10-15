@@ -1,3 +1,3 @@
-namespace YotsubaShader.Language.Attributes.HlslStyle;
+namespace YotsubaShader.Language.StylesAttributes.HlslStyle.Resorces;
 
 public struct StructuredBuffer<T>;

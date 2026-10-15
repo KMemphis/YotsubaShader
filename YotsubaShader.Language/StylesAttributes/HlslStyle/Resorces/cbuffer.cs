@@ -1,4 +1,4 @@
-namespace YotsubaShader.Language.Attributes.HlslStyle;
+namespace YotsubaShader.Language.StylesAttributes.HlslStyle.Resorces;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
-public class cbuffer : Attribute;
+public class cbuffer : YotsubaShaderAttribute;

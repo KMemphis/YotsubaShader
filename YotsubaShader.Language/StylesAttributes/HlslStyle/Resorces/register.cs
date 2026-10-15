@@ -1,7 +1,7 @@
-namespace YotsubaShader.Language.Attributes.HlslStyle;
+namespace YotsubaShader.Language.StylesAttributes.HlslStyle.Resorces;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
-public class register : Attribute
+public class register : YotsubaShaderAttribute
 {
     public register(RegisterPrefix prefix, int n)
     {

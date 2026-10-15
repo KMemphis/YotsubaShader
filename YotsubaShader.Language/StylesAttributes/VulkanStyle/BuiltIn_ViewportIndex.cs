@@ -1,7 +1,7 @@
-namespace YotsubaShader.Language.Attributes.VulkanStyle;
+namespace YotsubaShader.Language.StylesAttributes.VulkanStyle;
 
 [AttributeUsage(AttributeUsagesTable.InputOutput)]
-public class BuiltIn_ViewportIndex : Attribute
+public class BuiltIn_ViewportIndex : YotsubaShaderAttribute
 {
     
 }

@@ -4,17 +4,29 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Generator", "YotsubaShader.Generator\YotsubaShader.Generator.csproj", "{1F843514-4769-4385-8242-9F3F88C421F0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Compiler", "YotsubaShader.Compiler\YotsubaShader.Compiler.csproj", "{FFEC20B3-6D51-4143-8DC5-3A4C8027853F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Compiler.SpirV", "YotsubaShader.Compiler.SpirV\YotsubaShader.Compiler.SpirV.csproj", "{FFEC20B3-6D51-4143-8DC5-3A4C8027853F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Example", "YotsubaShader.Example\YotsubaShader.Example.csproj", "{6514C171-7C85-4524-BBBA-EED2F14CC883}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Frontend", "YotsubaShader.Frontend\YotsubaShader.Frontend.csproj", "{7E86EA39-8779-4676-A7A8-D0DD3F788E1A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Roslyn", "YotsubaShader.Roslyn\YotsubaShader.Roslyn.csproj", "{7E86EA39-8779-4676-A7A8-D0DD3F788E1A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Frontend.Tests", "YotsubaShader.Frontend.Tests\YotsubaShader.Frontend.Tests.csproj", "{620E9153-0582-49E7-BB5E-BC1046611B89}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.IR", "YotsubaShader.IR\YotsubaShader.IR.csproj", "{58507BDD-60D6-4ADF-A25C-64DD79F82695}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Language", "YotsubaShader.Language\YotsubaShader.Language.csproj", "{668A3BBD-6A31-49EA-A576-CBA2C89A22C6}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{95CB748C-AC7F-41E1-88B1-BD83C161E4A0}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Examples", "Examples", "{EF294F3E-3094-41FA-BDFE-9815E71319B2}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tools", "Tools", "{3C582216-71B8-4391-8037-0AA0A620D0AA}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Compilers", "Compilers", "{788CA79B-E51A-46C1-94FE-815C45555597}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Representations", "Representations", "{6CBC56F2-2FCD-49E9-8586-C84D2333E6BC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Analyzers", "Analyzers", "{FEB9906B-D8F3-4AEA-8103-D98735F79388}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -53,5 +65,17 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{6514C171-7C85-4524-BBBA-EED2F14CC883} = {EF294F3E-3094-41FA-BDFE-9815E71319B2}
+		{1F843514-4769-4385-8242-9F3F88C421F0} = {3C582216-71B8-4391-8037-0AA0A620D0AA}
+		{620E9153-0582-49E7-BB5E-BC1046611B89} = {EF294F3E-3094-41FA-BDFE-9815E71319B2}
+		{788CA79B-E51A-46C1-94FE-815C45555597} = {95CB748C-AC7F-41E1-88B1-BD83C161E4A0}
+		{FFEC20B3-6D51-4143-8DC5-3A4C8027853F} = {788CA79B-E51A-46C1-94FE-815C45555597}
+		{6CBC56F2-2FCD-49E9-8586-C84D2333E6BC} = {95CB748C-AC7F-41E1-88B1-BD83C161E4A0}
+		{668A3BBD-6A31-49EA-A576-CBA2C89A22C6} = {6CBC56F2-2FCD-49E9-8586-C84D2333E6BC}
+		{58507BDD-60D6-4ADF-A25C-64DD79F82695} = {6CBC56F2-2FCD-49E9-8586-C84D2333E6BC}
+		{FEB9906B-D8F3-4AEA-8103-D98735F79388} = {95CB748C-AC7F-41E1-88B1-BD83C161E4A0}
+		{7E86EA39-8779-4676-A7A8-D0DD3F788E1A} = {FEB9906B-D8F3-4AEA-8103-D98735F79388}
 	EndGlobalSection
 EndGlobal

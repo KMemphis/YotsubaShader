@@ -1,4 +1,4 @@
-namespace YotsubaShader.Language.Attributes.MetalStyle;
+namespace YotsubaShader.Language.StylesAttributes.MetalStyle;
 
 [AttributeUsage(AttributeUsagesTable.InputOutput)]
-public class sample_mask : Attribute;
+public class sample_mask : YotsubaShaderAttribute;

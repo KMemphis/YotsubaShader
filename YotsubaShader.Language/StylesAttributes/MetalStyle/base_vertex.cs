@@ -1,7 +1,7 @@
-namespace YotsubaShader.Language.Attributes.MetalStyle;
+namespace YotsubaShader.Language.StylesAttributes.MetalStyle;
 
 [AttributeUsage(AttributeUsagesTable.Input)]
-public class base_vertex : Attribute
+public class base_vertex : YotsubaShaderAttribute
 {
     
 }

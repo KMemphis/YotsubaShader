@@ -8,21 +8,28 @@ using YotsubaShader.IR.Intermediate.FunctionBody;
 using YotsubaShader.IR.Intermediate.Slot;
 using YotsubaShader.IR.Intermediate.Slot.Types;
 using YotsubaShader.IR.Intermediate.Types;
-using YotsubaShader.Language.Attributes;
 using YotsubaShader.Language.Native.Types.Vector;
 using YotsubaShader.Language.Native.Types.Vector.Exceptions;
 using YotsubaShader.Language.Resources;
+using YotsubaShader.Language.StylesAttributes;
+using builtin_position = YotsubaShader.Language.StylesAttributes.WgslStyle.builtin_position;
+using BuiltIn_Position = YotsubaShader.Language.StylesAttributes.VulkanStyle.BuiltIn_Position;
+using builtin_vertex_index = YotsubaShader.Language.StylesAttributes.WgslStyle.builtin_vertex_index;
+using BuiltIn_VertexIndex = YotsubaShader.Language.StylesAttributes.VulkanStyle.BuiltIn_VertexIndex;
 using Double = YotsubaShader.IR.Intermediate.Types.Double;
+using gl_Position = YotsubaShader.Language.StylesAttributes.GlslStyle.gl_Position;
+using gl_VertexIndex = YotsubaShader.Language.StylesAttributes.GlslStyle.gl_VertexIndex;
 using LanguageStage = YotsubaShader.Language.Stage;
 using IRStage = YotsubaShader.IR.Intermediate.Stage;
-using Glsl = YotsubaShader.Language.Attributes.GlslStyle;
-using Hlsl = YotsubaShader.Language.Attributes.HlslStyle;
-using Vulkan = YotsubaShader.Language.Attributes.VulkanStyle;
-using Wgsl = YotsubaShader.Language.Attributes.WgslStyle;
-using Metal =  YotsubaShader.Language.Attributes.MetalStyle;
-using ParameterInfo = YotsubaShader.Frontend.Model.ParameterInfo;
+using ParameterInfo = YotsubaShader.Roslyn.Model.ParameterInfo;
+using position = YotsubaShader.Language.StylesAttributes.MetalStyle.position;
+using SV_Position = YotsubaShader.Language.StylesAttributes.HlslStyle.SV_Position;
+using SV_VertexID = YotsubaShader.Language.StylesAttributes.HlslStyle.SV_VertexID;
+using vertex_id = YotsubaShader.Language.StylesAttributes.MetalStyle.vertex_id;
 
-namespace YotsubaShader.Frontend;
+namespace YotsubaShader.Roslyn;
+
+using ParameterInfo = Model.ParameterInfo;
 
 public class ShaderProcessor
 {
@@ -361,20 +368,20 @@ public class ShaderProcessor
 
                 BuiltIn? builtIn = null;
 
-                if (match<Hlsl.SV_Position>()
-                    || match<Metal.position>()
-                    || match<Glsl.gl_Position>()
-                    || match<Vulkan.BuiltIn_Position>()
-                    || match<Wgsl.builtin_position>())
+                if (match<SV_Position>()
+                    || match<position>()
+                    || match<gl_Position>()
+                    || match<BuiltIn_Position>()
+                    || match<builtin_position>())
                 {
                     builtIn = BuiltIn.Position;
                 }
                 else if (
-                    match<Hlsl.SV_VertexID>()
-                    || match<Metal.vertex_id>()
-                    || match<Glsl.gl_VertexIndex>()
-                    || match<Vulkan.BuiltIn_VertexIndex>()
-                    || match<Wgsl.builtin_vertex_index>())
+                    match<SV_VertexID>()
+                    || match<vertex_id>()
+                    || match<gl_VertexIndex>()
+                    || match<BuiltIn_VertexIndex>()
+                    || match<builtin_vertex_index>())
                 {
                     builtIn = BuiltIn.VertexIndex;
                 }

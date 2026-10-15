@@ -1,7 +1,7 @@
-namespace YotsubaShader.Language.Attributes.WgslStyle;
+namespace YotsubaShader.Language.StylesAttributes.WgslStyle.Resources;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
-public class @binding(int n) : Attribute
+public class @binding(int n) : YotsubaShaderAttribute
 {
     public int N = n;
 }

@@ -1,4 +1,4 @@
-namespace YotsubaShader.Language.Attributes.WgslStyle;
+namespace YotsubaShader.Language.StylesAttributes.WgslStyle.Resources;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
-public class uniform : Attribute;
+public class uniform : YotsubaShaderAttribute;

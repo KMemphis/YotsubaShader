@@ -1,8 +1,8 @@
 using System.Text;
 using Microsoft.Xna.Framework.Graphics;
-using YotsubaShader.Compiler.YS_Types;
+using YotsubaShader.Compiler.SpirV.YS_Types;
 
-namespace YotsubaShader.Compiler.Builder;
+namespace YotsubaShader.Compiler.SpirV.Builder;
 
 public class SpirVModule
 {

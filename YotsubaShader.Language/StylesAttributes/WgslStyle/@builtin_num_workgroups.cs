@@ -1,4 +1,4 @@
-namespace YotsubaShader.Language.Attributes.WgslStyle;
+namespace YotsubaShader.Language.StylesAttributes.WgslStyle;
 
 [AttributeUsage(AttributeUsagesTable.Input)]
-public class @builtin_num_workgroups : Attribute;
+public class @builtin_num_workgroups : YotsubaShaderAttribute;

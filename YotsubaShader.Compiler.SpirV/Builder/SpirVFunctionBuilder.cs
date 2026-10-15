@@ -1,6 +1,6 @@
-using YotsubaShader.Compiler.YS_Types.SpirVFunctions;
+using YotsubaShader.Compiler.SpirV.YS_Types.SpirVFunctions;
 
-namespace YotsubaShader.Compiler.Builder;
+namespace YotsubaShader.Compiler.SpirV.Builder;
 
 internal sealed class SpirVFunctionBuilder
 {

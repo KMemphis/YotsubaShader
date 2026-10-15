@@ -1,4 +1,4 @@
-namespace YotsubaShader.Language.Attributes.GlslStyle;
+namespace YotsubaShader.Language.StylesAttributes.GlslStyle;
 
 [AttributeUsage(AttributeUsagesTable.Input)]
-public class gl_WorkGroupSize : Attribute;
+public class gl_WorkGroupSize : YotsubaShaderAttribute;

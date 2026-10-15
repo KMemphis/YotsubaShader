@@ -1,9 +1,9 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
-using YotsubaShader.Frontend.Model;
 using YotsubaShader.Language;
+using YotsubaShader.Roslyn.Model;
 
-namespace YotsubaShader.Frontend;
+namespace YotsubaShader.Roslyn;
 
 /// <summary>
 /// Recorre los tipos del proyecto y extrae sus shaders. Trabaja con símbolos, no con texto:

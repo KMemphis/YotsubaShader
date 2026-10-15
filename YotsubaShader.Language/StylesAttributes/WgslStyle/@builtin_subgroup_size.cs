@@ -1,4 +1,4 @@
-namespace YotsubaShader.Language.Attributes.WgslStyle;
+namespace YotsubaShader.Language.StylesAttributes.WgslStyle;
 
 [AttributeUsage(AttributeUsagesTable.Input)]
-public class @builtin_subgroup_size : Attribute;
+public class @builtin_subgroup_size : YotsubaShaderAttribute;

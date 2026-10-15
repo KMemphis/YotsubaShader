@@ -1,8 +1,9 @@
 ﻿using Microsoft.Xna.Framework;
 using YotsubaShader.Compiler;
-using YotsubaShader.Compiler.Builder;
-using YotsubaShader.Compiler.Compiler;
-using YotsubaShader.Compiler.YS_Types;
+using YotsubaShader.Compiler.SpirV;
+using YotsubaShader.Compiler.SpirV.Builder;
+using YotsubaShader.Compiler.SpirV.Compiler;
+using YotsubaShader.Compiler.SpirV.YS_Types;
 
 var module = new SpirVModule();
         

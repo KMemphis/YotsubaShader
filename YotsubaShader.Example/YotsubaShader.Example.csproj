@@ -9,7 +9,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\YotsubaShader.Compiler\YotsubaShader.Compiler.csproj" />
+      <ProjectReference Include="..\YotsubaShader.Compiler.SpirV\YotsubaShader.Compiler.SpirV.csproj" />
     </ItemGroup>
 
 </Project>

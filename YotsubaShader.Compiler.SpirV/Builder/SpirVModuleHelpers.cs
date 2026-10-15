@@ -1,5 +1,5 @@
 using Microsoft.Xna.Framework.Graphics;
-using YotsubaShader.Compiler.YS_Types;
+using YotsubaShader.Compiler.SpirV.YS_Types;
 using XnaVector2 = Microsoft.Xna.Framework.Vector2;
 using NumVector2 = System.Numerics.Vector2;
 using XnaVector3 = Microsoft.Xna.Framework.Vector3;
@@ -9,7 +9,7 @@ using NumVector4 = System.Numerics.Vector4;
 using XnaMatrix = Microsoft.Xna.Framework.Matrix;
 using NumMatrix = System.Numerics.Matrix4x4;
 
-namespace YotsubaShader.Compiler.Builder;
+namespace YotsubaShader.Compiler.SpirV.Builder;
 
 public static class SpirVModuleHelpers
 {

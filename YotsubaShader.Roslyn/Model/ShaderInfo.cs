@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using YotsubaShader.Language;
 
-namespace YotsubaShader.Frontend.Model;
+namespace YotsubaShader.Roslyn.Model;
 
 /// <summary>Un parámetro de un método de etapa, tal como lo declara el usuario.</summary>
 public sealed record ParameterInfo(IParameterSymbol Symbol)

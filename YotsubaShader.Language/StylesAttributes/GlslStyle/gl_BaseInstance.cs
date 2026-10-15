@@ -1,4 +1,4 @@
-namespace YotsubaShader.Language.Attributes.GlslStyle;
+namespace YotsubaShader.Language.StylesAttributes.GlslStyle;
 
 [AttributeUsage(AttributeUsagesTable.Input)]
-public class gl_BaseInstance : Attribute;
+public class gl_BaseInstance : YotsubaShaderAttribute;

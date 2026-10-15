@@ -1,4 +1,4 @@
-namespace YotsubaShader.Language.Attributes.HlslStyle;
+namespace YotsubaShader.Language.StylesAttributes.HlslStyle;
 
 [AttributeUsage(AttributeUsagesTable.Output)]
-public class SV_Depth : Attribute;
+public class SV_Depth : YotsubaShaderAttribute;

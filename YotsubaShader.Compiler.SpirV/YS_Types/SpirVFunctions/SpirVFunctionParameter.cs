@@ -1,4 +1,4 @@
-namespace YotsubaShader.Compiler.YS_Types.SpirVFunctions;
+namespace YotsubaShader.Compiler.SpirV.YS_Types.SpirVFunctions;
 
 public readonly record struct SpirVFunctionParameter(
     string ID,

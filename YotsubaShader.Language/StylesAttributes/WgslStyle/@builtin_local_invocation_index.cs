@@ -1,4 +1,4 @@
-namespace YotsubaShader.Language.Attributes.WgslStyle;
+namespace YotsubaShader.Language.StylesAttributes.WgslStyle;
 
 [AttributeUsage(AttributeUsagesTable.Input)]
-public class @builtin_local_invocation_index : Attribute;
+public class @builtin_local_invocation_index : YotsubaShaderAttribute;

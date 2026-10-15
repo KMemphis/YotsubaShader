@@ -1,4 +1,4 @@
-namespace YotsubaShader.Language.Attributes.VulkanStyle;
+namespace YotsubaShader.Language.StylesAttributes.VulkanStyle;
 
 [AttributeUsage(AttributeUsagesTable.Input)]
-public class BuiltIn_PrimitiveId : Attribute;
+public class BuiltIn_PrimitiveId : YotsubaShaderAttribute;

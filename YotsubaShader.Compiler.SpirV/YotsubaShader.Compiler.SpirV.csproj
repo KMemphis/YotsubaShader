@@ -16,8 +16,4 @@
       <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5.1" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Folder Include="NewYotsubaShaderTypes\" />
-    </ItemGroup>
-
 </Project>

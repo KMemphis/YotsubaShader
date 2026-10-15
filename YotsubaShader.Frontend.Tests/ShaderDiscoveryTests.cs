@@ -1,14 +1,15 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
-using YotsubaShader.Frontend.Model;
+using YotsubaShader.Roslyn.Model;
 using YotsubaShader.Language;
+using YotsubaShader.Roslyn;
 
 namespace YotsubaShader.Frontend.Tests;
 
 public class ShaderDiscoveryTests
 {
     private const string MegaShaderLike = """
-        using YotsubaShader.Compiler.Stages;
+        using YotsubaShader.Compiler.SpirV.Stages;
 
         namespace Game;
 
@@ -81,7 +82,7 @@ public class ShaderDiscoveryTests
     public void Finds_shaders_in_nested_types_and_several_namespaces()
     {
         const string code = """
-            using YotsubaShader.Compiler.Stages;
+            using YotsubaShader.Compiler.SpirV.Stages;
 
             namespace A.B
             {
@@ -111,13 +112,13 @@ public class ShaderDiscoveryTests
     [InlineData("[ShaderStageAttribute(ShaderStage.Fragment)]")]
     [InlineData("[Ys.ShaderStage(Ys.ShaderStage.Fragment)]")]
     [InlineData("[Stage(ShaderStage.Fragment)]")]
-    [InlineData("[YotsubaShader.Compiler.Stages.ShaderStage(YotsubaShader.Compiler.Stages.ShaderStage.Fragment)]")]
+    [InlineData("[YotsubaShader.Compiler.SpirV.Stages.ShaderStage(YotsubaShader.Compiler.SpirV.Stages.ShaderStage.Fragment)]")]
     public void Attribute_is_matched_by_symbol_not_by_text(string attribute)
     {
         string code = $$"""
-            using YotsubaShader.Compiler.Stages;
-            using Ys = YotsubaShader.Compiler.Stages;
-            using Stage = YotsubaShader.Compiler.Stages.ShaderStageAttribute;
+            using YotsubaShader.Compiler.SpirV.Stages;
+            using Ys = YotsubaShader.Compiler.SpirV.Stages;
+            using Stage = YotsubaShader.Compiler.SpirV.Stages.ShaderStageAttribute;
 
             public class S
             {

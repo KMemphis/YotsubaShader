@@ -1,7 +1,7 @@
-namespace YotsubaShader.Language.Attributes.MetalStyle;
+namespace YotsubaShader.Language.StylesAttributes.MetalStyle.Resources;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
-public class texture(int n): Attribute
+public class texture(int n): YotsubaShaderAttribute
 {
     public int N = n;
 }

@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
-using YotsubaShader.Compiler.Builder;
+using YotsubaShader.Compiler.SpirV.Builder;
 
-namespace YotsubaShader.Compiler.YS_Types.SpirVFunctions;
+namespace YotsubaShader.Compiler.SpirV.YS_Types.SpirVFunctions;
 
 public readonly record struct SpirVBasicBlock(
     string LabelId,

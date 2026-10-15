@@ -1,4 +1,4 @@
-namespace YotsubaShader.Language.Attributes.VulkanStyle;
+namespace YotsubaShader.Language.StylesAttributes.VulkanStyle;
 
 [AttributeUsage(AttributeUsagesTable.Output)]
-public class BuiltIn_FragStencilRef : Attribute;
+public class BuiltIn_FragStencilRef : YotsubaShaderAttribute;

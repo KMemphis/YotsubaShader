@@ -1,4 +1,4 @@
-namespace YotsubaShader.Language.Attributes.HlslStyle;
+namespace YotsubaShader.Language.StylesAttributes.HlslStyle;
 
 [AttributeUsage(AttributeUsagesTable.Output)]
-public class SV_StencilRef : Attribute;
+public class SV_StencilRef : YotsubaShaderAttribute;

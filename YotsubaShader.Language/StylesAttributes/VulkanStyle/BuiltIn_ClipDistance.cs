@@ -1,4 +1,4 @@
-namespace YotsubaShader.Language.Attributes.VulkanStyle;
+namespace YotsubaShader.Language.StylesAttributes.VulkanStyle;
 
 [AttributeUsage(AttributeUsagesTable.InputOutput)]
-public class BuiltIn_ClipDistance : Attribute;
+public class BuiltIn_ClipDistance : YotsubaShaderAttribute;

@@ -1,7 +1,7 @@
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.Attributes;
-using YotsubaShader.Language.Attributes.HlslStyle;
+using YotsubaShader.Language.StylesAttributes;
+using YotsubaShader.Language.StylesAttributes.HlslStyle;
 
 namespace YotsubaShader.Frontend.Tests;
 

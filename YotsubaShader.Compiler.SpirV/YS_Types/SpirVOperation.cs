@@ -1,4 +1,6 @@
-namespace YotsubaShader.Compiler.YS_Types;
+using YotsubaShader.Compiler.YS_Types;
+
+namespace YotsubaShader.Compiler.SpirV.YS_Types;
 
 /// <summary>
 /// Metadatos de una instrucción SPIR-V, generados desde <c>spirv.core.grammar.json</c>.

@@ -1,4 +1,4 @@
-namespace YotsubaShader.Language.Attributes.HlslStyle;
+namespace YotsubaShader.Language.StylesAttributes.HlslStyle;
 
 [AttributeUsage(AttributeUsagesTable.Input)]
-public class SV_IsFrontFace : Attribute;
+public class SV_IsFrontFace : YotsubaShaderAttribute;

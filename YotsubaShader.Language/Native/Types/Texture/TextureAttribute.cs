@@ -1,7 +1,7 @@
 namespace YotsubaShader.Language.Native.Types.Texture;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
-public class TextureAttribute(TextureDimension dimension, TextureComponentTypes componentTypes) : Attribute
+public class TextureAttribute(TextureDimension dimension, TextureComponentTypes componentTypes) : YotsubaShaderAttribute
 {
     public TextureDimension Dimension = dimension;
 

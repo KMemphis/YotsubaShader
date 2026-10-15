@@ -1,4 +1,4 @@
-namespace YotsubaShader.Language.Attributes.HlslStyle;
+namespace YotsubaShader.Language.StylesAttributes.HlslStyle;
 
 [AttributeUsage(AttributeUsagesTable.InputOutput)]
-public class SV_Coverage : Attribute;
+public class SV_Coverage : YotsubaShaderAttribute;

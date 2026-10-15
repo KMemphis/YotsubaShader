@@ -1,7 +1,7 @@
-namespace YotsubaShader.Language.Attributes.VulkanStyle;
+namespace YotsubaShader.Language.StylesAttributes.VulkanStyle.Resources;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
-public class Binding(int n) : Attribute
+public class Binding(int n) : YotsubaShaderAttribute
 {
     public int N = n;
 }

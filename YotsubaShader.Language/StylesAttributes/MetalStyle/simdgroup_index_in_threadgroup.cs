@@ -1,4 +1,4 @@
-namespace YotsubaShader.Language.Attributes.MetalStyle;
+namespace YotsubaShader.Language.StylesAttributes.MetalStyle;
 
 [AttributeUsage(AttributeUsagesTable.Input)]
-public class simdgroup_index_in_threadgroup : Attribute;
+public class simdgroup_index_in_threadgroup : YotsubaShaderAttribute;
