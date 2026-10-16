@@ -9,6 +9,9 @@
 </p>
 
 <p align="center">
+  <a href="https://yotsubashader.com">Website</a> ·
+  <a href="https://yotsubashader.com/documentation/">Documentation</a> ·
+  <a href="https://yotsubashader.com/playground/">Playground</a> ·
   <a href="https://github.com/KMemphis/YotsubaShader">Repository</a>
 </p>
 
@@ -49,8 +52,8 @@ The HLSL-like style is a good place to start because the relationship between st
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.Attributes.HlslStyle; // Attribute names inspired by HLSL.
-using YotsubaShader.Language.Attributes;
+using YotsubaShader.Language.StylesAttributes.HlslStyle; // Attribute names inspired by HLSL.
+using YotsubaShader.Language.StylesAttributes;
 
 public struct VertexInput
 {
@@ -113,7 +116,7 @@ The same class can grow to include uniforms, textures, buffers, and other stages
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.Attributes.GlslStyle; // Attribute names inspired by GLSL.
+using YotsubaShader.Language.StylesAttributes.GlslStyle; // Attribute names inspired by GLSL.
 
 public struct VertexOutput
 {
@@ -136,7 +139,7 @@ public class Triangle
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.Attributes.MetalStyle; // Attribute names inspired by Metal Shading Language.
+using YotsubaShader.Language.StylesAttributes.MetalStyle; // Attribute names inspired by Metal Shading Language.
 
 public struct VertexOutput
 {
@@ -159,7 +162,7 @@ public class Triangle
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.Attributes.VulkanStyle; // Attribute names inspired by Vulkan/SPIR-V.
+using YotsubaShader.Language.StylesAttributes.VulkanStyle; // Attribute names inspired by Vulkan/SPIR-V.
 
 public struct VertexOutput
 {
@@ -182,7 +185,7 @@ public class Triangle
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.Attributes.WgslStyle; // Attribute names inspired by WGSL.
+using YotsubaShader.Language.StylesAttributes.WgslStyle; // Attribute names inspired by WGSL.
 
 public struct VertexOutput
 {
@@ -208,7 +211,7 @@ You can describe interfaces with locations and resources with attributes. Use `[
 
 ```csharp
 using Microsoft.Xna.Framework;
-using YotsubaShader.Language.Attributes;
+using YotsubaShader.Language.StylesAttributes;
 using YotsubaShader.Language.Resources;
 
 public struct VertexInput
@@ -294,19 +297,23 @@ The current example project constructs a low-level SPIR-V module explicitly:
 dotnet run --project YotsubaShader.Example/YotsubaShader.Example.csproj
 ```
 
-This creates `mi modulo spirv.spv` in the working directory. For details on the module header and validation with SPIRV-Tools, see [docs/SPIRV_GENERATOR.md](docs/SPIRV_GENERATOR.md).
+This creates `mi modulo spirv.spv` in the working directory. For details on the module header and the SPIR-V output, see [SPIR-V in the documentation](https://yotsubashader.com/technologies/spir-v/).
 
 ## Repository architecture
 
 | Project | Role |
 | --- | --- |
 | `YotsubaShader.Language` | Authoring language: stages, attributes, resources, and types. |
-| `YotsubaShader.Frontend` | Discovery and semantic analysis of C# shaders. |
+| `YotsubaShader.Roslyn` | Roslyn-based discovery and semantic analysis of C# shaders. |
 | `YotsubaShader.IR` | Shared model between the frontend and backends. |
-| `YotsubaShader.Compiler` | SPIR-V module construction and encoding. |
+| `YotsubaShader.Compiler.SpirV` | SPIR-V module construction and encoding. |
 | `YotsubaShader.Generator` | SPIR-V operation table generated from the Khronos grammar. |
 | `YotsubaShader.Example` | Executable example of low-level SPIR-V assembly. |
-| `YotsubaShader.Frontend.Tests` | Frontend discovery and analysis tests. |
+| `YotsubaShader.Frontend.Tests` | Discovery and analysis tests for the Roslyn frontend. |
+
+## Website and playground
+
+The website at [yotsubashader.com](https://yotsubashader.com) (English and Spanish) and its in-browser playground live in their own repository, [YotsubaShader-Web](https://github.com/KMemphis/YotsubaShader-Web). The attribute reference pages are generated from `YotsubaShader.Language`, so the site stays in step with this repository.
 
 ## Contributing
 

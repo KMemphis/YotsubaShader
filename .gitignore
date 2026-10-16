@@ -4,3 +4,6 @@
 **/.DS_Store
 outputs/
 .idea/
+
+# The website is its own repository (https://github.com/KMemphis/YotsubaShader-Web) cloned here as Web/
+/Web/

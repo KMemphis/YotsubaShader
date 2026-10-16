@@ -28,13 +28,13 @@ dotnet test YotsubaShader.Frontend.Tests
 | Project | Role |
 | --- | --- |
 | `YotsubaShader.Language` | Authoring language: stages, attributes, resources and types. |
-| `YotsubaShader.Frontend` | Discovery and semantic analysis of C# shaders. |
+| `YotsubaShader.Roslyn` | Roslyn-based discovery and semantic analysis of C# shaders. |
 | `YotsubaShader.IR` | Shared model between the frontend and the backends. |
-| `YotsubaShader.Compiler` | SPIR-V module construction and encoding. |
+| `YotsubaShader.Compiler.SpirV` | SPIR-V module construction and encoding. |
 | `YotsubaShader.Generator` | SPIR-V operation table generated from the Khronos grammar. |
 | `YotsubaShader.Example` | Executable example of low-level SPIR-V assembly. |
-| `YotsubaShader.Frontend.Tests` | Frontend discovery and analysis tests. |
-| `Web` | The website and the in-browser playground. |
+| `YotsubaShader.Frontend.Tests` | Discovery and analysis tests for the Roslyn frontend. |
+| `Web` (separate repository) | The website and the in-browser playground; see [Documentation and website](#documentation-and-website). |
 
 ## Attribute changes
 
@@ -56,9 +56,10 @@ Write commit messages that say what the change does, in the present tense ("Add 
 
 ## Documentation and website
 
-The website lives in `Web/`. It is a static site with no dependencies besides Node.
+The website lives in its own repository, [YotsubaShader-Web](https://github.com/KMemphis/YotsubaShader-Web), published at [yotsubashader.com](https://yotsubashader.com). It is a static site with no dependencies besides Node. Clone it as `Web/` inside this repository's folder: the build reads `../YotsubaShader.Language` to generate the attribute reference, and `Web/` is ignored by this repository's Git.
 
 ```bash
+git clone https://github.com/KMemphis/YotsubaShader-Web.git Web
 cd Web
 node build.mjs --serve        # builds both languages and serves http://localhost:4173
 node build.mjs --strict-i18n  # fails if a Spanish translation is missing or unused
@@ -77,7 +78,7 @@ Yotsuba Shader is released under the [MIT License](LICENSE). By submitting a con
 
 ## Using AI tools
 
-AI assistants may be used to understand or review the code. This repository asks agents to work in read-only mode outside `Web/`; see [`AGENTS.md`](AGENTS.md). You remain responsible for everything you submit.
+AI assistants may be used to understand or review the code. This repository asks agents to work in read-only mode outside `Web/`; see [`AGENTS.md`](AGENTS.md). The website repository has its own history. You remain responsible for everything you submit.
 
 ## Questions
 
