@@ -146,7 +146,7 @@ public class ShaderProcessor
             IFieldSymbol field => field.Type,
             IPropertySymbol property => property.Type,
             _ => null
-        };
+        };  
 
         if (type is null)
         {
