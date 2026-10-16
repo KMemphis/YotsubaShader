@@ -35,7 +35,6 @@
 */
 #endregion
 
-using YotsubaShader.Compiler.YS_Types;
 
 namespace YotsubaShader.Compiler.SpirV.YS_Types;
 
