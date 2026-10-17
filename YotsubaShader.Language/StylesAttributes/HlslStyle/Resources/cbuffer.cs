@@ -35,7 +35,7 @@
 */
 #endregion
 
-namespace YotsubaShader.Language.StylesAttributes.HlslStyle.Resorces;
+namespace YotsubaShader.Language.StylesAttributes.HlslStyle.Resources;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
 public class cbuffer : YotsubaShaderAttribute;

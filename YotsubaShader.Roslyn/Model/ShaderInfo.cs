@@ -42,11 +42,16 @@ using YotsubaShader.Language;
 namespace YotsubaShader.Roslyn.Model;
 
 /// <summary>Un parámetro de un método de etapa, tal como lo declara el usuario.</summary>
-public sealed record ParameterInfo(IParameterSymbol Symbol)
+public sealed record ParameterInfo(IParameterSymbol Symbol, bool IsField)
 {
     public string Name => Symbol.Name;
     public ITypeSymbol Type => Symbol.Type;
     public RefKind RefKind =>Symbol.RefKind;
+}
+
+public sealed record ResourceInfo(ISymbol Symbol)
+{
+    public string Name => Symbol.Name;
 }
 
 /// <summary>Un método marcado con <c>[ShaderStage]</c>.</summary>
@@ -54,7 +59,8 @@ public sealed record EntryPointInfo(
     IMethodSymbol Method,
     Stage Stage,
     ImmutableArray<ParameterInfo> Parameters,
-    ITypeSymbol ReturnType)
+    ITypeSymbol ReturnType,
+    HashSet<IMethodSymbol> CalledMethods)
 {
     public string Name => Method.Name;
 }

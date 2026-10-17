@@ -80,6 +80,7 @@ public static class ShaderDiscovery
     {
         var entryPoints = ImmutableArray.CreateBuilder<EntryPointInfo>();
 
+        ImmutableArray<ParameterInfo> parameters = new ImmutableArray<ParameterInfo>();
         foreach (ISymbol member in type.GetMembers())
         {
             // Solo métodos normales: GetMembers también devuelve constructores y accesores de propiedades.
@@ -93,14 +94,24 @@ public static class ShaderDiscovery
                 continue;
             }
 
-            ImmutableArray<ParameterInfo> parameters = method.Parameters
-                .Select(p => new ParameterInfo(p))
+            parameters = method.Parameters
+                .Select(p => new ParameterInfo(p, false))
                 .ToImmutableArray();
-
-            entryPoints.Add(new EntryPointInfo(method, stage, parameters, method.ReturnType));
+            
+            var visitedMethods = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+            
+            GetVisitedMethods(visitedMethods, method);
+            entryPoints.Add(new EntryPointInfo(method, stage, parameters, method.ReturnType, visitedMethods));
         }
 
+        
+        
         return entryPoints.ToImmutable();
+    }
+    
+    private static void GetVisitedMethods(HashSet<IMethodSymbol> visitedMethods, IMethodSymbol method)
+    {
+        throw new NotImplementedException();
     }
 
     private static bool TryGetStage(IMethodSymbol method, INamedTypeSymbol stageAttribute, out Stage stage)

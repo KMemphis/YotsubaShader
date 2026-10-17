@@ -35,6 +35,6 @@
 */
 #endregion
 
-namespace YotsubaShader.Language.StylesAttributes.HlslStyle.Resorces;
+namespace YotsubaShader.Language.StylesAttributes.HlslStyle.Resources;
 
 public struct StructuredBuffer<T>;

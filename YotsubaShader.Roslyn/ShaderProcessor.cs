@@ -49,6 +49,11 @@ using YotsubaShader.Language.Native.Types.Vector;
 using YotsubaShader.Language.Native.Types.Vector.Exceptions;
 using YotsubaShader.Language.Resources;
 using YotsubaShader.Language.StylesAttributes;
+using YotsubaShader.Language.StylesAttributes.Exceptions;
+using YotsubaShader.Language.StylesAttributes.GlslStyle.Resources;
+using YotsubaShader.Language.StylesAttributes.HlslStyle.Resorces;
+using YotsubaShader.Language.StylesAttributes.HlslStyle.Resources;
+using YotsubaShader.Roslyn.Model;
 using builtin_position = YotsubaShader.Language.StylesAttributes.WgslStyle.builtin_position;
 using BuiltIn_Position = YotsubaShader.Language.StylesAttributes.VulkanStyle.BuiltIn_Position;
 using builtin_vertex_index = YotsubaShader.Language.StylesAttributes.WgslStyle.builtin_vertex_index;
@@ -63,7 +68,7 @@ using position = YotsubaShader.Language.StylesAttributes.MetalStyle.position;
 using SV_Position = YotsubaShader.Language.StylesAttributes.HlslStyle.SV_Position;
 using SV_VertexID = YotsubaShader.Language.StylesAttributes.HlslStyle.SV_VertexID;
 using vertex_id = YotsubaShader.Language.StylesAttributes.MetalStyle.vertex_id;
-
+using Style = YotsubaShader.Language.StylesAttributes;
 namespace YotsubaShader.Roslyn;
 
 using ParameterInfo = Model.ParameterInfo;
@@ -75,7 +80,7 @@ public class ShaderProcessor
     public void Process(Compilation compilation, CancellationToken token)
     { 
         var csharpShaderMetadata = ShaderDiscovery.Find(compilation, token);
-        foreach (var shaderInfo in csharpShaderMetadata)
+        foreach (ShaderInfo shaderInfo in csharpShaderMetadata)
         {
             
             List<Function> shaderFunction = new List<Function>();
@@ -96,7 +101,7 @@ public class ShaderProcessor
                 //Process Inputs
                 foreach (var parameterInfo in shaderInfoEntryPoint.Parameters)
                 {
-                    inputs.Add(ProcessInput(parameterInfo, compilation));
+                    inputs.Add(ProcessInput(parameterInfo, compilation, stage));
                 }
                     
                 var syntax = shaderInfoEntryPoint.Method.DeclaringSyntaxReferences[0].GetSyntax();
@@ -125,20 +130,20 @@ public class ShaderProcessor
         }
     }
 
-    private Storage ProcessInput(ParameterInfo parameterInfo, Compilation compilation)
+    private Storage ProcessInput(ParameterInfo parameterInfo, Compilation compilation, IRStage stage)
     {
         InterfaceSlot? slot = null;
         var atributes = parameterInfo.Symbol.GetAttributes();
 
         if (atributes.Length > 0)
         {
-            slot = GetAttributeData(atributes);
+            slot = GetAttributeData(atributes, stage);
         }
 
-        return GetStorage(parameterInfo.Symbol, null, slot, compilation);
+        return GetStorage(parameterInfo.Symbol, null, slot, compilation, stage);
     }
 
-    private static Storage GetStorage(ISymbol symbol, Storage? storage, InterfaceSlot? slot, Compilation compilation)
+    private static Storage GetStorage(ISymbol symbol, Storage? storage, InterfaceSlot? slot, Compilation compilation, IRStage stage)
     {
         ITypeSymbol? type = symbol switch
         {
@@ -155,7 +160,7 @@ public class ShaderProcessor
         }
 
         var parameter = symbol as IParameterSymbol;
-        StorageKind storageKind = GetStorageKind(symbol);
+        StorageKind storageKind = GetStorageKind(symbol, compilation);
 
         switch (type.SpecialType)
         {
@@ -292,8 +297,8 @@ public class ShaderProcessor
                     continue;
                 }
 
-                InterfaceSlot? memberSlot = GetAttributeData(member.GetAttributes());
-                properties.Add(GetStorage(member, null, memberSlot, compilation));
+                InterfaceSlot? memberSlot = GetAttributeData(member.GetAttributes(), stage);
+                properties.Add(GetStorage(member, null, memberSlot, compilation, stage));
             }
 
             storage = new CustomStruct(symbol.Name, storageKind, null)
@@ -306,13 +311,13 @@ public class ShaderProcessor
             $"Type '{type.ToDisplayString()}' used by '{symbol.ToDisplayString()}' is not supported as shader storage.");
     }
 
-    private static StorageKind GetStorageKind(ISymbol symbol)
+    private static StorageKind GetStorageKind(ISymbol symbol, Compilation compilation)
     {
         ImmutableArray<AttributeData> attributes = symbol.GetAttributes();
-        bool isUniform = attributes.Any(attribute =>
-            attribute.AttributeClass?.ToDisplayString() == typeof(UniformAttribute).FullName);
-        bool isStorageBuffer = attributes.Any(attribute =>
-            attribute.AttributeClass?.ToDisplayString() == typeof(StorageBufferAttribute).FullName);
+        
+        var isUniform = IsUniform(attributes, symbol, compilation);
+        
+        var isStorageBuffer = IsStorageBuffer(attributes, symbol, compilation);
 
         if (isUniform && isStorageBuffer)
         {
@@ -332,6 +337,57 @@ public class ShaderProcessor
 
         return StorageKind.Input;
     }
+
+    private static ITypeSymbol? GetSymbolType(ISymbol symbol) => symbol switch
+    {
+        IParameterSymbol p => p.Type,
+        IFieldSymbol f => f.Type,
+        IPropertySymbol p => p.Type,
+        _ => null
+    };
+    
+    private static bool IsStorageBuffer(ImmutableArray<AttributeData> attributes, ISymbol symbol, Compilation compilation)
+    {
+
+        if (GetSymbolType(symbol) is INamedTypeSymbol { IsGenericType: true } type)
+        {
+            if (IsOpenGeneric(typeof(StructuredBuffer<>), type, compilation) ||
+                IsOpenGeneric(typeof(RWStructuredBuffer<>), type, compilation)) return true;
+        }
+        
+        return attributes.Any(attribute =>
+            NameAttribute(attribute) == NameAttribute<StorageBufferAttribute>() ||
+            NameAttribute(attribute) == NameAttribute<Style.GlslStyle.Resources.buffer>() ||
+            NameAttribute(attribute) == NameAttribute<Style.VulkanStyle.Resources.StorageBuffer>() ||
+            NameAttribute(attribute) == NameAttribute<Style.WgslStyle.Resources.storage>() ||
+            NameAttribute(attribute) == NameAttribute<Style.MetalStyle.Resources.device>());
+    }
+
+    private static bool IsOpenGeneric(Type openType, INamedTypeSymbol symbol, Compilation compilation)
+        =>  SymbolEqualityComparer.Default.Equals(
+            symbol.OriginalDefinition,
+               compilation.GetTypeByMetadataName(openType.FullName!));
+    
+    private static bool IsUniform(ImmutableArray<AttributeData> attributes, ISymbol symbol, Compilation compilation)
+    {
+
+        if (GetSymbolType(symbol) is INamedTypeSymbol { IsGenericType: true } type)
+        {
+            if (IsOpenGeneric(typeof(ConstantBuffer<>), type, compilation)) return true;
+        }
+
+        return attributes.Any(attribute => 
+            NameAttribute(attribute) == NameAttribute<UniformAttribute>() ||
+            NameAttribute(attribute) == NameAttribute<Style.GlslStyle.Resources.uniform>() || 
+            NameAttribute(attribute) == NameAttribute<Style.VulkanStyle.Resources.Uniform>() || 
+            NameAttribute(attribute) == NameAttribute<Style.WgslStyle.Resources.uniform>() || 
+            NameAttribute(attribute) == NameAttribute<Style.MetalStyle.Resources.constant>() || 
+            NameAttribute(attribute) == NameAttribute<Style.HlslStyle.Resources.cbuffer>() 
+            );
+    }
+    
+    private static string NameAttribute(AttributeData attribute) => attribute.AttributeClass?.ToDisplayString()!;
+    private static string NameAttribute<T>() => typeof(T).FullName;
 
     private static string GetComponentInitialValue(ISymbol member, Compilation compilation)
     {
@@ -377,13 +433,12 @@ public class ShaderProcessor
         };
     }
 
-    private static InterfaceSlot? GetAttributeData(ImmutableArray<AttributeData> atributes)
+    private static InterfaceSlot? GetAttributeData(ImmutableArray<AttributeData> atributes, IRStage stage)
     {
         InterfaceSlot? slot = null;
         foreach (var attributeData in atributes.AsSpan())
         {
             var attributeName = attributeData.AttributeClass?.ToDisplayString();
-
 
             var locationAtribute = typeof(LocationAttribute).FullName;
 
@@ -411,7 +466,23 @@ public class ShaderProcessor
                     || match<BuiltIn_Position>()
                     || match<builtin_position>())
                 {
-                    builtIn = BuiltIn.Position;
+
+                    if (match<gl_Position>()
+                        || match<BuiltIn_Position>() && stage == Stage.Fragment)
+                    {
+                        throw new InvalidOperationInStageException(
+                            nameof(gl_Position) + " and " + nameof(BuiltIn_Position) 
+                            + " cant be part of Fragment or Compute Stage. Please dont use there.");
+                    }
+                    
+                    if (stage == Stage.Vertex)
+                    {
+                        builtIn = BuiltIn.Position;
+                    }
+                    else if(stage == Stage.Fragment)
+                    {
+                        builtIn = BuiltIn.FragCoord;
+                    }
                 }
                 else if (
                     match<SV_VertexID>()
