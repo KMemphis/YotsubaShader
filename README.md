@@ -52,8 +52,7 @@ The HLSL-like style is a good place to start because the relationship between st
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.StylesAttributes.HlslStyle; // Attribute names inspired by HLSL.
-using YotsubaShader.Language.StylesAttributes;
+using YotsubaShader.HlslSyntax; // Attribute names inspired by HLSL.
 
 public struct VertexInput
 {
@@ -116,7 +115,7 @@ The same class can grow to include uniforms, textures, buffers, and other stages
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.StylesAttributes.GlslStyle; // Attribute names inspired by GLSL.
+using YotsubaShader.GlslSyntax; // Attribute names inspired by GLSL.
 
 public struct VertexOutput
 {
@@ -139,7 +138,7 @@ public class Triangle
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.StylesAttributes.MetalStyle; // Attribute names inspired by Metal Shading Language.
+using YotsubaShader.MslSyntax; // Attribute names inspired by Metal Shading Language.
 
 public struct VertexOutput
 {
@@ -162,7 +161,7 @@ public class Triangle
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.StylesAttributes.VulkanStyle; // Attribute names inspired by Vulkan/SPIR-V.
+using YotsubaShader.SpirvSyntax; // Attribute names inspired by Vulkan/SPIR-V.
 
 public struct VertexOutput
 {
@@ -185,7 +184,7 @@ public class Triangle
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.StylesAttributes.WgslStyle; // Attribute names inspired by WGSL.
+using YotsubaShader.WgslSyntax; // Attribute names inspired by WGSL.
 
 public struct VertexOutput
 {
@@ -207,11 +206,11 @@ These names deliberately resemble their source languages. In C#, WGSL-inspired a
 
 ## Interfaces and resources
 
-You can describe interfaces with locations and resources with attributes. Use `[Location(n)]` on input and output fields or properties. The project also includes attributes for uniforms, storage buffers, bindings, descriptor sets, and their counterparts in the different styles.
+You can describe interfaces with locations and resources with attributes. Use `[Location(n)]` on input and output fields or properties. The project also includes attributes for uniforms, storage buffers, bindings, descriptor sets, and their counterparts in the different styles. `YotsubaShader.Language` is the neutral core (stages, `Location`, uniforms, native types); each `YotsubaShader.{Language}Syntax` project (`GlslSyntax`, `HlslSyntax`, `MslSyntax`, `SpirvSyntax`, `WgslSyntax`) is an optional vocabulary that you add only if you want to write attributes in that language's naming.
 
 ```csharp
 using Microsoft.Xna.Framework;
-using YotsubaShader.Language.StylesAttributes;
+using YotsubaShader.Language;
 using YotsubaShader.Language.Resources;
 
 public struct VertexInput

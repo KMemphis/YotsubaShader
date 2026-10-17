@@ -48,27 +48,25 @@ using YotsubaShader.IR.Intermediate.Types;
 using YotsubaShader.Language.Native.Types.Vector;
 using YotsubaShader.Language.Native.Types.Vector.Exceptions;
 using YotsubaShader.Language.Resources;
-using YotsubaShader.Language.StylesAttributes;
-using YotsubaShader.Language.StylesAttributes.Exceptions;
-using YotsubaShader.Language.StylesAttributes.GlslStyle.Resources;
-using YotsubaShader.Language.StylesAttributes.HlslStyle.Resorces;
-using YotsubaShader.Language.StylesAttributes.HlslStyle.Resources;
+using LocationAttribute = YotsubaShader.Language.LocationAttribute;
+using YotsubaShader.Language.Exceptions;
+using YotsubaShader.GlslSyntax.Resources;
+using YotsubaShader.HlslSyntax.Resources;
 using YotsubaShader.Roslyn.Model;
-using builtin_position = YotsubaShader.Language.StylesAttributes.WgslStyle.builtin_position;
-using BuiltIn_Position = YotsubaShader.Language.StylesAttributes.VulkanStyle.BuiltIn_Position;
-using builtin_vertex_index = YotsubaShader.Language.StylesAttributes.WgslStyle.builtin_vertex_index;
-using BuiltIn_VertexIndex = YotsubaShader.Language.StylesAttributes.VulkanStyle.BuiltIn_VertexIndex;
+using builtin_position = YotsubaShader.WgslSyntax.builtin_position;
+using BuiltIn_Position = YotsubaShader.SpirvSyntax.BuiltIn_Position;
+using builtin_vertex_index = YotsubaShader.WgslSyntax.builtin_vertex_index;
+using BuiltIn_VertexIndex = YotsubaShader.SpirvSyntax.BuiltIn_VertexIndex;
 using Double = YotsubaShader.IR.Intermediate.Types.Double;
-using gl_Position = YotsubaShader.Language.StylesAttributes.GlslStyle.gl_Position;
-using gl_VertexIndex = YotsubaShader.Language.StylesAttributes.GlslStyle.gl_VertexIndex;
+using gl_Position = YotsubaShader.GlslSyntax.gl_Position;
+using gl_VertexIndex = YotsubaShader.GlslSyntax.gl_VertexIndex;
 using LanguageStage = YotsubaShader.Language.Stage;
 using IRStage = YotsubaShader.IR.Intermediate.Stage;
 using ParameterInfo = YotsubaShader.Roslyn.Model.ParameterInfo;
-using position = YotsubaShader.Language.StylesAttributes.MetalStyle.position;
-using SV_Position = YotsubaShader.Language.StylesAttributes.HlslStyle.SV_Position;
-using SV_VertexID = YotsubaShader.Language.StylesAttributes.HlslStyle.SV_VertexID;
-using vertex_id = YotsubaShader.Language.StylesAttributes.MetalStyle.vertex_id;
-using Style = YotsubaShader.Language.StylesAttributes;
+using position = YotsubaShader.MslSyntax.position;
+using SV_Position = YotsubaShader.HlslSyntax.SV_Position;
+using SV_VertexID = YotsubaShader.HlslSyntax.SV_VertexID;
+using vertex_id = YotsubaShader.MslSyntax.vertex_id;
 namespace YotsubaShader.Roslyn;
 
 using ParameterInfo = Model.ParameterInfo;
@@ -357,10 +355,10 @@ public class ShaderProcessor
         
         return attributes.Any(attribute =>
             NameAttribute(attribute) == NameAttribute<StorageBufferAttribute>() ||
-            NameAttribute(attribute) == NameAttribute<Style.GlslStyle.Resources.buffer>() ||
-            NameAttribute(attribute) == NameAttribute<Style.VulkanStyle.Resources.StorageBuffer>() ||
-            NameAttribute(attribute) == NameAttribute<Style.WgslStyle.Resources.storage>() ||
-            NameAttribute(attribute) == NameAttribute<Style.MetalStyle.Resources.device>());
+            NameAttribute(attribute) == NameAttribute<YotsubaShader.GlslSyntax.Resources.buffer>() ||
+            NameAttribute(attribute) == NameAttribute<YotsubaShader.SpirvSyntax.Resources.StorageBuffer>() ||
+            NameAttribute(attribute) == NameAttribute<YotsubaShader.WgslSyntax.Resources.storage>() ||
+            NameAttribute(attribute) == NameAttribute<YotsubaShader.MslSyntax.Resources.device>());
     }
 
     private static bool IsOpenGeneric(Type openType, INamedTypeSymbol symbol, Compilation compilation)
@@ -378,11 +376,11 @@ public class ShaderProcessor
 
         return attributes.Any(attribute => 
             NameAttribute(attribute) == NameAttribute<UniformAttribute>() ||
-            NameAttribute(attribute) == NameAttribute<Style.GlslStyle.Resources.uniform>() || 
-            NameAttribute(attribute) == NameAttribute<Style.VulkanStyle.Resources.Uniform>() || 
-            NameAttribute(attribute) == NameAttribute<Style.WgslStyle.Resources.uniform>() || 
-            NameAttribute(attribute) == NameAttribute<Style.MetalStyle.Resources.constant>() || 
-            NameAttribute(attribute) == NameAttribute<Style.HlslStyle.Resources.cbuffer>() 
+            NameAttribute(attribute) == NameAttribute<YotsubaShader.GlslSyntax.Resources.uniform>() || 
+            NameAttribute(attribute) == NameAttribute<YotsubaShader.SpirvSyntax.Resources.Uniform>() || 
+            NameAttribute(attribute) == NameAttribute<YotsubaShader.WgslSyntax.Resources.uniform>() || 
+            NameAttribute(attribute) == NameAttribute<YotsubaShader.MslSyntax.Resources.constant>() || 
+            NameAttribute(attribute) == NameAttribute<YotsubaShader.HlslSyntax.Resources.cbuffer>() 
             );
     }
     

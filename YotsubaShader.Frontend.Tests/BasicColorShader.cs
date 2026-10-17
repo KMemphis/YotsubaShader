@@ -37,8 +37,7 @@
 
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.StylesAttributes;
-using YotsubaShader.Language.StylesAttributes.HlslStyle;
+using YotsubaShader.HlslSyntax;
 
 namespace YotsubaShader.Frontend.Tests;
 
