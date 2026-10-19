@@ -1,0 +1,4 @@
+[submodule "YotsubaShaderCross"]
+	path = YotsubaShaderCross
+	url = https://github.com/KMemphis/YotsubaShaderCross.git
+	branch = master
