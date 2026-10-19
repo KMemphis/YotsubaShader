@@ -1,4 +1,4 @@
-#region MS-PL License - Copyright (c) 2026 Memphis Yomael
+#region MS-PL License - Copyright (c) 2026 Memphis Yomael Núñez Cruz - Dominican Republic
 /*
 ╔════════════════════════════════════════════════════════════════════════════════════╗
 ║                                                                                    ║
@@ -10,7 +10,7 @@
 ║  ╚═╝     ╚═╝╚══════╝      ╚═╝     ╚══════╝                                         ║
 ║                                                                                    ║
 ╠════════════════════════════════════════════════════════════════════════════════════╣
-║  Copyright (c) 2026 Memphis Yomael                                                 ║
+║  Copyright (c) 2026 Memphis Yomael Núñez Cruz - Dominican Republic                 ║
 ╠════════════════════════════════════════════════════════════════════════════════════╣
 ║                                                                                    ║
 ║  Microsoft Public License (MS-PL)                                                  ║
@@ -69,4 +69,5 @@
 namespace YotsubaShader.GlslSyntax;
 
 [AttributeUsage(AttributeUsagesTable.Input)]
-public class gl_GlobalInvocationID : YotsubaShaderAttribute;
+[GlobalInvocationId]
+public class gl_GlobalInvocationID : YotsubaShaderConcept;

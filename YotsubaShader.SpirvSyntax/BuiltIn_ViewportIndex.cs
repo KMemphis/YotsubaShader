@@ -1,4 +1,4 @@
-#region MS-PL License - Copyright (c) 2026 Memphis Yomael
+#region MS-PL License - Copyright (c) 2026 Memphis Yomael Núñez Cruz - Dominican Republic
 /*
 ╔════════════════════════════════════════════════════════════════════════════════════╗
 ║                                                                                    ║
@@ -10,7 +10,7 @@
 ║  ╚═╝     ╚═╝╚══════╝      ╚═╝     ╚══════╝                                         ║
 ║                                                                                    ║
 ╠════════════════════════════════════════════════════════════════════════════════════╣
-║  Copyright (c) 2026 Memphis Yomael                                                 ║
+║  Copyright (c) 2026 Memphis Yomael Núñez Cruz - Dominican Republic                 ║
 ╠════════════════════════════════════════════════════════════════════════════════════╣
 ║                                                                                    ║
 ║  Microsoft Public License (MS-PL)                                                  ║
@@ -66,10 +66,13 @@
 */
 #endregion
 
+using YotsubaShader.Concepts.Vertex;
+
 namespace YotsubaShader.SpirvSyntax;
 
 [AttributeUsage(AttributeUsagesTable.InputOutput)]
-public class BuiltIn_ViewportIndex : YotsubaShaderAttribute
+[ViewportIndex]
+public class BuiltIn_ViewportIndex : YotsubaShaderConcept
 {
     
 }

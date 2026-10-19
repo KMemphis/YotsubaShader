@@ -1,4 +1,4 @@
-#region MS-PL License - Copyright (c) 2026 Memphis Yomael
+#region MS-PL License - Copyright (c) 2026 Memphis Yomael Núñez Cruz - Dominican Republic
 /*
 ╔════════════════════════════════════════════════════════════════════════════════════╗
 ║                                                                                    ║
@@ -10,7 +10,7 @@
 ║  ╚═╝     ╚═╝╚══════╝      ╚═╝     ╚══════╝                                         ║
 ║                                                                                    ║
 ╠════════════════════════════════════════════════════════════════════════════════════╣
-║  Copyright (c) 2026 Memphis Yomael                                                 ║
+║  Copyright (c) 2026 Memphis Yomael Núñez Cruz - Dominican Republic                 ║
 ╠════════════════════════════════════════════════════════════════════════════════════╣
 ║                                                                                    ║
 ║  Microsoft Public License (MS-PL)                                                  ║
@@ -69,9 +69,13 @@
 namespace YotsubaShader.WgslSyntax;
 
 [AttributeUsage(AttributeUsagesTable.Method)]
-public class @workgroup_size(uint x, uint y = 1, uint z = 1) : YotsubaShaderAttribute
+[WorkgroupSizeMethod]
+public class @workgroup_size : YotsubaShaderConcept
 {
-    public uint X { get; } = x;
-    public uint Y { get; } = y;
-    public uint Z { get; } = z;
+    public workgroup_size(uint x, uint y = 1, uint z = 1) 
+        : base(
+            (WorkgroupSizeMethodAttribute.X, (MetadataTypes.UInt, x)),
+            (WorkgroupSizeMethodAttribute.Y, (MetadataTypes.UInt, y)),
+            (WorkgroupSizeMethodAttribute.Z, (MetadataTypes.UInt, z)
+            )){}
 }

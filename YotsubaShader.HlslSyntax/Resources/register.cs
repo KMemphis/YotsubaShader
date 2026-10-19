@@ -1,4 +1,4 @@
-#region MS-PL License - Copyright (c) 2026 Memphis Yomael
+#region MS-PL License - Copyright (c) 2026 Memphis Yomael Núñez Cruz - Dominican Republic
 /*
 ╔════════════════════════════════════════════════════════════════════════════════════╗
 ║                                                                                    ║
@@ -10,7 +10,7 @@
 ║  ╚═╝     ╚═╝╚══════╝      ╚═╝     ╚══════╝                                         ║
 ║                                                                                    ║
 ╠════════════════════════════════════════════════════════════════════════════════════╣
-║  Copyright (c) 2026 Memphis Yomael                                                 ║
+║  Copyright (c) 2026 Memphis Yomael Núñez Cruz - Dominican Republic                 ║
 ╠════════════════════════════════════════════════════════════════════════════════════╣
 ║                                                                                    ║
 ║  Microsoft Public License (MS-PL)                                                  ║
@@ -66,10 +66,13 @@
 */
 #endregion
 
+using YotsubaShader.Concepts.BindingSlotsAndResources;
+
 namespace YotsubaShader.HlslSyntax.Resources;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
-public class register : YotsubaShaderAttribute
+[BindingSlot, TextureSlot, SamplerSlot]
+public class register : YotsubaShaderConcept
 {
     public register(RegisterPrefix prefix, int n)
     {

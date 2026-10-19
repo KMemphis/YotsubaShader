@@ -1,4 +1,4 @@
-#region MS-PL License - Copyright (c) 2026 Memphis Yomael
+#region MS-PL License - Copyright (c) 2026 Memphis Yomael Núñez Cruz - Dominican Republic
 /*
 ╔════════════════════════════════════════════════════════════════════════════════════╗
 ║                                                                                    ║
@@ -10,7 +10,7 @@
 ║  ╚═╝     ╚═╝╚══════╝      ╚═╝     ╚══════╝                                         ║
 ║                                                                                    ║
 ╠════════════════════════════════════════════════════════════════════════════════════╣
-║  Copyright (c) 2026 Memphis Yomael                                                 ║
+║  Copyright (c) 2026 Memphis Yomael Núñez Cruz - Dominican Republic                 ║
 ╠════════════════════════════════════════════════════════════════════════════════════╣
 ║                                                                                    ║
 ║  Microsoft Public License (MS-PL)                                                  ║
@@ -69,7 +69,8 @@
 namespace YotsubaShader.HlslSyntax;
 
 [AttributeUsage(AttributeUsagesTable.Method)]
-public class numthreads(uint x, uint y, uint z) : YotsubaShaderAttribute
+[WorkgroupSizeMethod]
+public class numthreads(uint x, uint y, uint z) : YotsubaShaderConcept
 {
     public uint X { get; } = x;
     public uint Y { get; } = y;

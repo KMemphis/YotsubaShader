@@ -1,4 +1,4 @@
-#region MS-PL License - Copyright (c) 2026 Memphis Yomael
+#region MS-PL License - Copyright (c) 2026 Memphis Yomael Núñez Cruz - Dominican Republic
 /*
 ╔════════════════════════════════════════════════════════════════════════════════════╗
 ║                                                                                    ║
@@ -10,7 +10,7 @@
 ║  ╚═╝     ╚═╝╚══════╝      ╚═╝     ╚══════╝                                         ║
 ║                                                                                    ║
 ╠════════════════════════════════════════════════════════════════════════════════════╣
-║  Copyright (c) 2026 Memphis Yomael                                                 ║
+║  Copyright (c) 2026 Memphis Yomael Núñez Cruz - Dominican Republic                 ║
 ╠════════════════════════════════════════════════════════════════════════════════════╣
 ║                                                                                    ║
 ║  Microsoft Public License (MS-PL)                                                  ║
@@ -66,10 +66,13 @@
 */
 #endregion
 
+using YotsubaShader.Concepts.BindingSlotsAndResources;
+
 namespace YotsubaShader.WgslSyntax.Resources;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
-public class @group(int s) : YotsubaShaderAttribute
+[BindingSlot, TextureSlot, SamplerSlot]
+public class @group(int s) : YotsubaShaderConcept
 {
     public int S = s;
 }

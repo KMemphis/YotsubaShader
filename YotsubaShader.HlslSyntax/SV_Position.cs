@@ -1,4 +1,4 @@
-#region MS-PL License - Copyright (c) 2026 Memphis Yomael
+#region MS-PL License - Copyright (c) 2026 Memphis Yomael Núñez Cruz - Dominican Republic
 /*
 ╔════════════════════════════════════════════════════════════════════════════════════╗
 ║                                                                                    ║
@@ -10,7 +10,7 @@
 ║  ╚═╝     ╚═╝╚══════╝      ╚═╝     ╚══════╝                                         ║
 ║                                                                                    ║
 ╠════════════════════════════════════════════════════════════════════════════════════╣
-║  Copyright (c) 2026 Memphis Yomael                                                 ║
+║  Copyright (c) 2026 Memphis Yomael Núñez Cruz - Dominican Republic                 ║
 ╠════════════════════════════════════════════════════════════════════════════════════╣
 ║                                                                                    ║
 ║  Microsoft Public License (MS-PL)                                                  ║
@@ -72,4 +72,5 @@ namespace YotsubaShader.HlslSyntax;
 /// Posicion que asigna el vertex shader a la gpu para que dibuje el vertice
 /// </summary>
 [AttributeUsage(AttributeUsagesTable.InputOutput)]
-public class SV_Position() : YotsubaShaderAttribute;
+[ClipSpacePosition, FragmentCoordinate]
+public class SV_Position() : YotsubaShaderConcept;

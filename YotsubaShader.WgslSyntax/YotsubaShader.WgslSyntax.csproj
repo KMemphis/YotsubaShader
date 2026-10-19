@@ -6,12 +6,17 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
-    <ItemGroup>
-        <Using Include="YotsubaShader.Language" />
-    </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\YotsubaShader.Language\YotsubaShader.Language.csproj" />
+        <Using Include="YotsubaShader.Concepts" />
+        <Using Include="YotsubaShader.Concepts.Vertex" />
+        <Using Include="YotsubaShader.Concepts.Fragment" />
+        <Using Include="YotsubaShader.Concepts.Compute" />
+    </ItemGroup>
+
+
+    <ItemGroup>
+        <ProjectReference Include="..\YotsubaShader.Concepts\YotsubaShader.Concepts.csproj" />
     </ItemGroup>
 
 </Project>

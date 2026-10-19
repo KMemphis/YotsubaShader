@@ -2,7 +2,7 @@
 
 The images in this folder are the Yotsuba Shader name and logo.
 
-They are **not** covered by the MIT License that applies to the rest of this repository. All rights in the name and logo are reserved by Memphis Yomael.
+They are **not** covered by the MIT License that applies to the rest of this repository. All rights in the name and logo are reserved by Memphis Yomael Núñez Cruz - Dominican Republic.
 
 You may not, without permission:
 

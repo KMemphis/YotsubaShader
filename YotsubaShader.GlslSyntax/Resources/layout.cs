@@ -1,4 +1,4 @@
-#region MS-PL License - Copyright (c) 2026 Memphis Yomael
+#region MS-PL License - Copyright (c) 2026 Memphis Yomael Núñez Cruz - Dominican Republic
 /*
 ╔════════════════════════════════════════════════════════════════════════════════════╗
 ║                                                                                    ║
@@ -10,7 +10,7 @@
 ║  ╚═╝     ╚═╝╚══════╝      ╚═╝     ╚══════╝                                         ║
 ║                                                                                    ║
 ╠════════════════════════════════════════════════════════════════════════════════════╣
-║  Copyright (c) 2026 Memphis Yomael                                                 ║
+║  Copyright (c) 2026 Memphis Yomael Núñez Cruz - Dominican Republic                 ║
 ╠════════════════════════════════════════════════════════════════════════════════════╣
 ║                                                                                    ║
 ║  Microsoft Public License (MS-PL)                                                  ║
@@ -66,10 +66,13 @@
 */
 #endregion
 
+using YotsubaShader.Concepts.BindingSlotsAndResources;
+
 namespace YotsubaShader.GlslSyntax.Resources;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
-public class layout(int set, int binding) : YotsubaShaderAttribute
+[BindingSlot, TextureSlot, SamplerSlot]
+public class layout(int set, int binding) : YotsubaShaderConcept
 {
     public int Set = set;
 
