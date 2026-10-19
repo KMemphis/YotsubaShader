@@ -7,3 +7,6 @@ outputs/
 
 # The website is its own repository (https://github.com/KMemphis/YotsubaShader-Web) cloned here as Web/
 /Web/
+
+# YotsubaShaderCross is its own repository (C# port of SPIRV-Cross) that lives here on disk for convenience
+/YotsubaShaderCross/
