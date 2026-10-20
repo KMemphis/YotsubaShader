@@ -88,6 +88,7 @@ public class YotsubaShaderConcept : Attribute
 
 public enum MetadataTypes
 {
+    Bool,
     Int,
     UInt,
     Float,

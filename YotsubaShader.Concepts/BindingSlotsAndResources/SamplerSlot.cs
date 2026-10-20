@@ -71,5 +71,6 @@ namespace YotsubaShader.Concepts.BindingSlotsAndResources;
 
 public class SamplerSlot : YotsubaShaderConcept
 {
-    
+    public const string SET = BindingSlot.SET;
+    public const string BINDING = BindingSlot.BINDING;
 }

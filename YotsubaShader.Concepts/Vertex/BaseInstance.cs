@@ -69,4 +69,4 @@
 
 namespace YotsubaShader.Concepts.Vertex;
 
-public class BaseInstance : Attribute;
+public class BaseInstance : YotsubaShaderConcept;
