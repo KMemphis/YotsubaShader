@@ -142,7 +142,7 @@ public static class ShaderDiscovery
     
     private static void GetVisitedMethods(HashSet<IMethodSymbol> visitedMethods, IMethodSymbol method)
     {
-        throw new NotImplementedException();
+        //throw new NotImplementedException();
     }
 
     private static bool TryGetStage(IMethodSymbol method, INamedTypeSymbol stageAttribute, out Stage stage)
