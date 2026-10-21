@@ -70,12 +70,7 @@ namespace YotsubaShader.HlslSyntax;
 
 [AttributeUsage(AttributeUsagesTable.Method)]
 [WorkgroupSizeMethod]
-public class numthreads : YotsubaShaderConcept
-{
-    public numthreads(uint x, uint y, uint z)
-        : base(
-            (WorkgroupSizeMethodAttribute.X, (MetadataTypes.UInt, x)),
-            (WorkgroupSizeMethodAttribute.Y, (MetadataTypes.UInt, y)),
-            (WorkgroupSizeMethodAttribute.Z, (MetadataTypes.UInt, z)
-            )){}
-}
+public class numthreads(
+    [ConceptKey(WorkgroupSizeMethodAttribute.X)] uint x,
+    [ConceptKey(WorkgroupSizeMethodAttribute.Y)] uint y,
+    [ConceptKey(WorkgroupSizeMethodAttribute.Z)] uint z) : YotsubaShaderConcept;

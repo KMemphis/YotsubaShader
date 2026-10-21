@@ -72,13 +72,13 @@ namespace YotsubaShader.WgslSyntax.Resources;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
 [RWStorageBuffer, ReadOnlyStorageBuffer]
-public class storage(storage_use use) : YotsubaShaderConcept
+public class storage([ConceptKey(RWStorageBuffer.USE)] storage_use use) : YotsubaShaderConcept
 {
     public storage_use Use = use;
 }
 
-public enum storage_use
+public enum storage_use : int
 {
-    read,
-    read_write
+    read = 0,
+    read_write = 1
 }

@@ -72,7 +72,7 @@ namespace YotsubaShader.MslSyntax.Resources;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
 [BindingSlot]
-public class buffer(int n) : YotsubaShaderConcept
+public class buffer([ConceptKey(BindingSlot.BINDING)] int n) : YotsubaShaderConcept
 {
     public int N = n;
 }

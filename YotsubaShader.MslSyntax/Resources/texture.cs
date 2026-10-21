@@ -72,7 +72,7 @@ namespace YotsubaShader.MslSyntax.Resources;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
 [BindingSlot, TextureSlot]
-public class texture(int n): YotsubaShaderConcept
+public class texture([ConceptKey(BindingSlot.BINDING)] int n): YotsubaShaderConcept
 {
     public int N = n;
 }

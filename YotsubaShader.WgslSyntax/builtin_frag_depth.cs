@@ -70,7 +70,7 @@ namespace YotsubaShader.WgslSyntax;
 
 [AttributeUsage(AttributeUsagesTable.Output)]
 [FragDepth]
-public class @builtin_frag_depth(string mode = "") : YotsubaShaderConcept
+public class @builtin_frag_depth([ConceptKey(FragDepth.MODE)] string mode = "") : YotsubaShaderConcept
 {
     public string Mode { get; } = mode;
 }

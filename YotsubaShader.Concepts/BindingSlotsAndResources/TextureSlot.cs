@@ -73,4 +73,8 @@ public class TextureSlot : YotsubaShaderConcept
 {
     public const string SET = BindingSlot.SET;
     public const string BINDING = BindingSlot.BINDING;
+    
+    
+    //public const string Prefix = BindingSlot.Prefix; // En el futuro se incluye si es necesario
+    public const string RegisterString = BindingSlot.RegisterString;
 }

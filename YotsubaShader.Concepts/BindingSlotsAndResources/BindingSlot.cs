@@ -73,4 +73,8 @@ public class BindingSlot : YotsubaShaderConcept
 {
     public const string SET = "Set";
     public const string BINDING = "Binding";
+    
+    //Hlsl Syntax
+    //public const string Prefix = BindingSlot.Prefix; // En el futuro se incluye si es necesario
+    public const string RegisterString = "RegisterString";
 }

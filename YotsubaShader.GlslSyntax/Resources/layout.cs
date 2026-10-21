@@ -72,14 +72,6 @@ namespace YotsubaShader.GlslSyntax.Resources;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
 [BindingSlot, TextureSlot, SamplerSlot]
-public class layout : YotsubaShaderConcept
-{
-
-    public layout(int set, int binding) : base(
-        (BindingSlot.SET, (MetadataTypes.Int, set.ToString())),
-        (BindingSlot.BINDING, (MetadataTypes.Int, binding.ToString()))
-        )
-    {
-        
-    }
-}
+public class layout(
+    [ConceptKey(BindingSlot.SET)] int set, 
+    [ConceptKey(BindingSlot.BINDING)] int binding) : YotsubaShaderConcept;

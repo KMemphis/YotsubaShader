@@ -70,12 +70,7 @@ namespace YotsubaShader.WgslSyntax;
 
 [AttributeUsage(AttributeUsagesTable.Method)]
 [WorkgroupSizeMethod]
-public class @workgroup_size : YotsubaShaderConcept
-{
-    public workgroup_size(uint x, uint y = 1, uint z = 1) 
-        : base(
-            (WorkgroupSizeMethodAttribute.X, (MetadataTypes.UInt, x)),
-            (WorkgroupSizeMethodAttribute.Y, (MetadataTypes.UInt, y)),
-            (WorkgroupSizeMethodAttribute.Z, (MetadataTypes.UInt, z)
-            )){}
-}
+public class @workgroup_size(
+    [ConceptKey(WorkgroupSizeMethodAttribute.X)] uint x,
+    [ConceptKey(WorkgroupSizeMethodAttribute.Y)] uint y = 1,
+    [ConceptKey(WorkgroupSizeMethodAttribute.Z)] uint z = 1) : YotsubaShaderConcept;

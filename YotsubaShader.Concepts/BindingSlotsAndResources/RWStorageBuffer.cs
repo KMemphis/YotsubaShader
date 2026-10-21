@@ -71,5 +71,5 @@ namespace YotsubaShader.Concepts.BindingSlotsAndResources;
 
 public class RWStorageBuffer : YotsubaShaderConcept
 {
-    
+    public const string USE = "Use";
 }

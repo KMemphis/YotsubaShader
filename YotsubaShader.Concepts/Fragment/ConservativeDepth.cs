@@ -71,5 +71,5 @@ namespace YotsubaShader.Concepts.Fragment;
 
 public class ConservativeDepth : YotsubaShaderConcept
 {
-    
+    public const string MODE = FragDepth.MODE;
 }

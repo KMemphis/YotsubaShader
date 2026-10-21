@@ -70,7 +70,7 @@ namespace YotsubaShader.MslSyntax;
 
 [AttributeUsage(AttributeUsagesTable.Output)]
 [FragDepth, ConservativeDepth]
-public class depth(string mode = "any") : YotsubaShaderConcept
+public class depth([ConceptKey(FragDepth.MODE)] string mode = "any") : YotsubaShaderConcept
 {
     public string Mode { get; } = mode;
 }

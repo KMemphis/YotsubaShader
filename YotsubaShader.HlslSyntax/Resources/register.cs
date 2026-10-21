@@ -74,8 +74,24 @@ namespace YotsubaShader.HlslSyntax.Resources;
 [BindingSlot, TextureSlot, SamplerSlot]
 public class register : YotsubaShaderConcept
 {
-    public register(RegisterPrefix prefix, int n)
+    public register([ConceptKey(BindingSlot.SET)] RegisterPrefix prefix, [ConceptKey(BindingSlot.BINDING)] int n)
     {
+
+        if (!Enum.IsDefined(prefix))
+            throw new ArgumentOutOfRangeException(nameof(prefix), prefix, "Unknown HLSL register prefix.");
+
+        if (n < 0)
+            throw new ArgumentOutOfRangeException(nameof(n), n, "An HLSL register index cannot be negative.");
+        
+
+        Prefix = prefix;
+        N = n;
+        Space = (int)prefix;
+    }
+    
+    public register(RegisterPrefix prefix, [ConceptKey(BindingSlot.BINDING)] int n, [ConceptKey(BindingSlot.SET)] int space)
+    {
+
         if (!Enum.IsDefined(prefix))
             throw new ArgumentOutOfRangeException(nameof(prefix), prefix, "Unknown HLSL register prefix.");
 
@@ -84,15 +100,25 @@ public class register : YotsubaShaderConcept
 
         Prefix = prefix;
         N = n;
+        Space = space;
     }
-    
-    public register(string resource)
+
+    public register([ConceptKey(BindingSlot.RegisterString)] string resource)
     {
         ArgumentNullException.ThrowIfNull(resource);
 
         if (resource.Length < 2)
             throw new ArgumentException($"Invalid HLSL register: '{resource}'.", nameof(resource));
 
+        var prefix = Parse(resource, out var binding);
+
+        Prefix = prefix;
+        N = binding;
+        Space = (int)prefix;
+    }
+
+    public static RegisterPrefix Parse(string resource, out int binding)
+    {
         ReadOnlySpan<char> text = resource.AsSpan();
         ReadOnlySpan<char> prefixText = text[..1];
 
@@ -105,22 +131,21 @@ public class register : YotsubaShaderConcept
                 numberText,
                 System.Globalization.NumberStyles.None,
                 System.Globalization.CultureInfo.InvariantCulture,
-                out var number))
+                out binding))
             throw new ArgumentException($"Invalid HLSL register index: '{numberText.ToString()}'.", nameof(resource));
-
-        Prefix = prefix;
-        N = number;
+        return prefix;
     }
-    
+
     public RegisterPrefix Prefix;
     public int N;
+    public int Space;
 }
 
-public enum RegisterPrefix
+public enum RegisterPrefix : int
 {
-    b,
-    t,
-    s,
-    u,
-    c
+    b = 0,
+    t = 1,
+    s = 2,
+    u = 3,
+    c = 4
 }

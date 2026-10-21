@@ -72,7 +72,7 @@ namespace YotsubaShader.SpirvSyntax.Resources;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
 [BindingSlot, TextureSlot, SamplerSlot]
-public class DescriptorSet(int s) : YotsubaShaderConcept
+public class DescriptorSet([ConceptKey(BindingSlot.SET)] int s) : YotsubaShaderConcept
 {
     public int S = s;
 }

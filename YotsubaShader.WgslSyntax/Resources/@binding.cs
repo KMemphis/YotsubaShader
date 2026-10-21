@@ -72,7 +72,7 @@ namespace YotsubaShader.WgslSyntax.Resources;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
 [BindingSlot, TextureSlot, SamplerSlot]
-public class @binding(int n) : YotsubaShaderConcept
+public class @binding([ConceptKey(BindingSlot.BINDING)] int n) : YotsubaShaderConcept
 {
     public int N = n;
 }

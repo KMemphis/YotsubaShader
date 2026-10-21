@@ -72,7 +72,7 @@ namespace YotsubaShader.MslSyntax.Resources;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
 [BindingSlot, SamplerSlot]
-public class sampler(int n) : YotsubaShaderConcept
+public class sampler([ConceptKey(BindingSlot.BINDING)] int n) : YotsubaShaderConcept
 {
     public int N = n;
 }

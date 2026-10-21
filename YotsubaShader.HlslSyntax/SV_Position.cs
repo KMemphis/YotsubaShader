@@ -73,4 +73,4 @@ namespace YotsubaShader.HlslSyntax;
 /// </summary>
 [AttributeUsage(AttributeUsagesTable.InputOutput)]
 [ClipSpacePosition, FragmentCoordinate]
-public class SV_Position() : YotsubaShaderConcept;
+public class SV_Position : YotsubaShaderConcept;

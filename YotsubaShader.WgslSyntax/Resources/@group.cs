@@ -72,7 +72,7 @@ namespace YotsubaShader.WgslSyntax.Resources;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
 [BindingSlot, TextureSlot, SamplerSlot]
-public class @group(int s) : YotsubaShaderConcept
+public class @group([ConceptKey(BindingSlot.SET)] int s) : YotsubaShaderConcept
 {
     public int S = s;
 }

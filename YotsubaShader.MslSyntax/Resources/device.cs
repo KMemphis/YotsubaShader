@@ -72,7 +72,7 @@ namespace YotsubaShader.MslSyntax.Resources;
 
 [AttributeUsage(AttributeUsagesTable.Resource)]
 [RWStorageBuffer, ReadOnlyStorageBuffer]
-public class device(bool readOnly = false) : YotsubaShaderConcept
+public class device([ConceptKey(RWStorageBuffer.USE)] bool readOnly = false) : YotsubaShaderConcept
 {
     public bool ReadOnly = readOnly;
 }
