@@ -47,7 +47,7 @@ Limits (these always apply):
 
 - No behavior changes. Logic, algorithms, public signatures, compiler stages, and IR semantics stay exactly as they are. A rename or move must be mechanical.
 - Namespace, assembly, and project renames change the public API for consumers. Call this out in the report before starting, not after.
-- Never touch `LICENSE`, `NOTICE`, the MIT license header at the top of each C# file, `assets/`, `.git/`, or secrets.
+- Never touch `LICENSE`, `NOTICE`, the MS-PL license header at the top of each C# file, `assets/`, `.git/`, or secrets.
 - Delete only what is recoverable: files tracked and committed in Git, or output the build regenerates. Untracked files that are not regenerable require the developer's confirmation first.
 - Before starting, check `git status` for the affected paths. If the developer has uncommitted changes there, stop and ask.
 - Do not edit the body of methods or types except what a mechanical rename or move requires (namespace line, `using`, `partial` split).

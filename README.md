@@ -320,7 +320,7 @@ Contributions are welcome. For design changes, open an issue describing the prob
 
 ## Licensing
 
-Yotsuba Shader is released under the [MIT License](LICENSE). Third-party notices are in [NOTICE](NOTICE).
+Yotsuba Shader is released under the [Microsoft Public License (MS-PL)](LICENSE). Third-party notices are in [NOTICE](NOTICE).
 
 The name and logo are not covered by the license. See [assets/README.md](assets/README.md).
 

@@ -74,7 +74,7 @@ The site is published in English and Spanish. Every English text has its Spanish
 
 ## Licensing of contributions
 
-Yotsuba Shader is released under the [MIT License](LICENSE). By submitting a contribution, you agree to license it under the same MIT License, and you confirm that you have the right to do so.
+Yotsuba Shader is released under the [Microsoft Public License (MS-PL)](LICENSE). By submitting a contribution, you agree to license it under the same Microsoft Public License (MS-PL), and you confirm that you have the right to do so.
 
 ## Using AI tools
 
