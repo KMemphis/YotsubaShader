@@ -70,7 +70,8 @@ namespace YotsubaShader.Language.Native.Types.Texture;
 
 public enum TextureComponentTypes
 {
-    Float,
-    Int,
-    Uint
+    Float = 1,
+    Int = 2,
+    Uint = 3,
+    GenericDefine = 4
 }

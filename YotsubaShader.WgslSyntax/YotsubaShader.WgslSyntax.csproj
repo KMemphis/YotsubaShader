@@ -17,6 +17,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\YotsubaShader.Concepts\YotsubaShader.Concepts.csproj" />
+        <ProjectReference Include="..\YotsubaShader.Language\YotsubaShader.Language.csproj" />
     </ItemGroup>
 
 </Project>

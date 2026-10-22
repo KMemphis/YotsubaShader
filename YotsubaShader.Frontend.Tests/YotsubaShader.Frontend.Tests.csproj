@@ -22,6 +22,7 @@
       <ProjectReference Include="..\YotsubaShader.Roslyn\YotsubaShader.Roslyn.csproj" />
       <ProjectReference Include="..\YotsubaShader.Language\YotsubaShader.Language.csproj" />
       <ProjectReference Include="..\YotsubaShader.HlslSyntax\YotsubaShader.HlslSyntax.csproj" />
+      <ProjectReference Include="..\YotsubaShader.SpirvSyntax\YotsubaShader.SpirvSyntax.csproj" />
     </ItemGroup>
 
 </Project>

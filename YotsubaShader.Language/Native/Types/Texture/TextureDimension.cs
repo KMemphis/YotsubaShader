@@ -70,8 +70,8 @@ namespace YotsubaShader.Language.Native.Types.Texture;
 
 public enum TextureDimension
 {
-    D1,
-    D2,
-    D3,
-    Cube
+   D1 = 1,
+    D2 = 2,
+    D3 = 3,
+    Cube = 4
 }

@@ -69,6 +69,7 @@
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
 using YotsubaShader.HlslSyntax;
+using YotsubaShader.SpirvSyntax;
 
 namespace YotsubaShader.Frontend.Tests;
 
@@ -76,10 +77,10 @@ public class BasicColorShader
 {
     public struct VS_Input
     {
-        [Location(0)]
+        [POSITION]
         public Vector2 Position;
 
-        [Location(1)]
+        [COLOR]
         public Vector4 Color;
     }
 
@@ -88,13 +89,13 @@ public class BasicColorShader
         [SV_Position]
         public Vector4 Position;
 
-        [Location(0)]
+        [COLOR]
         public Vector4 Color;
     }
 
     public struct FS_Input
     {
-        [Location(0)]
+        [COLOR]
         public Vector4 Color;
     }
 

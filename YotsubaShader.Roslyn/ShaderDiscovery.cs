@@ -129,10 +129,8 @@ public static class ShaderDiscovery
                 .Select(p => new ParameterInfo(p, false))
                 .ToImmutableArray();
             
-            var visitedMethods = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
             
-            GetVisitedMethods(visitedMethods, method);
-            entryPoints.Add(new EntryPointInfo(method, stage, parameters, method.ReturnType, visitedMethods));
+            entryPoints.Add(new EntryPointInfo(method, stage, parameters, method.ReturnType));
         }
 
         
@@ -140,10 +138,6 @@ public static class ShaderDiscovery
         return entryPoints.ToImmutable();
     }
     
-    private static void GetVisitedMethods(HashSet<IMethodSymbol> visitedMethods, IMethodSymbol method)
-    {
-        //throw new NotImplementedException();
-    }
 
     private static bool TryGetStage(IMethodSymbol method, INamedTypeSymbol stageAttribute, out Stage stage)
     {

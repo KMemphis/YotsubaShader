@@ -11,14 +11,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\YotsubaShader.Concepts\YotsubaShader.Concepts.csproj" />
         <ProjectReference Include="..\YotsubaShader.IR\YotsubaShader.IR.csproj" />
         <ProjectReference Include="..\YotsubaShader.Compiler.SpirV\YotsubaShader.Compiler.SpirV.csproj" />
         <ProjectReference Include="..\YotsubaShader.Language\YotsubaShader.Language.csproj" />
-        <ProjectReference Include="..\YotsubaShader.GlslSyntax\YotsubaShader.GlslSyntax.csproj" />
-        <ProjectReference Include="..\YotsubaShader.HlslSyntax\YotsubaShader.HlslSyntax.csproj" />
-        <ProjectReference Include="..\YotsubaShader.MslSyntax\YotsubaShader.MslSyntax.csproj" />
-        <ProjectReference Include="..\YotsubaShader.SpirvSyntax\YotsubaShader.SpirvSyntax.csproj" />
-        <ProjectReference Include="..\YotsubaShader.WgslSyntax\YotsubaShader.WgslSyntax.csproj" />
     </ItemGroup>
 
 </Project>

@@ -90,19 +90,20 @@ public record Texture(string HumanName, StorageKind Kind, InterfaceSlot? Slot) :
     public required TextureFormat Format;
 }
 
-public enum TextureDimensions
+public enum TextureDimensions : int
 {
-    Texture_1D,
-    Texture_2D,
-    Texture_3D,
-    Cube
+    Texture_1D = 1,
+    Texture_2D = 2,
+    Texture_3D = 3,
+    Cube = 4
 }
 
 public enum TextureComponentTypes
 {
-    Float,
-    Int,
-    Uint
+    Float = 1,
+    Int = 2,
+    Uint = 3,
+    GenericDefine = 4
 }
 
 public enum TextureUsage

@@ -71,36 +71,29 @@ using System.Globalization;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Operations;
+using YotsubaShader.Concepts;
+using YotsubaShader.Concepts.BindingSlotsAndResources;
+using YotsubaShader.Concepts.Fragment;
+using YotsubaShader.Concepts.Vertex;
 using YotsubaShader.IR.Intermediate;
 using YotsubaShader.IR.Intermediate.FunctionBody;
 using YotsubaShader.IR.Intermediate.Slot;
 using YotsubaShader.IR.Intermediate.Slot.Types;
 using YotsubaShader.IR.Intermediate.Types;
+using YotsubaShader.Language.Native.Types;
+using YotsubaShader.Language.Native.Types.Texture;
 using YotsubaShader.Language.Native.Types.Vector;
 using YotsubaShader.Language.Native.Types.Vector.Exceptions;
-using YotsubaShader.Language.Resources;
-using LocationAttribute = YotsubaShader.Language.LocationAttribute;
-using YotsubaShader.Language.Exceptions;
-using YotsubaShader.GlslSyntax.Resources;
-using YotsubaShader.HlslSyntax.Resources;
 using YotsubaShader.Roslyn.Model;
-using builtin_position = YotsubaShader.WgslSyntax.builtin_position;
-using BuiltIn_Position = YotsubaShader.SpirvSyntax.BuiltIn_Position;
-using builtin_vertex_index = YotsubaShader.WgslSyntax.builtin_vertex_index;
-using BuiltIn_VertexIndex = YotsubaShader.SpirvSyntax.BuiltIn_VertexIndex;
 using Double = YotsubaShader.IR.Intermediate.Types.Double;
-using gl_Position = YotsubaShader.GlslSyntax.gl_Position;
-using gl_VertexIndex = YotsubaShader.GlslSyntax.gl_VertexIndex;
 using LanguageStage = YotsubaShader.Language.Stage;
 using IRStage = YotsubaShader.IR.Intermediate.Stage;
-using ParameterInfo = YotsubaShader.Roslyn.Model.ParameterInfo;
-using position = YotsubaShader.MslSyntax.position;
-using SV_Position = YotsubaShader.HlslSyntax.SV_Position;
-using SV_VertexID = YotsubaShader.HlslSyntax.SV_VertexID;
-using vertex_id = YotsubaShader.MslSyntax.vertex_id;
+using TextureComponentTypes = YotsubaShader.Language.Native.Types.Texture.TextureComponentTypes;
+using TextureDepth = YotsubaShader.Language.Native.Types.Texture.TextureDepth;
+using TextureFormat = YotsubaShader.Language.Native.Types.Texture.TextureFormat;
+using TextureUsage = YotsubaShader.Language.Native.Types.Texture.TextureUsage;
+using IR = YotsubaShader.IR.Intermediate;
 namespace YotsubaShader.Roslyn;
-
-using ParameterInfo = Model.ParameterInfo;
 
 public class ShaderProcessor
 {
@@ -305,6 +298,84 @@ public class ShaderProcessor
                 storage = vector;
             }    
         }
+
+        if (storage is null && storageKind == StorageKind.Sampler)
+            storage = new Sampler(symbol.Name, storageKind, slot);
+
+        if (storage is null && storageKind == StorageKind.Texture)
+        {
+            string textureAttributeFullName = typeof(TextureAttribute).FullName!;
+
+            var targetType = type is INamedTypeSymbol { IsGenericType: true } named
+                ? named.OriginalDefinition
+                : type;
+
+            var textureAttr = targetType?.GetAttributes().FirstOrDefault(a =>
+                                  a.AttributeClass?.ToDisplayString() == textureAttributeFullName)
+                              ?? symbol.GetAttributes().FirstOrDefault(a => a.AttributeClass?.ToDisplayString()
+                                                                            == textureAttributeFullName);
+
+            if (textureAttr is not null)
+            {
+                
+                //dimension
+                var dimValue = (int)textureAttr.ConstructorArguments[0].Value!;
+                var dimension = (TextureDimensions)dimValue;
+                
+                //component type
+                var compTypeValue = (int)textureAttr.ConstructorArguments[1].Value!;
+                var compType = (IR.Intermediate.Types.TextureComponentTypes)compTypeValue;
+
+                if (compType == IR.Intermediate.Types.TextureComponentTypes.GenericDefine && type is INamedTypeSymbol
+                    {
+                        TypeArguments: [var typeArg]
+                    })
+                {
+                    compType = typeArg.SpecialType switch
+                    {
+                        SpecialType.System_Int32 => IR.Intermediate.Types.TextureComponentTypes.Int,
+                        SpecialType.System_UInt32 => IR.Intermediate.Types.TextureComponentTypes.Uint,
+                        _ => IR.Intermediate.Types.TextureComponentTypes.Float
+                    };
+                }
+
+                bool arrayed = textureAttr.NamedArguments.FirstOrDefault(x =>
+                    x.Key == nameof(TextureAttribute.Arrayed)).Value.Value as bool? ?? false;
+                   
+                bool multisampled = textureAttr.NamedArguments
+                    .FirstOrDefault(x => 
+                        x.Key == nameof(TextureAttribute.Multisampled)).Value.Value as bool? ?? false;
+                
+                var depth = textureAttr.NamedArguments.FirstOrDefault(x => x.Key == nameof(TextureAttribute.Depth)).Value.Value is int d 
+                    ? (TextureDepth)d 
+                    : TextureDepth.No;
+                
+                IR.Intermediate.Types.TextureDepth irDepth = (IR.Intermediate.Types.TextureDepth)depth;
+                
+                var usage = textureAttr.NamedArguments.FirstOrDefault(x => x.Key == nameof(TextureAttribute.Usage)).Value.Value is int u 
+                    ? (TextureUsage)u 
+                    : TextureUsage.Sampled;
+
+                IR.Intermediate.Types.TextureUsage irUsage = (IR.Intermediate.Types.TextureUsage)usage;
+                
+                var format = textureAttr.NamedArguments.FirstOrDefault(x => x.Key == nameof(TextureAttribute.Format)).Value.Value is int f 
+                    ? (TextureFormat)f 
+                    : TextureFormat.Unknown;
+
+                IR.Intermediate.Types.TextureFormat irFormat = (IR.Intermediate.Types.TextureFormat)format;
+                storage = new Texture(symbol.Name, storageKind, slot)
+                {
+                    Dimensions = dimension,
+                    TextureComponentsType = compType,
+                    Arrayed = arrayed,
+                    Multisampled = multisampled,
+                    Depth = irDepth,
+                    Usage = irUsage,
+                    Format = irFormat
+                };
+            }
+        }
+        
         if (storage is null && type is INamedTypeSymbol { TypeKind: TypeKind.Struct } structType)
         {
             var properties = new List<Storage>();
@@ -348,23 +419,70 @@ public class ShaderProcessor
         
         var isStorageBuffer = IsStorageBuffer(attributes, symbol, compilation);
 
+        var isTexture = IsTexture(attributes, symbol, compilation);
+        
+        var isSampler = IsSampler(attributes, symbol, compilation);
+
+        if (isTexture) return StorageKind.Texture;
+
+        if (isSampler) return StorageKind.Sampler;
+        
         if (isUniform && isStorageBuffer)
         {
             throw new InvalidOperationException(
                 $"Storage '{symbol.ToDisplayString()}' cannot be both a uniform and a storage buffer.");
         }
-
+        
+        
         if (isUniform)
         {
             return StorageKind.Uniform;
         }
-
+        
         if (isStorageBuffer)
         {
             return StorageKind.StorageBuffer;
         }
 
         return StorageKind.Input;
+    }
+
+    private static bool IsSampler(ImmutableArray<AttributeData> attributes, ISymbol symbol, Compilation compilation)
+    {
+        ITypeSymbol? type = GetSymbolType(symbol);
+        if (type is null) return false;
+
+        string textureAttrName = typeof(SamplerAttribute).FullName!;
+
+        var targetType = type is INamedTypeSymbol { IsGenericType: true } 
+            named ? named.OriginalDefinition : type;
+
+        if (targetType.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() ==
+                                                textureAttrName))
+        {
+            return true;
+        }
+
+        return attributes.Any(a => a.AttributeClass?.ToDisplayString() == textureAttrName);
+    }
+
+    private static bool IsTexture(ImmutableArray<AttributeData> attributes, ISymbol symbol, Compilation compilation)
+    {
+        ITypeSymbol? type = GetSymbolType(symbol);
+        if (type is null) return false;
+
+        string textureAttrName = typeof(TextureAttribute).FullName!;
+
+        var targetType = type is INamedTypeSymbol { IsGenericType: true } 
+            named ? named.OriginalDefinition : type;
+
+        if (targetType.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() ==
+                                                textureAttrName))
+        {
+            return true;
+        }
+
+        return attributes.Any(a => a.AttributeClass?.ToDisplayString() == textureAttrName);
     }
 
     private static ITypeSymbol? GetSymbolType(ISymbol symbol) => symbol switch
@@ -377,46 +495,29 @@ public class ShaderProcessor
     
     private static bool IsStorageBuffer(ImmutableArray<AttributeData> attributes, ISymbol symbol, Compilation compilation)
     {
-
-        if (GetSymbolType(symbol) is INamedTypeSymbol { IsGenericType: true } type)
+        if (GetSymbolType(symbol) is INamedTypeSymbol { IsGenericType: true } type && 
+            (TypeHasConcept<RWStorageBuffer>(type) || TypeHasConcept<ReadOnlyStorageBuffer>(type)))
         {
-            if (IsOpenGeneric(typeof(StructuredBuffer<>), type, compilation) ||
-                IsOpenGeneric(typeof(RWStructuredBuffer<>), type, compilation)) return true;
+            return true;
         }
-        
+
         return attributes.Any(attribute =>
-            NameAttribute(attribute) == NameAttribute<StorageBufferAttribute>() ||
-            NameAttribute(attribute) == NameAttribute<YotsubaShader.GlslSyntax.Resources.buffer>() ||
-            NameAttribute(attribute) == NameAttribute<YotsubaShader.SpirvSyntax.Resources.StorageBuffer>() ||
-            NameAttribute(attribute) == NameAttribute<YotsubaShader.WgslSyntax.Resources.storage>() ||
-            NameAttribute(attribute) == NameAttribute<YotsubaShader.MslSyntax.Resources.device>());
+            HasConcept<RWStorageBuffer>(attribute) ||
+            HasConcept<ReadOnlyStorageBuffer>(attribute));
     }
 
-    private static bool IsOpenGeneric(Type openType, INamedTypeSymbol symbol, Compilation compilation)
-        =>  SymbolEqualityComparer.Default.Equals(
-            symbol.OriginalDefinition,
-               compilation.GetTypeByMetadataName(openType.FullName!));
-    
     private static bool IsUniform(ImmutableArray<AttributeData> attributes, ISymbol symbol, Compilation compilation)
     {
 
-        if (GetSymbolType(symbol) is INamedTypeSymbol { IsGenericType: true } type)
+        if (GetSymbolType(symbol) is INamedTypeSymbol { IsGenericType: true } type && TypeHasConcept<UniformBuffer>(type))
         {
-            if (IsOpenGeneric(typeof(ConstantBuffer<>), type, compilation)) return true;
+            return true;
         }
 
         return attributes.Any(attribute => 
-            NameAttribute(attribute) == NameAttribute<UniformAttribute>() ||
-            NameAttribute(attribute) == NameAttribute<YotsubaShader.GlslSyntax.Resources.uniform>() || 
-            NameAttribute(attribute) == NameAttribute<YotsubaShader.SpirvSyntax.Resources.Uniform>() || 
-            NameAttribute(attribute) == NameAttribute<YotsubaShader.WgslSyntax.Resources.uniform>() || 
-            NameAttribute(attribute) == NameAttribute<YotsubaShader.MslSyntax.Resources.constant>() || 
-            NameAttribute(attribute) == NameAttribute<YotsubaShader.HlslSyntax.Resources.cbuffer>() 
+            HasConcept<UniformBuffer>(attribute)
             );
     }
-    
-    private static string NameAttribute(AttributeData attribute) => attribute.AttributeClass?.ToDisplayString()!;
-    private static string NameAttribute<T>() => typeof(T).FullName;
 
     private static string GetComponentInitialValue(ISymbol member, Compilation compilation)
     {
@@ -467,11 +568,7 @@ public class ShaderProcessor
         InterfaceSlot? slot = null;
         foreach (var attributeData in atributes.AsSpan())
         {
-            var attributeName = attributeData.AttributeClass?.ToDisplayString();
-
-            var locationAtribute = typeof(LocationAttribute).FullName;
-
-            if (attributeName == locationAtribute)
+            if (HasConcept<LocationAttribute>(attributeData)) 
             {
                 if (attributeData.ConstructorArguments is [{ Value: int location }])
                 {
@@ -479,31 +576,31 @@ public class ShaderProcessor
                     return slot;
                 }
             }
+            else if (HasConcept<UserSemanticAttribute>(attributeData))
+            {
+                int index = attributeData.ConstructorArguments is [{ Value: int idx }] ? idx : 0;
+
+                VertexUsage usage = attributeData.AttributeClass?.Name switch
+                {
+                    "POSITION" => VertexUsage.Position,
+                    "COLOR" => VertexUsage.Color,
+                    "TEXCOORD" => VertexUsage.TextureCoordinate,
+                    "NORMAL" => VertexUsage.Normal,
+                    "TANGENT" => VertexUsage.Tangent,
+                    "BINORMAL" => VertexUsage.Binormal,
+                     _ => VertexUsage.Position
+                };
+
+                slot = new VertexSlot(new VertexSemantic(usage, index));
+                return slot;
+            }
             else
             {
-
-                bool match<T>()
-                {
-                    return attributeName == typeof(T).FullName;
-                }
-
                 BuiltIn? builtIn = null;
 
-                if (match<SV_Position>()
-                    || match<position>()
-                    || match<gl_Position>()
-                    || match<BuiltIn_Position>()
-                    || match<builtin_position>())
+                if (HasConcept<ClipSpacePosition>(attributeData) || 
+                    HasConcept<FragmentCoordinate>(attributeData))
                 {
-
-                    if (match<gl_Position>()
-                        || match<BuiltIn_Position>() && stage == Stage.Fragment)
-                    {
-                        throw new InvalidOperationInStageException(
-                            nameof(gl_Position) + " and " + nameof(BuiltIn_Position) 
-                            + " cant be part of Fragment or Compute Stage. Please dont use there.");
-                    }
-                    
                     if (stage == Stage.Vertex)
                     {
                         builtIn = BuiltIn.Position;
@@ -514,11 +611,7 @@ public class ShaderProcessor
                     }
                 }
                 else if (
-                    match<SV_VertexID>()
-                    || match<vertex_id>()
-                    || match<gl_VertexIndex>()
-                    || match<BuiltIn_VertexIndex>()
-                    || match<builtin_vertex_index>())
+                    HasConcept<VertexIndex>(attributeData))
                 {
                     builtIn = BuiltIn.VertexIndex;
                 }
@@ -529,5 +622,29 @@ public class ShaderProcessor
         }
 
         return slot;
+    }
+    
+    private static bool HasConcept<TConcept>(AttributeData attribute) 
+        where TConcept : YotsubaShaderConcept
+    {
+        string conceptFullName = typeof(TConcept).FullName!;
+
+        // 1. Si el atributo es directamente el concepto (ej: [UniformBuffer])
+        if (attribute.AttributeClass?.ToDisplayString() == conceptFullName)
+            return true;
+
+        // 2. Si la clase del atributo (ej: layout, cbuffer, @binding, etc.) está decorada con el concepto
+        return attribute.AttributeClass?.GetAttributes()
+            .Any(a => a.AttributeClass?.ToDisplayString() == conceptFullName) == true;
+    }
+    
+    private static bool TypeHasConcept<TConcept>(INamedTypeSymbol type) 
+        where TConcept : YotsubaShaderConcept
+    {
+        string conceptFullName = typeof(TConcept).FullName!;
+
+        // OriginalDefinition desenrolla el genérico: ConstantBuffer<MisDatos> -> ConstantBuffer<T>
+        return type.OriginalDefinition.GetAttributes()
+            .Any(a => a.AttributeClass?.ToDisplayString() == conceptFullName);
     }
 }

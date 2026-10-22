@@ -90,8 +90,7 @@ public sealed record EntryPointInfo(
     IMethodSymbol Method,
     Stage Stage,
     ImmutableArray<ParameterInfo> Parameters,
-    ITypeSymbol ReturnType,
-    HashSet<IMethodSymbol> CalledMethods)
+    ITypeSymbol ReturnType)
 {
     public string Name => Method.Name;
 }
