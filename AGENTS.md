@@ -2,15 +2,17 @@
 
 ## Mission
 
-Assist developers by understanding YotsubaShader's source code, explaining how it works, clarifying concepts and design decisions, and proposing better solutions. The goal is to improve developers' understanding and decision-making without taking control of the codebase. Agents may also act as repository operators for housekeeping tasks that reorganize the repository without changing what the software does.
+Assist developers by understanding YotsubaShader's source code, explaining how it works, clarifying concepts and design decisions, and proposing better solutions. The goal is to improve developers' understanding and decision-making without taking control of the codebase. Agents may also maintain Markdown documentation, add missing copyright notices when explicitly requested, and act as repository operators for housekeeping tasks that reorganize the repository without changing what the software does.
 
 ## Mandatory read-only mode
 
-Agents working in this repository must operate in read-only mode, except for (1) the web project inside the `Web/` directory and (2) the repository housekeeping tasks defined in "Housekeeping exception" below. The `Web/` exception applies only to the web site's source, styles, assets, and configuration contained within that directory. Neither exception allows changing what the software does.
+Agents working in this repository must operate in read-only mode, except for (1) the web project inside the `Web/` directory, (2) Markdown documentation as defined in "Documentation exception", (3) missing copyright notices as defined in "Copyright notice exception", and (4) the repository housekeeping tasks defined in "Housekeeping exception" below. The `Web/` exception applies only to the web site's source, styles, assets, and configuration contained within that directory. None of these exceptions allows changing what the software does.
 
 Agents may:
 
 - inspect source code, project files, documentation, tests, configuration, and Git history;
+- create and edit Markdown documentation when requested, subject to the documentation exception below;
+- add a missing copyright notice when explicitly requested, subject to the copyright notice exception below;
 - explain code behavior, architecture, algorithms, compiler stages, data flow, and relevant concepts;
 - identify bugs, risks, limitations, inconsistencies, and possible regressions;
 - suggest refactorings, APIs, algorithms, tests, documentation changes, and alternative designs;
@@ -19,16 +21,28 @@ Agents may:
 
 Agents must not:
 
-- edit, create, rename, move, or delete source files, documentation, configuration, assets, or generated files outside `Web/`, except as allowed by the housekeeping exception;
-- apply patches, format files, regenerate code, or update dependencies;
+- edit, create, rename, move, or delete source files, non-Markdown documentation, configuration, assets, or generated files outside `Web/`, except as allowed by the copyright notice and housekeeping exceptions;
+- apply patches, format files, regenerate code, or update dependencies, except for authorized Markdown documentation, copyright-notice additions, web changes, and housekeeping work;
 - use Git operations to introduce code or documentation changes that the developer did not request;
 - create pull requests or issues on behalf of the developer;
-- run commands whose purpose or side effect is to modify the working tree or repository, except for the authorized Git backup operations and the housekeeping exception described below;
+- run commands whose purpose or side effect is to modify the working tree or repository, except for authorized Markdown documentation, copyright-notice additions, web changes, Git backup operations, and housekeeping work described below;
 - present an unimplemented suggestion as if it had already been applied.
 
 ### Web project exception
 
 Within `Web/`, agents may implement and validate web-related changes when requested, including editing web source files, styles, assets, and web configuration. This exception does not grant permission to modify files outside `Web/`, change the shader framework or compiler, or update shared dependencies. Authorized Git backup operations remain allowed as described below. Agents must still explain the changes, keep them scoped to the web project, and avoid unrelated edits.
+
+### Documentation exception
+
+Agents may create and edit `README` files and any other files whose extension is `.md` when the developer requests documentation work. Documentation changes may describe, explain, or reorganize existing information, but must not change source code, configuration, dependencies, compiler behavior, public APIs, or generated files. Documentation must distinguish current behavior from planned behavior and must not claim that an unimplemented feature already works.
+
+This exception does not permit editing or deleting `LICENSE` or `NOTICE`, deleting Markdown files, or modifying non-Markdown files merely to keep them synchronized with documentation. Renaming or moving Markdown files is allowed only under the housekeeping exception.
+
+### Copyright notice exception
+
+When the developer explicitly requests it, agents may add a missing copyright notice to a file that does not already contain one. Agents must not edit, replace, reformat, move, or delete an existing copyright notice or license header. They must not alter `LICENSE` or `NOTICE`, and they must preserve the file's behavior and all content unrelated to the newly added notice.
+
+Before adding a notice, agents must verify that the target file has no existing copyright notice or license header and must use the repository's established notice verbatim unless the developer supplies different exact text. Afterward, agents must report every file to which a notice was added.
 
 ### Housekeeping exception
 
@@ -47,7 +61,7 @@ Limits (these always apply):
 
 - No behavior changes. Logic, algorithms, public signatures, compiler stages, and IR semantics stay exactly as they are. A rename or move must be mechanical.
 - Namespace, assembly, and project renames change the public API for consumers. Call this out in the report before starting, not after.
-- Never touch `LICENSE`, `NOTICE`, the MS-PL license header at the top of each C# file, `assets/`, `.git/`, or secrets.
+- Never alter or remove `LICENSE`, `NOTICE`, an existing MS-PL license header or copyright notice, `assets/`, `.git/`, or secrets. A missing copyright notice may be added only under the copyright notice exception.
 - Delete only what is recoverable: files tracked and committed in Git, or output the build regenerates. Untracked files that are not regenerable require the developer's confirmation first.
 - Before starting, check `git status` for the affected paths. If the developer has uncommitted changes there, stop and ask.
 - Do not edit the body of methods or types except what a mechanical rename or move requires (namespace line, `using`, `partial` split).
@@ -85,7 +99,7 @@ When analyzing a request:
 5. Include focused examples or pseudocode when they improve understanding.
 6. If validation is useful, describe the tests or checks the developer should run.
 
-When suggesting a change, identify the affected files and the intended edits, but leave implementation to the developer. If the request explicitly asks for a modification that falls outside the `Web/` and housekeeping exceptions, explain that this repository's agent policy permits analysis and recommendations only for that kind of change, and provide the exact proposed change for the developer to apply.
+When suggesting a change, identify the affected files and the intended edits, but leave implementation to the developer. If the request explicitly asks for a modification that falls outside the Web, documentation, copyright notice, and housekeeping exceptions, explain that this repository's agent policy permits analysis and recommendations only for that kind of change, and provide the exact proposed change for the developer to apply.
 
 ## Safety and accuracy
 

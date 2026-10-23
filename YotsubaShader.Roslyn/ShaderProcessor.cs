@@ -68,6 +68,7 @@
 
 using System.Collections.Immutable;
 using System.Globalization;
+using System.Reflection.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Operations;
@@ -77,6 +78,8 @@ using YotsubaShader.Concepts.Fragment;
 using YotsubaShader.Concepts.Vertex;
 using YotsubaShader.IR.Intermediate;
 using YotsubaShader.IR.Intermediate.FunctionBody;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.AssignmentTargets;
 using YotsubaShader.IR.Intermediate.Slot;
 using YotsubaShader.IR.Intermediate.Slot.Types;
 using YotsubaShader.IR.Intermediate.Types;
@@ -97,15 +100,14 @@ namespace YotsubaShader.Roslyn;
 
 public class ShaderProcessor
 {
-    public readonly List<Shader> Shaders = new List<Shader>();
+    public readonly List<Shader> Shaders = [];
 
     public void Process(Compilation compilation, CancellationToken token)
     { 
         var csharpShaderMetadata = ShaderDiscovery.Find(compilation, token);
         foreach (ShaderInfo shaderInfo in csharpShaderMetadata)
         {
-            
-            List<Function> shaderFunction = new List<Function>();
+            var shaderFunction = new List<Function>();
             foreach (var shaderInfoEntryPoint in shaderInfo.EntryPoints)
             {
                 IRStage stage = shaderInfoEntryPoint.Stage switch
@@ -116,16 +118,35 @@ public class ShaderProcessor
                     _ => IRStage.None
                 };
 
-                List<Storage> inputs = new List<Storage>();
-                List<Storage> outputs = new List<Storage>();
-                List<Statement> bodyFunc = new List<Statement>();
+                var inputs = new Dictionary<ISymbol, Storage>(SymbolEqualityComparer.Default);
+                var outputs = new Dictionary<ISymbol, Storage>(SymbolEqualityComparer.Default);
+                var bodyFunc = new List<Statement>();
                 
                 //Process Inputs
                 foreach (var parameterInfo in shaderInfoEntryPoint.Parameters)
                 {
-                    inputs.Add(ProcessInput(parameterInfo, compilation, stage));
+                    var param = ProcessParameter(parameterInfo, compilation, stage);
+                    switch (parameterInfo.RefKind)
+                    {
+                        case RefKind.Out:
+                            outputs.Add(parameterInfo.Symbol, param);
+                            break;
+                        case RefKind.None:
+                        case RefKind.In:
+                        case RefKind.Ref:
+                        case RefKind.RefReadOnlyParameter:
+                        default:
+                            inputs.Add(parameterInfo.Symbol, param);
+                            break;
+                    }
                 }
-                    
+
+                if (shaderInfoEntryPoint.Method.ReturnType.SpecialType != SpecialType.System_Void)
+                {
+                    Storage? returnType = ProcessReturn(shaderInfoEntryPoint, compilation, stage);
+                    if(returnType is not null) outputs.Add(shaderInfoEntryPoint.ReturnType, returnType);
+                }
+                
                 var syntax = shaderInfoEntryPoint.Method.DeclaringSyntaxReferences[0].GetSyntax();
                 var semanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
 
@@ -134,32 +155,43 @@ public class ShaderProcessor
                 if (operations is IMethodBodyOperation body)
                 {
                     var blockOperations = body.BlockBody ?? body.ExpressionBody ?? throw new NotImplementedException();
-                    foreach (var op in blockOperations.Operations)
+                    var span = blockOperations.Operations.AsSpan();
+                    foreach (var op in span)
                     {
-                        switch (op)
-                        {
-                            case IAssignmentOperation assignmentOperation:
-                                    
-                                break;
-                        }
+                        ProcessStatement(op, inputs, outputs, out var statement);
+                        if (statement is null) continue;
+                        bodyFunc.Add(statement);
                     }
                 }
                 
-                
-                Function fn = new Function(shaderInfoEntryPoint.Name, stage, inputs, outputs, bodyFunc);
-
+                Function fn = new Function(shaderInfoEntryPoint.Name, stage, inputs.Values.ToArray(), outputs.Values.ToArray(), bodyFunc);
+                shaderFunction.Add(fn);
             }
+            var shader = new Shader(shaderFunction);
+            Shaders.Add(shader);
         }
     }
-
-    private Storage ProcessInput(ParameterInfo parameterInfo, Compilation compilation, IRStage stage)
+    private static void ProcessStatement(
+        IOperation op,
+        Dictionary<ISymbol, Storage> inputs,
+        Dictionary<ISymbol, Storage> outputs,
+        out Statement? statement)
     {
-        InterfaceSlot? slot = null;
-        var atributes = parameterInfo.Symbol.GetAttributes();
+        StatementOperationProcessor.ProcessStatement(op, inputs, outputs, out statement);
+    }
 
-        if (atributes.Length > 0)
+    private Storage ProcessParameter(ParameterInfo parameterInfo, Compilation compilation, IRStage stage)
+    {
+        InterfaceSlot? slot
+             = GetAttributeData(parameterInfo.Symbol.GetAttributes(), stage);
+
+        if (parameterInfo.RefKind == RefKind.Out)
         {
-            slot = GetAttributeData(atributes, stage);
+            return GetStorage(parameterInfo.Type,
+                parameterInfo.Name,
+                slot,
+                StorageKind.Output,
+                compilation, stage);    
         }
 
         return GetStorage(parameterInfo.Symbol, null, slot, compilation, stage);
@@ -401,7 +433,7 @@ public class ShaderProcessor
                 properties.Add(GetStorage(member, null, memberSlot, compilation, stage));
             }
 
-            storage = new CustomStruct(symbol.Name, storageKind, null)
+            storage = new CustomStruct(symbol.Name, storageKind, slot)
             {
                 Properties = properties
             };
@@ -409,6 +441,269 @@ public class ShaderProcessor
 
         return storage ?? throw new NotSupportedException(
             $"Type '{type.ToDisplayString()}' used by '{symbol.ToDisplayString()}' is not supported as shader storage.");
+    }
+
+    private Storage? ProcessReturn(
+        EntryPointInfo entryPoint,
+        Compilation compilation,
+        IRStage stage)
+    {
+        IMethodSymbol method = entryPoint.Method;
+
+        if (method.ReturnType.SpecialType == SpecialType.System_Void)
+            return null;
+
+        InterfaceSlot? returnSlot =
+            GetAttributeData(method.GetReturnTypeAttributes(), stage);
+
+        return GetStorage(
+            method.ReturnType,
+            "__return",
+            returnSlot,
+            StorageKind.Output,
+            compilation,
+            stage);
+    }
+    
+    private static Storage GetStorage(
+        ITypeSymbol symbol,
+        string name,
+        InterfaceSlot? slot,
+        StorageKind kind,
+        Compilation compilation,
+        IRStage stage)
+    {
+
+        Storage? storage = null;
+        StorageKind storageKind = kind;
+
+        string symbolName = name;
+        switch (symbol.SpecialType)
+        {
+            case SpecialType.System_Int32:
+                storage = new Int(symbolName, storageKind, slot)
+                {
+                    Bits = 32,
+                    Signed = true,
+                    InitialValue = null
+                };
+                break;
+            case SpecialType.System_UInt32:
+                storage = new Int(symbolName, storageKind, slot)
+                {
+                    Bits = 32,
+                    Signed = false,
+                    InitialValue = null
+                };
+                break;
+            case SpecialType.System_Double:
+                storage = new Double(symbolName, storageKind, slot)
+                {
+                    InitialValue = null
+                };
+                break;
+            case SpecialType.System_Single:
+                storage = new Float(symbolName, storageKind, slot)
+                {
+                    InitialValue = null
+                };
+                break;
+            case SpecialType.System_Boolean:
+                storage = new Bool(symbolName, storageKind, slot)
+                {
+                    InitialValue = null
+                };
+                break;
+        }
+
+        if (storage is null)
+        {
+            var attributes = symbol.GetAttributes();
+
+            var attribute =
+                attributes
+                    .FirstOrDefault(x => x.AttributeClass?.ToDisplayString() == typeof(VectorAttribute).FullName);
+            if (attribute is not null)
+            {
+                var members = symbol.GetMembers();
+                
+                Dictionary<int, string> components = new Dictionary<int, string>();
+                ITypeSymbol? componentsType = null;
+                foreach (var memberInfo in members)
+                {
+                    if (memberInfo.IsStatic || memberInfo.IsImplicitlyDeclared) continue;
+                    if (memberInfo is IPropertySymbol { IsIndexer: true }) continue;
+                    ITypeSymbol? memberType = memberInfo switch
+                    {
+                        IFieldSymbol fieldSymbol => fieldSymbol.Type,
+                        IPropertySymbol propertySymbol => propertySymbol.Type,
+                        _ => null
+                    };
+
+                    
+                    if(memberType is null) continue;
+                    var memberAttributes = memberInfo.GetAttributes()
+                        .FirstOrDefault(x => 
+                            x.AttributeClass?.ToDisplayString() == typeof(VectorComponentAttribute).FullName);
+                    
+                    if(memberAttributes is null) continue;
+                    if (componentsType == null)
+                    {
+                        componentsType = memberType;
+                    }
+
+                    if (!SymbolEqualityComparer.Default.Equals(componentsType, memberType))
+                    {
+                        throw new InconsistentVectorComponentTypeException(componentsType.ToDisplayString(), memberType.ToDisplayString());
+                    }
+
+                    string value = GetComponentInitialValue(memberInfo, compilation);
+                    components.Add((int)memberAttributes.ConstructorArguments[0].Value!, value);
+                }
+
+                components = components.OrderBy(x => x.Key).ToDictionary();
+                
+                VectorComponentsType vectorComponentsType = componentsType?.SpecialType switch
+                {
+                    SpecialType.System_Int32 => VectorComponentsType.Int,
+                    SpecialType.System_UInt32 => VectorComponentsType.Uint,
+                    SpecialType.System_Single => VectorComponentsType.Float,
+                    _ => throw new VectorComponentTypeNotValidException(
+                        componentsType?.ToDisplayString() ?? "<missing>")
+                };
+                        
+                Storage vector = new Vector(symbolName, storageKind, slot)
+                {
+                    ComponentsDefaultValues = [.. components.Select(x => x.Value)],
+                    ComponentsType = vectorComponentsType,
+                    ComponentsLength = components.Count
+                };
+
+                storage = vector;
+            }    
+        }
+
+        if (storage is null && storageKind == StorageKind.Sampler)
+            storage = new Sampler(symbolName, storageKind, slot);
+
+        if (storage is null && storageKind == StorageKind.Texture)
+        {
+            string textureAttributeFullName = typeof(TextureAttribute).FullName!;
+
+            var targetType = symbol is INamedTypeSymbol { IsGenericType: true } named
+                ? named.OriginalDefinition
+                : symbol;
+
+            var textureAttr = targetType?.GetAttributes().FirstOrDefault(a =>
+                                  a.AttributeClass?.ToDisplayString() == textureAttributeFullName)
+                              ?? symbol.GetAttributes().FirstOrDefault(a => a.AttributeClass?.ToDisplayString()
+                                                                            == textureAttributeFullName);
+
+            if (textureAttr is not null)
+            {
+                
+                //dimension
+                var dimValue = (int)textureAttr.ConstructorArguments[0].Value!;
+                var dimension = (TextureDimensions)dimValue;
+                
+                //component type
+                var compTypeValue = (int)textureAttr.ConstructorArguments[1].Value!;
+                var compType = (IR.Intermediate.Types.TextureComponentTypes)compTypeValue;
+
+                if (compType == IR.Intermediate.Types.TextureComponentTypes.GenericDefine && symbol is INamedTypeSymbol
+                    {
+                        TypeArguments: [var typeArg]
+                    })
+                {
+                    compType = typeArg.SpecialType switch
+                    {
+                        SpecialType.System_Int32 => IR.Intermediate.Types.TextureComponentTypes.Int,
+                        SpecialType.System_UInt32 => IR.Intermediate.Types.TextureComponentTypes.Uint,
+                        _ => IR.Intermediate.Types.TextureComponentTypes.Float
+                    };
+                }
+
+                bool arrayed = textureAttr.NamedArguments.FirstOrDefault(x =>
+                    x.Key == nameof(TextureAttribute.Arrayed)).Value.Value as bool? ?? false;
+                   
+                bool multisampled = textureAttr.NamedArguments
+                    .FirstOrDefault(x => 
+                        x.Key == nameof(TextureAttribute.Multisampled)).Value.Value as bool? ?? false;
+                
+                var depth = textureAttr.NamedArguments.FirstOrDefault(x => x.Key == nameof(TextureAttribute.Depth)).Value.Value is int d 
+                    ? (TextureDepth)d 
+                    : TextureDepth.No;
+                
+                IR.Intermediate.Types.TextureDepth irDepth = (IR.Intermediate.Types.TextureDepth)depth;
+                
+                var usage = textureAttr.NamedArguments.FirstOrDefault(x => x.Key == nameof(TextureAttribute.Usage)).Value.Value is int u 
+                    ? (TextureUsage)u 
+                    : TextureUsage.Sampled;
+
+                IR.Intermediate.Types.TextureUsage irUsage = (IR.Intermediate.Types.TextureUsage)usage;
+                
+                var format = textureAttr.NamedArguments.FirstOrDefault(x => x.Key == nameof(TextureAttribute.Format)).Value.Value is int f 
+                    ? (TextureFormat)f 
+                    : TextureFormat.Unknown;
+
+                IR.Intermediate.Types.TextureFormat irFormat = (IR.Intermediate.Types.TextureFormat)format;
+                storage = new Texture(symbolName, storageKind, slot)
+                {
+                    Dimensions = dimension,
+                    TextureComponentsType = compType,
+                    Arrayed = arrayed,
+                    Multisampled = multisampled,
+                    Depth = irDepth,
+                    Usage = irUsage,
+                    Format = irFormat
+                };
+            }
+        }
+        
+        if (storage is null && symbol is INamedTypeSymbol { TypeKind: TypeKind.Struct } structType)
+        {
+            var properties = new List<Storage>();
+
+            foreach (ISymbol member in structType.GetMembers())
+            {
+                if (member.IsStatic || member.IsImplicitlyDeclared)
+                {
+                    continue;
+                }
+
+                if (member is IPropertySymbol { IsIndexer: true })
+                {
+                    continue;
+                }
+
+                if (member is not IFieldSymbol && member is not IPropertySymbol)
+                {
+                    continue;
+                }
+
+                InterfaceSlot? memberSlot = GetAttributeData(member.GetAttributes(), stage);
+                ITypeSymbol memberType = member switch
+                {
+                    IFieldSymbol field => field.Type,
+                    IPropertySymbol property => property.Type,
+                    _ => throw new NotSupportedException()
+                };
+                properties.Add(GetStorage(memberType, member.Name, memberSlot, storageKind, compilation, stage));
+            }
+
+            storage = new CustomStruct(symbolName, storageKind, slot)
+            {
+                Properties = properties
+            };
+        }
+
+        return storage ?? throw new NotSupportedException(
+            $"Type '{symbol.ToDisplayString()}' used by '{symbol.ToDisplayString()}' is not supported as shader storage.");
+        // Aquí va la lógica que actualmente usa:
+        // type.SpecialType
+        // VectorAttribute
+        // TextureAttribute
+        // CustomStruct
     }
 
     private static StorageKind GetStorageKind(ISymbol symbol, Compilation compilation)

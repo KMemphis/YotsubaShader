@@ -10,6 +10,7 @@
         <AdditionalFiles Include="SpirV/spirv.core.grammar.json" />
         <ProjectReference Include="..\YotsubaShader.Generator\YotsubaShader.Generator.csproj"
                           OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\YotsubaShader.IR\YotsubaShader.IR.csproj" />
     </ItemGroup>
 
     <ItemGroup>

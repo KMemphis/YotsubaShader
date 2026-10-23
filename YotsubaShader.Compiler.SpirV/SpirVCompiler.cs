@@ -70,7 +70,7 @@ using System.Globalization;
 using System.Text;
 using YotsubaShader.Compiler.SpirV.Builder;
 
-namespace YotsubaShader.Compiler.SpirV.Compiler;
+namespace YotsubaShader.Compiler.SpirV;
 
 public class SpirVCompiler
 {

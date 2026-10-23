@@ -13,7 +13,6 @@
     <ItemGroup>
         <ProjectReference Include="..\YotsubaShader.Concepts\YotsubaShader.Concepts.csproj" />
         <ProjectReference Include="..\YotsubaShader.IR\YotsubaShader.IR.csproj" />
-        <ProjectReference Include="..\YotsubaShader.Compiler.SpirV\YotsubaShader.Compiler.SpirV.csproj" />
         <ProjectReference Include="..\YotsubaShader.Language\YotsubaShader.Language.csproj" />
     </ItemGroup>
 
