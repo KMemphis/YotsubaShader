@@ -177,7 +177,8 @@ public class ShaderProcessor
         Dictionary<ISymbol, Storage> outputs,
         out Statement? statement)
     {
-        StatementOperationProcessor.ProcessStatement(op, inputs, outputs, out statement);
+        StatementOperationProcessor processor = new StatementOperationProcessor();
+        processor.ProcessStatement(op, inputs, outputs, out statement);
     }
 
     private Storage ProcessParameter(ParameterInfo parameterInfo, Compilation compilation, IRStage stage)

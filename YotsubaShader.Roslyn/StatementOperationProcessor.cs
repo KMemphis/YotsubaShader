@@ -74,7 +74,7 @@ namespace YotsubaShader.Roslyn;
 
 public class StatementOperationProcessor : IStatementOperationProcessor
 {
-    public static void ProcessStatement(
+    public void ProcessStatement(
         IOperation op,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
