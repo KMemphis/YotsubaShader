@@ -65,7 +65,6 @@
 ╚════════════════════════════════════════════════════════════════════════════════════╝
 */
 #endregion
-
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Operations;
 using YotsubaShader.IR.Intermediate;
