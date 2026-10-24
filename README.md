@@ -77,7 +77,7 @@ public class BasicColorShader
     [ShaderStage(Stage.Vertex)]
     public VertexOutput Vertex(VertexInput input)
     {
-        VertexOutput output;
+        VertexOutput output = new VertexOutput();
 
         output.Position = new Vector4(
             input.Position.X,
@@ -128,10 +128,12 @@ public struct VertexOutput
 public class Triangle
 {
     [ShaderStage(Stage.Vertex)]
-    public VertexOutput Vertex([gl_VertexIndex] uint vertexIndex) => new()
+    public VertexOutput Vertex([gl_VertexIndex] uint vertexIndex)
     {
-        Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f)
-    };
+        VertexOutput output = new VertexOutput();
+        output.Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f);
+        return output;
+    }
 }
 ```
 
@@ -151,10 +153,12 @@ public struct VertexOutput
 public class Triangle
 {
     [ShaderStage(Stage.Vertex)]
-    public VertexOutput Vertex([vertex_id] uint vertexId) => new()
+    public VertexOutput Vertex([vertex_id] uint vertexId)
     {
-        Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f)
-    };
+        VertexOutput output = new VertexOutput();
+        output.Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f);
+        return output;
+    }
 }
 ```
 
@@ -174,10 +178,12 @@ public struct VertexOutput
 public class Triangle
 {
     [ShaderStage(Stage.Vertex)]
-    public VertexOutput Vertex([BuiltIn_VertexIndex] uint vertexIndex) => new()
+    public VertexOutput Vertex([BuiltIn_VertexIndex] uint vertexIndex)
     {
-        Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f)
-    };
+        VertexOutput output = new VertexOutput();
+        output.Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f);
+        return output;
+    }
 }
 ```
 
@@ -197,10 +203,12 @@ public struct VertexOutput
 public class Triangle
 {
     [ShaderStage(Stage.Vertex)]
-    public VertexOutput Vertex([@builtin_vertex_index] uint vertexIndex) => new()
+    public VertexOutput Vertex([@builtin_vertex_index] uint vertexIndex)
     {
-        Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f)
-    };
+        VertexOutput output = new VertexOutput();
+        output.Position = new Vector4(0.0f, 0.0f, 0.0f, 1.0f);
+        return output;
+    }
 }
 ```
 
@@ -208,28 +216,37 @@ These names deliberately resemble their source languages. In C#, WGSL-inspired a
 
 ## Interfaces and resources
 
-You can describe interfaces with locations and resources with attributes. Use `[Location(n)]` on input and output fields or properties. The project also includes attributes for uniforms, storage buffers, bindings, descriptor sets, and their counterparts in the different styles. `YotsubaShader.Language` is the neutral core (stages, `Location`, uniforms, native types); each `YotsubaShader.{Language}Syntax` project (`GlslSyntax`, `HlslSyntax`, `MslSyntax`, `SpirvSyntax`, `WgslSyntax`) is an optional vocabulary that you add only if you want to write attributes in that language's naming.
+You can describe interfaces and resources with attributes from the syntax you are using. In the HLSL-style vocabulary, `[POSITION]` and `[COLOR]` describe vertex semantics, while resource declarations use `YotsubaShader.HlslSyntax.Resources`. Explicit numbered locations are provided separately by `YotsubaShader.SpirvSyntax` through `[Location(n)]`. Each `YotsubaShader.{Language}Syntax` project (`GlslSyntax`, `HlslSyntax`, `MslSyntax`, `SpirvSyntax`, `WgslSyntax`) is an optional vocabulary built on the shared `YotsubaShader.Language` stage and type model.
 
 ```csharp
 using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Language.Resources;
+using YotsubaShader.HlslSyntax;
+using YotsubaShader.HlslSyntax.Resources;
 
 public struct VertexInput
 {
-    [Location(0)]
+    [POSITION]
     public Vector2 Position;
 
-    [Location(1)]
+    [COLOR]
     public Vector4 Color;
 }
 
 public sealed class Material
 {
-    [Uniform]
     public float Exposure;
 }
+
+public class Lighting
+{
+    [cbuffer]
+    [register(RegisterPrefix.b, 0)]
+    public Material Material;
+}
 ```
+
+Here the input semantics use the HLSL-style names, and `Lighting.Material` is bound as a constant buffer at register `b0`. The equivalent interface and resource declarations use the corresponding vocabulary when you choose GLSL, MSL, SPIR-V, or WGSL.
 
 ## Compiling to SPIR-V
 
@@ -238,36 +255,33 @@ public sealed class Material
 The CLI is intended for builds, CI, and content tools. It is not part of the current distribution; the following command illustrates the planned product interface.
 
 ```bash
-yotsuba compile shaders/Triangle.cs \
-  --entry Triangle.Vertex \
+yotsuba compile Game.Graphics.csproj \
   --target spirv \
-  --output artifacts/triangle.spv
+  --output artifacts/
 ```
 
-The command would find the entry point marked with `[ShaderStage]`, validate its interface, generate Yotsuba IR, and emit a `.spv` module. `--target` selects the backend independently of the attributes used to write the shader.
+The command would scan the `.csproj`, discover every shader entry point marked with `[ShaderStage]`, validate each interface, generate Yotsuba IR, and emit the selected output for every discovered shader in the output directory. `--target` selects the backend independently of the attributes used to write the shader.
 
-### Compilation library — planned interface
+### Project compilation library — planned interface
 
-An engine or framework could compile the same shader without starting a separate process:
+The planned library entry point receives a `.csproj`, scans the project with Roslyn, discovers the shader entry points, and returns one compilation result for each shader it finds. The exact type and method names are not final; this illustrates the intended data flow rather than a released API.
 
 ```csharp
 using YotsubaShader.Compilation;
 
-var request = new ShaderCompilationRequest
+// Planned shape: one result per discovered shader in the project.
+var shaderCompilations = await YotsubaCompiler.CompileProjectAsync(
+    "Game.Graphics.csproj",
+    target: ShaderTarget.SpirV);
+
+foreach (var shaderCompilation in shaderCompilations)
 {
-    SourceFiles = ["shaders/Triangle.cs"],
-    EntryPoints = ["Triangle.Vertex"],
-    Target = ShaderTarget.SpirV
-};
-
-ShaderCompilationResult result = await YotsubaCompiler.CompileAsync(request);
-
-await File.WriteAllBytesAsync(
-    "artifacts/triangle.spv",
-    result.Binary);
+    Console.WriteLine(shaderCompilation.ShaderName);
+    // Each result can expose its generated target output and diagnostics.
+}
 ```
 
-This API is also planned; names and packages may change before its first release. The CLI and library are intended to share compilation behavior, diagnostics, validation, and configuration.
+The project scan is intended to include the source files and references from the `.csproj`, identify methods marked with `[ShaderStage]`, compile each discovered shader for the selected target, and return the outputs and diagnostics together. The final API and package names may change before the first release.
 
 ## Implementation status
 
@@ -304,13 +318,16 @@ This creates `mi modulo spirv.spv` in the working directory. For details on the 
 
 | Project | Role |
 | --- | --- |
-| `YotsubaShader.Language` | Authoring language: stages, attributes, resources, and types. |
-| `YotsubaShader.Roslyn` | Roslyn-based discovery and semantic analysis of C# shaders. |
-| `YotsubaShader.IR` | Shared model between the frontend and backends. |
-| `YotsubaShader.Compiler.SpirV` | SPIR-V module construction and encoding. |
-| `YotsubaShader.Generator` | SPIR-V operation table generated from the Khronos grammar. |
-| `YotsubaShader.Example` | Executable example of low-level SPIR-V assembly. |
-| `YotsubaShader.Frontend.Tests` | Discovery and analysis tests for the Roslyn frontend. |
+| `YotsubaShader.Concepts` | Shared semantic concepts for stages, interface slots, built-ins, bindings, resources, and shader metadata. |
+| `YotsubaShader.Language` | Common C# authoring primitives, including shader stages and native type declarations. |
+| `YotsubaShader.{Glsl,Hlsl,Msl,Spirv,Wgsl}Syntax` | Optional syntax vocabularies that map familiar backend names to the shared concepts. |
+| `YotsubaShader.Roslyn` | Roslyn-based discovery and processing of C# shaders into the intermediate representation. |
+| `YotsubaShader.IR` | Intermediate model for shaders, stages, functions, storage, interface slots, expressions, and types. |
+| `YotsubaShader.Compiler.SpirV` | Low-level SPIR-V module construction and binary encoding. |
+| `YotsubaShader.Generator` | SPIR-V operation metadata generated from the Khronos grammar. |
+| `YotsubaShaderCross` | Separate submodule that translates SPIR-V into GLSL, HLSL, MSL, or reflection output. |
+| `YotsubaShader.Example` | Executable example that builds a low-level SPIR-V module. |
+| `YotsubaShader.Frontend.Tests` | Tests for shader discovery, semantic analysis, and frontend processing. |
 
 ## Website and playground
 
