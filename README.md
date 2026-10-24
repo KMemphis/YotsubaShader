@@ -56,10 +56,10 @@ using YotsubaShader.HlslSyntax; // Attribute names inspired by HLSL.
 
 public struct VertexInput
 {
-    [Location(0)]
+    [POSITION]
     public Vector2 Position;
 
-    [Location(1)]
+    [COLOR]
     public Vector4 Color;
 }
 
@@ -68,7 +68,7 @@ public struct VertexOutput
     [SV_Position]
     public Vector4 Position;
 
-    [Location(0)]
+    [COLOR]
     public Vector4 Color;
 }
 
@@ -92,6 +92,7 @@ public class BasicColorShader
     }
 
     [ShaderStage(Stage.Fragment)]
+    [return: SV_Target(0)]
     public Vector4 Fragment(VertexOutput input)
     {
         return input.Color;
@@ -102,13 +103,14 @@ public class BasicColorShader
 This small shader shows the essential pieces of the language:
 
 - `VertexInput` defines the data supplied by the engine.
-- `[Location(0)]` and `[Location(1)]` identify the pipeline inputs.
+- `[POSITION]` and `[COLOR]` identify the HLSL-style vertex semantics supplied by the engine.
 - `VertexOutput` defines what the vertex shader passes to the next stage.
 - `[SV_Position]` marks the position required by the GPU.
 - `[ShaderStage]` identifies the vertex and fragment stages.
-- `[Location(0)]` carries color between those stages.
+- `[COLOR]` carries color between those stages.
+- `[SV_Target(0)]` identifies the first render-target output of the fragment stage.
 
-The same class can grow to include uniforms, textures, buffers, and other stages. `SV_Position` and `Location` describe the shader interface; the output backend is chosen when compiling.
+The same class can grow to include uniforms, textures, buffers, and other stages. These HLSL-style semantics describe the shader interface; the output backend is chosen when compiling.
 
 ### GLSL-like code style
 
