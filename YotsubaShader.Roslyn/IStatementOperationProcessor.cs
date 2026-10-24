@@ -79,12 +79,16 @@ public interface IStatementOperationProcessor
         IBlockOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessVariableDeclarationGroupOperation(
         IVariableDeclarationGroupOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessSimpleAssignmentOperation(

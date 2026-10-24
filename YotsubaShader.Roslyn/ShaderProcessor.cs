@@ -110,6 +110,7 @@ public class ShaderProcessor
             var shaderFunction = new List<Function>();
             foreach (var shaderInfoEntryPoint in shaderInfo.EntryPoints)
             {
+                StatementOperationProcessor processor = new StatementOperationProcessor();
                 IRStage stage = shaderInfoEntryPoint.Stage switch
                 {
                     LanguageStage.Compute  => IRStage.Compute,
@@ -158,7 +159,7 @@ public class ShaderProcessor
                     var span = blockOperations.Operations.AsSpan();
                     foreach (var op in span)
                     {
-                        ProcessStatement(op, inputs, outputs, out var statement);
+                        ProcessStatement(op, inputs, outputs, processor, compilation, stage, out var statement);
                         if (statement is null) continue;
                         bodyFunc.Add(statement);
                     }
@@ -175,10 +176,12 @@ public class ShaderProcessor
         IOperation op,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        StatementOperationProcessor processor,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement)
     {
-        StatementOperationProcessor processor = new StatementOperationProcessor();
-        processor.ProcessStatement(op, inputs, outputs, out statement);
+        processor.ProcessStatement(op, inputs, outputs, compilation, stage, out statement);
     }
 
     private Storage ProcessParameter(ParameterInfo parameterInfo, Compilation compilation, IRStage stage)
@@ -198,7 +201,7 @@ public class ShaderProcessor
         return GetStorage(parameterInfo.Symbol, null, slot, compilation, stage);
     }
 
-    private static Storage GetStorage(ISymbol symbol, Storage? storage, InterfaceSlot? slot, Compilation compilation, IRStage stage)
+    internal static Storage GetStorage(ISymbol symbol, Storage? storage, InterfaceSlot? slot, Compilation compilation, IRStage stage, bool isLocal = false)
     {
         ITypeSymbol? type = symbol switch
         {
@@ -215,8 +218,11 @@ public class ShaderProcessor
         }
 
         var parameter = symbol as IParameterSymbol;
-        StorageKind storageKind = GetStorageKind(symbol, compilation);
+        StorageKind storageKind;
 
+        if (isLocal) storageKind = StorageKind.Local;
+        else storageKind = GetStorageKind(symbol, compilation);
+        
         switch (type.SpecialType)
         {
             case SpecialType.System_Int32:
@@ -332,83 +338,92 @@ public class ShaderProcessor
             }    
         }
 
-        if (storage is null && storageKind == StorageKind.Sampler)
-            storage = new Sampler(symbol.Name, storageKind, slot);
-
-        if (storage is null && storageKind == StorageKind.Texture)
+        if (!isLocal)
         {
-            string textureAttributeFullName = typeof(TextureAttribute).FullName!;
+            if (storage is null && storageKind == StorageKind.Sampler)
+                storage = new Sampler(symbol.Name, storageKind, slot);
 
-            var targetType = type is INamedTypeSymbol { IsGenericType: true } named
-                ? named.OriginalDefinition
-                : type;
-
-            var textureAttr = targetType?.GetAttributes().FirstOrDefault(a =>
-                                  a.AttributeClass?.ToDisplayString() == textureAttributeFullName)
-                              ?? symbol.GetAttributes().FirstOrDefault(a => a.AttributeClass?.ToDisplayString()
-                                                                            == textureAttributeFullName);
-
-            if (textureAttr is not null)
+            if (storage is null && storageKind == StorageKind.Texture)
             {
-                
-                //dimension
-                var dimValue = (int)textureAttr.ConstructorArguments[0].Value!;
-                var dimension = (TextureDimensions)dimValue;
-                
-                //component type
-                var compTypeValue = (int)textureAttr.ConstructorArguments[1].Value!;
-                var compType = (IR.Intermediate.Types.TextureComponentTypes)compTypeValue;
+                string textureAttributeFullName = typeof(TextureAttribute).FullName!;
 
-                if (compType == IR.Intermediate.Types.TextureComponentTypes.GenericDefine && type is INamedTypeSymbol
-                    {
-                        TypeArguments: [var typeArg]
-                    })
+                var targetType = type is INamedTypeSymbol { IsGenericType: true } named
+                    ? named.OriginalDefinition
+                    : type;
+
+                var textureAttr = targetType?.GetAttributes().FirstOrDefault(a =>
+                                      a.AttributeClass?.ToDisplayString() == textureAttributeFullName)
+                                  ?? symbol.GetAttributes().FirstOrDefault(a => a.AttributeClass?.ToDisplayString()
+                                      == textureAttributeFullName);
+
+                if (textureAttr is not null)
                 {
-                    compType = typeArg.SpecialType switch
+
+                    //dimension
+                    var dimValue = (int)textureAttr.ConstructorArguments[0].Value!;
+                    var dimension = (TextureDimensions)dimValue;
+
+                    //component type
+                    var compTypeValue = (int)textureAttr.ConstructorArguments[1].Value!;
+                    var compType = (IR.Intermediate.Types.TextureComponentTypes)compTypeValue;
+
+                    if (compType == IR.Intermediate.Types.TextureComponentTypes.GenericDefine &&
+                        type is INamedTypeSymbol
+                        {
+                            TypeArguments: [var typeArg]
+                        })
                     {
-                        SpecialType.System_Int32 => IR.Intermediate.Types.TextureComponentTypes.Int,
-                        SpecialType.System_UInt32 => IR.Intermediate.Types.TextureComponentTypes.Uint,
-                        _ => IR.Intermediate.Types.TextureComponentTypes.Float
+                        compType = typeArg.SpecialType switch
+                        {
+                            SpecialType.System_Int32 => IR.Intermediate.Types.TextureComponentTypes.Int,
+                            SpecialType.System_UInt32 => IR.Intermediate.Types.TextureComponentTypes.Uint,
+                            _ => IR.Intermediate.Types.TextureComponentTypes.Float
+                        };
+                    }
+
+                    bool arrayed = textureAttr.NamedArguments.FirstOrDefault(x =>
+                        x.Key == nameof(TextureAttribute.Arrayed)).Value.Value as bool? ?? false;
+
+                    bool multisampled = textureAttr.NamedArguments
+                        .FirstOrDefault(x =>
+                            x.Key == nameof(TextureAttribute.Multisampled)).Value.Value as bool? ?? false;
+
+                    var depth = textureAttr.NamedArguments.FirstOrDefault(x => x.Key == nameof(TextureAttribute.Depth))
+                        .Value.Value is int d
+                        ? (TextureDepth)d
+                        : TextureDepth.No;
+
+                    IR.Intermediate.Types.TextureDepth irDepth = (IR.Intermediate.Types.TextureDepth)depth;
+
+                    var usage = textureAttr.NamedArguments.FirstOrDefault(x => x.Key == nameof(TextureAttribute.Usage))
+                        .Value.Value is int u
+                        ? (TextureUsage)u
+                        : TextureUsage.Sampled;
+
+                    IR.Intermediate.Types.TextureUsage irUsage = (IR.Intermediate.Types.TextureUsage)usage;
+
+                    var format =
+                        textureAttr.NamedArguments.FirstOrDefault(x => x.Key == nameof(TextureAttribute.Format)).Value
+                            .Value is int f
+                            ? (TextureFormat)f
+                            : TextureFormat.Unknown;
+
+                    IR.Intermediate.Types.TextureFormat irFormat = (IR.Intermediate.Types.TextureFormat)format;
+                    storage = new Texture(symbol.Name, storageKind, slot)
+                    {
+                        Dimensions = dimension,
+                        TextureComponentsType = compType,
+                        Arrayed = arrayed,
+                        Multisampled = multisampled,
+                        Depth = irDepth,
+                        Usage = irUsage,
+                        Format = irFormat
                     };
                 }
-
-                bool arrayed = textureAttr.NamedArguments.FirstOrDefault(x =>
-                    x.Key == nameof(TextureAttribute.Arrayed)).Value.Value as bool? ?? false;
-                   
-                bool multisampled = textureAttr.NamedArguments
-                    .FirstOrDefault(x => 
-                        x.Key == nameof(TextureAttribute.Multisampled)).Value.Value as bool? ?? false;
-                
-                var depth = textureAttr.NamedArguments.FirstOrDefault(x => x.Key == nameof(TextureAttribute.Depth)).Value.Value is int d 
-                    ? (TextureDepth)d 
-                    : TextureDepth.No;
-                
-                IR.Intermediate.Types.TextureDepth irDepth = (IR.Intermediate.Types.TextureDepth)depth;
-                
-                var usage = textureAttr.NamedArguments.FirstOrDefault(x => x.Key == nameof(TextureAttribute.Usage)).Value.Value is int u 
-                    ? (TextureUsage)u 
-                    : TextureUsage.Sampled;
-
-                IR.Intermediate.Types.TextureUsage irUsage = (IR.Intermediate.Types.TextureUsage)usage;
-                
-                var format = textureAttr.NamedArguments.FirstOrDefault(x => x.Key == nameof(TextureAttribute.Format)).Value.Value is int f 
-                    ? (TextureFormat)f 
-                    : TextureFormat.Unknown;
-
-                IR.Intermediate.Types.TextureFormat irFormat = (IR.Intermediate.Types.TextureFormat)format;
-                storage = new Texture(symbol.Name, storageKind, slot)
-                {
-                    Dimensions = dimension,
-                    TextureComponentsType = compType,
-                    Arrayed = arrayed,
-                    Multisampled = multisampled,
-                    Depth = irDepth,
-                    Usage = irUsage,
-                    Format = irFormat
-                };
             }
+
         }
-        
+
         if (storage is null && type is INamedTypeSymbol { TypeKind: TypeKind.Struct } structType)
         {
             var properties = new List<Storage>();
@@ -430,8 +445,11 @@ public class ShaderProcessor
                     continue;
                 }
 
-                InterfaceSlot? memberSlot = GetAttributeData(member.GetAttributes(), stage);
-                properties.Add(GetStorage(member, null, memberSlot, compilation, stage));
+                InterfaceSlot? memberSlot;
+                if (isLocal) memberSlot = null;
+                else memberSlot = GetAttributeData(member.GetAttributes(), stage);
+                
+                properties.Add(GetStorage(member, null, memberSlot, compilation, stage, isLocal));
             }
 
             storage = new CustomStruct(symbol.Name, storageKind, slot)
@@ -815,7 +833,7 @@ public class ShaderProcessor
             );
     }
 
-    private static string GetComponentInitialValue(ISymbol member, Compilation compilation)
+    internal static string GetComponentInitialValue(ISymbol member, Compilation compilation)
     {
         if (member is IFieldSymbol { HasConstantValue: true } constantField)
         {
@@ -859,7 +877,7 @@ public class ShaderProcessor
         };
     }
 
-    private static InterfaceSlot? GetAttributeData(ImmutableArray<AttributeData> atributes, IRStage stage)
+    internal static InterfaceSlot? GetAttributeData(ImmutableArray<AttributeData> atributes, IRStage stage)
     {
         InterfaceSlot? slot = null;
         foreach (var attributeData in atributes.AsSpan())
