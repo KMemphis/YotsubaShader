@@ -66,6 +66,7 @@
 */
 #endregion
 
+using YotsubaShader.IR.Intermediate.FunctionBody;
 using YotsubaShader.IR.Intermediate.Slot;
 
 namespace YotsubaShader.IR.Intermediate.Types;
@@ -74,5 +75,5 @@ public record class Double(string HumanName, StorageKind Kind, InterfaceSlot? Sl
 {
     public const uint FloatBits = 64;
 
-    public double? InitialValue;
+    public Expression? InitialValue;
 }

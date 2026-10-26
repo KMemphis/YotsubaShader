@@ -95,179 +95,239 @@ public interface IStatementOperationProcessor
         ISimpleAssignmentOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessCompoundAssignmentOperation(
         ICompoundAssignmentOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessCoalesceAssignmentOperation(
         ICoalesceAssignmentOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessDeconstructionAssignmentOperation(
         IDeconstructionAssignmentOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessIncrementOrDecrementOperation(
         IIncrementOrDecrementOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessInvocationOperation(
         IInvocationOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessDynamicInvocationOperation(
         IDynamicInvocationOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessFunctionPointerInvocationOperation(
         IFunctionPointerInvocationOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessObjectCreationOperation(
         IObjectCreationOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessDynamicObjectCreationOperation(
         IDynamicObjectCreationOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessConditionalAccessOperation(
         IConditionalAccessOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessAwaitOperation(
         IAwaitOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessReturnOperation(
         IReturnOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessConditionalOperation(
         IConditionalOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessForLoopOperation(
         IForLoopOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessForEachLoopOperation(
         IForEachLoopOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessWhileLoopOperation(
         IWhileLoopOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessSwitchOperation(
         ISwitchOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessBranchOperation(
         IBranchOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessLabeledOperation(
         ILabeledOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessTryOperation(
         ITryOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessThrowOperation(
         IThrowOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessUsingOperation(
         IUsingOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessUsingDeclarationOperation(
         IUsingDeclarationOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessLockOperation(
         ILockOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessFixedOperation(
         IOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessLocalFunctionOperation(
         ILocalFunctionOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessEventAssignmentOperation(
         IEventAssignmentOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessEmptyOperation(
         IEmptyOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 
     void ProcessInvalidOperation(
         IInvalidOperation operation,
         Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
         out Statement? statement);
 }

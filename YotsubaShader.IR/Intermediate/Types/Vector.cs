@@ -66,6 +66,7 @@
 */
 #endregion
 
+using YotsubaShader.IR.Intermediate.FunctionBody;
 using YotsubaShader.IR.Intermediate.Slot;
 
 namespace YotsubaShader.IR.Intermediate.Types;
@@ -74,7 +75,7 @@ public record Vector(string HumanName, StorageKind Kind, InterfaceSlot? Slot) : 
 {
     public required VectorComponentsType ComponentsType;
     public required int ComponentsLength;
-    public IReadOnlyList<string>? ComponentsDefaultValues;
+    public IReadOnlyList<Expression>? ComponentsDefaultValues;
 }
 
 public enum VectorComponentsType

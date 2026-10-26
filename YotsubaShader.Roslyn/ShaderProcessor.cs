@@ -80,6 +80,7 @@ using YotsubaShader.IR.Intermediate;
 using YotsubaShader.IR.Intermediate.FunctionBody;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.AssignmentTargets;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.Literals;
 using YotsubaShader.IR.Intermediate.Slot;
 using YotsubaShader.IR.Intermediate.Slot.Types;
 using YotsubaShader.IR.Intermediate.Types;
@@ -100,11 +101,11 @@ namespace YotsubaShader.Roslyn;
 
 public class ShaderProcessor
 {
-    public readonly List<Shader> Shaders = [];
-
-    public void Process(Compilation compilation, CancellationToken token)
-    { 
+    public Shader[] Process(Compilation compilation, CancellationToken token)
+    {
         var csharpShaderMetadata = ShaderDiscovery.Find(compilation, token);
+        Shader[] shaders = new Shader[csharpShaderMetadata.Length];
+        int i = 0;
         foreach (ShaderInfo shaderInfo in csharpShaderMetadata)
         {
             var shaderFunction = new List<Function>();
@@ -169,8 +170,10 @@ public class ShaderProcessor
                 shaderFunction.Add(fn);
             }
             var shader = new Shader(shaderFunction);
-            Shaders.Add(shader);
+            shaders[i++] = shader;
         }
+
+        return shaders;
     }
     private static void ProcessStatement(
         IOperation op,
@@ -231,7 +234,7 @@ public class ShaderProcessor
                     Bits = 32,
                     Signed = true,
                     InitialValue = parameter is { HasExplicitDefaultValue: true }
-                        ? ((int)parameter.ExplicitDefaultValue!).ToString()
+                        ? new IntLiteral(((int)parameter.ExplicitDefaultValue!).ToString(), true)
                         : null
                 };
                 break;
@@ -241,7 +244,7 @@ public class ShaderProcessor
                     Bits = 32,
                     Signed = false,
                     InitialValue = parameter is { HasExplicitDefaultValue: true }
-                        ? ((uint)parameter.ExplicitDefaultValue!).ToString()
+                        ? new IntLiteral(((int)parameter.ExplicitDefaultValue!).ToString(), false)
                         : null
                 };
                 break;
@@ -249,7 +252,7 @@ public class ShaderProcessor
                 storage = new Double(symbol.Name, storageKind, slot)
                 {
                     InitialValue = parameter is { HasExplicitDefaultValue: true }
-                        ? (double)parameter.ExplicitDefaultValue!
+                        ? new DoubleLiteral((double)parameter.ExplicitDefaultValue!)
                         : null
                 };
                 break;
@@ -257,7 +260,7 @@ public class ShaderProcessor
                 storage = new Float(symbol.Name, storageKind, slot)
                 {
                     InitialValue = parameter is { HasExplicitDefaultValue: true }
-                        ? (float)parameter.ExplicitDefaultValue!
+                        ? new FloatLiteral((float)parameter.ExplicitDefaultValue!)
                         : null
                 };
                 break;
@@ -265,7 +268,7 @@ public class ShaderProcessor
                 storage = new Bool(symbol.Name, storageKind, slot)
                 {
                     InitialValue = parameter is { HasExplicitDefaultValue: true }
-                        ? (bool)parameter.ExplicitDefaultValue!
+                        ? new BoolLiteral((bool)parameter.ExplicitDefaultValue!)
                         : null
                 };
                 break;
@@ -316,8 +319,6 @@ public class ShaderProcessor
                     components.Add((int)memberAttributes.ConstructorArguments[0].Value!, value);
                 }
 
-                components = components.OrderBy(x => x.Key).ToDictionary();
-                
                 VectorComponentsType vectorComponentsType = componentsType?.SpecialType switch
                 {
                     SpecialType.System_Int32 => VectorComponentsType.Int,
@@ -326,10 +327,33 @@ public class ShaderProcessor
                     _ => throw new VectorComponentTypeNotValidException(
                         componentsType?.ToDisplayString() ?? "<missing>")
                 };
-                        
+                
+                components = components.OrderBy(x => x.Key).ToDictionary();
+
+                Expression ComponentValueToExpression(string value)
+                {
+                    Expression? exp = null;
+                    switch (vectorComponentsType)
+                    {
+                        case VectorComponentsType.Float:
+                            exp = new FloatLiteral(float.Parse(value));
+                            break;
+                        case VectorComponentsType.Int:
+                            exp = new IntLiteral(value, true);
+                            break;
+                        case VectorComponentsType.Uint:
+                            exp = new IntLiteral(value, false);
+                            break;
+                        default:
+                            throw new NotSupportedException($"ComponentValueToExpression cant find a switch case for: {value}");
+                    }
+
+                    return exp;
+                }
+
                 Storage vector = new Vector(symbol.Name, storageKind, slot)
                 {
-                    ComponentsDefaultValues = [.. components.Select(x => x.Value)],
+                    ComponentsDefaultValues = [.. components.Select(x => ComponentValueToExpression(x.Value))],
                     ComponentsType = vectorComponentsType,
                     ComponentsLength = components.Count
                 };
@@ -423,43 +447,75 @@ public class ShaderProcessor
             }
 
         }
-
+        
         if (storage is null && type is INamedTypeSymbol { TypeKind: TypeKind.Struct } structType)
-        {
-            var properties = new List<Storage>();
+            storage = ProcessStruct(symbol, slot, compilation, stage, isLocal, structType, storageKind);
+        
 
-            foreach (ISymbol member in structType.GetMembers())
-            {
-                if (member.IsStatic || member.IsImplicitlyDeclared)
-                {
-                    continue;
-                }
+        if (storage is null && type is INamedTypeSymbol { TypeKind: TypeKind.Class } classType)
+            storage = ProcessClass(symbol, slot, compilation, stage, isLocal, classType, storageKind);
+        
 
-                if (member is IPropertySymbol { IsIndexer: true })
-                {
-                    continue;
-                }
-
-                if (member is not IFieldSymbol && member is not IPropertySymbol)
-                {
-                    continue;
-                }
-
-                InterfaceSlot? memberSlot;
-                if (isLocal) memberSlot = null;
-                else memberSlot = GetAttributeData(member.GetAttributes(), stage);
-                
-                properties.Add(GetStorage(member, null, memberSlot, compilation, stage, isLocal));
-            }
-
-            storage = new CustomStruct(symbol.Name, storageKind, slot)
-            {
-                Properties = properties
-            };
-        }
-
+        if (storage is null && type is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
+            storage = ProcessEnum(symbol, slot, compilation, stage, isLocal, enumType, storageKind);
+        
+        if (storage is null && type is INamedTypeSymbol { TypeKind: TypeKind.Interface } interfaceType)
+            storage = ProcessInterface(symbol, slot, compilation, stage, isLocal, interfaceType, storageKind);
+        
         return storage ?? throw new NotSupportedException(
             $"Type '{type.ToDisplayString()}' used by '{symbol.ToDisplayString()}' is not supported as shader storage.");
+    }
+
+    private static Storage? ProcessInterface(ISymbol symbol, InterfaceSlot? slot, Compilation compilation, IRStage stage, bool isLocal, INamedTypeSymbol interfaceType, StorageKind storageKind)
+    {
+        throw new NotImplementedException("Interfaces is not supported yet");
+    }
+
+    private static Storage? ProcessEnum(ISymbol symbol, InterfaceSlot? slot, Compilation compilation, IRStage stage, bool isLocal, INamedTypeSymbol enumType, StorageKind storageKind)
+    {
+        throw new NotImplementedException("Enum is not supported yet");
+    }
+
+    private static Storage? ProcessClass(ISymbol symbol, InterfaceSlot? slot, Compilation compilation, IRStage stage, bool isLocal, INamedTypeSymbol classType, StorageKind storageKind)
+    {
+        throw new NotImplementedException("Class is not supported yet");
+    }
+
+    internal static Storage ProcessStruct(ISymbol symbol, InterfaceSlot? slot, Compilation compilation, IRStage stage,
+        bool isLocal, INamedTypeSymbol structType, StorageKind storageKind)
+    {
+        Storage storage;
+        var properties = new List<Storage>();
+
+        foreach (ISymbol member in structType.GetMembers())
+        {
+            if (member.IsStatic || member.IsImplicitlyDeclared)
+            {
+                continue;
+            }
+
+            if (member is IPropertySymbol { IsIndexer: true })
+            {
+                continue;
+            }
+
+            if (member is not IFieldSymbol && member is not IPropertySymbol)
+            {
+                continue;
+            }
+
+            InterfaceSlot? memberSlot;
+            if (isLocal) memberSlot = null;
+            else memberSlot = GetAttributeData(member.GetAttributes(), stage);
+                
+            properties.Add(GetStorage(member, null, memberSlot, compilation, stage, isLocal));
+        }
+
+        storage = new CustomStruct(symbol.Name, storageKind, slot)
+        {
+            Properties = properties
+        };
+        return storage;
     }
 
     private Storage? ProcessReturn(
@@ -484,7 +540,7 @@ public class ShaderProcessor
             stage);
     }
     
-    private static Storage GetStorage(
+    internal static Storage GetStorage(
         ITypeSymbol symbol,
         string name,
         InterfaceSlot? slot,
@@ -591,9 +647,30 @@ public class ShaderProcessor
                         componentsType?.ToDisplayString() ?? "<missing>")
                 };
                         
+                Expression ComponentValueToExpression(string value)
+                {
+                    Expression? exp = null;
+                    switch (vectorComponentsType)
+                    {
+                        case VectorComponentsType.Float:
+                            exp = new FloatLiteral(float.Parse(value));
+                            break;
+                        case VectorComponentsType.Int:
+                            exp = new IntLiteral(value, true);
+                            break;
+                        case VectorComponentsType.Uint:
+                            exp = new IntLiteral(value, false);
+                            break;
+                        default:
+                            throw new NotSupportedException($"ComponentValueToExpression cant find a switch case for: {value}");
+                    }
+
+                    return exp;
+                }
+                
                 Storage vector = new Vector(symbolName, storageKind, slot)
                 {
-                    ComponentsDefaultValues = [.. components.Select(x => x.Value)],
+                    ComponentsDefaultValues = [.. components.Select(x => ComponentValueToExpression(x.Value))],
                     ComponentsType = vectorComponentsType,
                     ComponentsLength = components.Count
                 };

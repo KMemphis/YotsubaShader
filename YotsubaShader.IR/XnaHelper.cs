@@ -68,6 +68,8 @@
 
 using System.Globalization;
 using YotsubaShader.IR.Intermediate;
+using YotsubaShader.IR.Intermediate.FunctionBody;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.Literals;
 using YotsubaShader.IR.Intermediate.Slot;
 using YotsubaShader.IR.Intermediate.Types;
 
@@ -83,10 +85,10 @@ public static class XnaHelper
         {
             ComponentsType = VectorComponentsType.Float,
             ComponentsLength = 2,
-            ComponentsDefaultValues = new List<string>(2)
+            ComponentsDefaultValues = new List<Expression>(2)
             {
-                x.ToString(CultureInfo.InvariantCulture), 
-                y.ToString(CultureInfo.InvariantCulture)
+                new FloatLiteral(x), 
+                new FloatLiteral(y)
             },
         };
     }
@@ -96,11 +98,11 @@ public static class XnaHelper
         {
             ComponentsType = VectorComponentsType.Float,
             ComponentsLength = 3,
-            ComponentsDefaultValues = new List<string>(3)
+            ComponentsDefaultValues = new List<Expression>(3)
             {
-                x.ToString(CultureInfo.InvariantCulture), 
-                y.ToString(CultureInfo.InvariantCulture),
-                z.ToString(CultureInfo.InvariantCulture)
+                new FloatLiteral(x), 
+                new FloatLiteral(y),
+                new FloatLiteral(z)
             },
         };
     }

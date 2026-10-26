@@ -66,6 +66,7 @@
 */
 #endregion
 
+using YotsubaShader.IR.Intermediate.FunctionBody;
 using YotsubaShader.IR.Intermediate.Slot;
 
 namespace YotsubaShader.IR.Intermediate.Types;
@@ -74,5 +75,5 @@ public record Int(string HumanName, StorageKind Kind, InterfaceSlot? Slot) : Sto
 {
     public required uint Bits;
     public required bool Signed;
-    public string? InitialValue;
+    public Expression? InitialValue;
 }

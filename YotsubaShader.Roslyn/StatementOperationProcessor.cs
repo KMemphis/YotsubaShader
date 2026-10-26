@@ -70,20 +70,23 @@ using Microsoft.CodeAnalysis.Operations;
 using YotsubaShader.IR.Intermediate;
 using YotsubaShader.IR.Intermediate.FunctionBody;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using System.Globalization;
-using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.AssignmentTargets;
-using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.Literals;
-using YotsubaShader.IR.Intermediate.Slot;
-using YotsubaShader.Language.Native.Types.Vector;
-using YotsubaShader.Language.Native.Types.Vector.Exceptions;
-using IRTypes = YotsubaShader.IR.Intermediate.Types;
 namespace YotsubaShader.Roslyn;
 
-public class StatementOperationProcessor : IStatementOperationProcessor
+/*
+ *| Prioridad | Operación Roslyn | Casos que desbloquea |
+   |---|---|---|
+   | 1 | `IVariableDeclarationGroupOperation` | `VertexOutput output`, `float numero` — ya está iniciado |
+   | 2 | `IObjectCreationOperation` | `new VertexOutput()`, `new Vector2(...)`, `new Vector4(...)` |
+   | 3 | `ISimpleAssignmentOperation` | `output.Position = ...`, `output.Uv = ...` |
+   | 4 | `IReturnOperation` | Todos los `return output` y `return new Vector4(...)` |
+   | 5 | `IBinaryOperation` | `33 + 4`, `id * 3`, `id + 8`, `id * 7` |
+   | 6 | `IConversionOperation` | `0`, `1`, `33 + 4`, etc., al ser convertidos implícitamente a `float`; y `uint` a `float` |
+   | 7 | `ICompoundAssignmentOperation` | `output.Position *= numero` |
+   | 8 | `IEmptyOperation` | El cuerpo vacío de `Compute`; debe producir `statement = null`, no un error |
+ */
+
+public partial class StatementOperationProcessor : IStatementOperationProcessor
 {
-    
-    private readonly Dictionary<ISymbol, Storage> locals =
-        new(SymbolEqualityComparer.Default);
     
     public void ProcessStatement(
         IOperation op,
@@ -106,12 +109,12 @@ public class StatementOperationProcessor : IStatementOperationProcessor
                 ProcessBlockOperation(blockOperation, inputs, outputs, compilation, stage, out statement);
                 break;
             case IVariableDeclarationGroupOperation variableDeclarationGroupOperation:
-                ProcessVariableDeclarationGroupOperation(variableDeclarationGroupOperation, inputs, outputs, compilation,stage, out statement);
+                ProcessVariableDeclarationGroupOperation(variableDeclarationGroupOperation, inputs, outputs, compilation, stage, out statement);
                 break;
-            case ICoalesceAssignmentOperation:
-                throw new NotImplementedException(
-                    nameof(ProcessCoalesceAssignmentOperation));
-
+            case ICoalesceAssignmentOperation coalesceAssignmentOperation:
+                //ProcessCoalesceAssignmentOperation(coalesceAssignmentOperation, inputs, outputs, compilation, stage, out statement);
+                throw new NotImplementedException(nameof(ProcessCoalesceAssignmentOperation));
+                break;
             case ICompoundAssignmentOperation:
                 throw new NotImplementedException(
                     nameof(ProcessCompoundAssignmentOperation));
@@ -140,10 +143,9 @@ public class StatementOperationProcessor : IStatementOperationProcessor
                 throw new NotImplementedException(
                     nameof(ProcessFunctionPointerInvocationOperation));
 
-            case IObjectCreationOperation:
-                throw new NotImplementedException(
-                    nameof(ProcessObjectCreationOperation));
-
+            case IObjectCreationOperation objectCreationOperation:
+                ProcessObjectCreationOperation(objectCreationOperation, inputs, outputs, compilation, stage, out statement);
+             break;
             case IDynamicObjectCreationOperation:
                 throw new NotImplementedException(
                     nameof(ProcessDynamicObjectCreationOperation));
@@ -255,14 +257,16 @@ public class StatementOperationProcessor : IStatementOperationProcessor
         Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage, out Statement? statement)
     {
         var statements = new List<Statement>();
-        foreach (var variableDeclarationOperation in operation.Declarations)
+        var variableDeclarationOperationsSpan = operation.Declarations.AsSpan();
+        foreach (var variableDeclarationOperation in variableDeclarationOperationsSpan)
         {
-            foreach (var variableDeclaratorOperation in variableDeclarationOperation.Declarators)
+            var variableDeclaratorOperations = variableDeclarationOperation.Declarators.AsSpan();
+            foreach (var variableDeclaratorOperation in variableDeclaratorOperations)
             {
                 var symbol = variableDeclaratorOperation.Symbol;
                 var storage = CreateLocalStorage(symbol, compilation, stage);
                 
-                locals.Add(symbol, storage);
+                _locals.Add(symbol, storage);
 
                 var initializerOperation =
                     variableDeclaratorOperation.Initializer ?? variableDeclarationOperation.Initializer;
@@ -270,342 +274,194 @@ public class StatementOperationProcessor : IStatementOperationProcessor
                 Expression? initializer = null;
                 if (initializerOperation is not null)
                 {
-                    initializer = ProcessExpression(initializerOperation.Value, inputs, outputs);
+                    initializer = ProcessExpression(initializerOperation.Value, inputs, outputs, compilation, stage);
                 }
                 
                 statements.Add(new VariableDeclaration(storage, initializer));
             }
         }
 
-        throw new NotImplementedException();
-    }
-
-    private Expression? ProcessExpression(IOperation initializerOperationValue, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs)
-    {
-        throw new NotImplementedException();
-    }
-
-    private Storage CreateLocalStorage(ILocalSymbol symbol, Compilation compilation, Stage stage)
-    {
-        if (symbol.RefKind != RefKind.None)
-        {
-            throw new NotSupportedException(
-                $"Ref local '{symbol.Name}' is not supported.");
-        }
-
-        Storage? storage = null;
-        var storageKind = StorageKind.Local;
-        switch (symbol.Type.SpecialType)
-        {
-            case SpecialType.System_Int32:
-                storage = new IRTypes.Int(symbol.Name, storageKind, null)
-                {
-                    Bits = 32,
-                    Signed = true
-                };
-                break;
-            case SpecialType.System_UInt32:
-                storage = new IRTypes.Int(symbol.Name, storageKind, null)
-                {
-                    Bits = 32,
-                    Signed = false
-                };
-                break;
-            case SpecialType.System_Double:
-                storage = new IRTypes.Double(symbol.Name, storageKind, null)
-                {
-                };
-                break;
-            case SpecialType.System_Single:
-                storage = new IRTypes.Float(symbol.Name, storageKind, null)
-                {
-                };
-                break;
-            case SpecialType.System_Boolean:
-                storage = new IRTypes.Bool(symbol.Name, storageKind, null)
-                {
-                };
-                break;
-        }
-
-        if(storage is not null)
-        return storage;
-
-        var type = symbol.Type;
-
-       
-        if (storage is null)
-        {
-            var attributes = type.GetAttributes();
-
-            var attribute =
-                attributes
-                    .FirstOrDefault(x => x.AttributeClass?.ToDisplayString() == typeof(VectorAttribute).FullName);
-            if (attribute is not null)
-            {
-                var members = type.GetMembers();
-                
-                Dictionary<int, string> components = new Dictionary<int, string>();
-                ITypeSymbol? componentsType = null;
-                foreach (var memberInfo in members)
-                {
-                    if (memberInfo.IsStatic || memberInfo.IsImplicitlyDeclared) continue;
-                    if (memberInfo is IPropertySymbol { IsIndexer: true }) continue;
-                    ITypeSymbol? memberType = memberInfo switch
-                    {
-                        IFieldSymbol fieldSymbol => fieldSymbol.Type,
-                        IPropertySymbol propertySymbol => propertySymbol.Type,
-                        _ => null
-                    };
-
-                    
-                    if(memberType is null) continue;
-                    var memberAttributes = memberInfo.GetAttributes()
-                        .FirstOrDefault(x => 
-                            x.AttributeClass?.ToDisplayString() == typeof(VectorComponentAttribute).FullName);
-                    
-                    if(memberAttributes is null) continue;
-                    if (componentsType == null)
-                    {
-                        componentsType = memberType;
-                    }
-
-                    if (!SymbolEqualityComparer.Default.Equals(componentsType, memberType))
-                    {
-                        throw new InconsistentVectorComponentTypeException(componentsType.ToDisplayString(), memberType.ToDisplayString());
-                    }
-
-                    string value = ShaderProcessor.GetComponentInitialValue(memberInfo, compilation);
-                    components.Add((int)memberAttributes.ConstructorArguments[0].Value!, value);
-                }
-
-                components = components.OrderBy(x => x.Key).ToDictionary();
-                
-                IRTypes.VectorComponentsType vectorComponentsType = componentsType?.SpecialType switch
-                {
-                    SpecialType.System_Int32 => IRTypes.VectorComponentsType.Int,
-                    SpecialType.System_UInt32 => IRTypes.VectorComponentsType.Uint,
-                    SpecialType.System_Single => IRTypes.VectorComponentsType.Float,
-                    _ => throw new VectorComponentTypeNotValidException(
-                        componentsType?.ToDisplayString() ?? "<missing>")
-                };
-                        
-                Storage vector = new IRTypes.Vector(symbol.Name, storageKind, null)
-                {
-                    ComponentsDefaultValues = [.. components.Select(x => x.Value)],
-                    ComponentsType = vectorComponentsType,
-                    ComponentsLength = components.Count
-                };
-
-                storage = vector;
-            }    
-        }
-        
-        if (storage is null && type is INamedTypeSymbol { TypeKind: TypeKind.Struct } structType)
-        {
-            var properties = new List<Storage>();
-
-            foreach (ISymbol member in structType.GetMembers())
-            {
-                if (member.IsStatic || member.IsImplicitlyDeclared)
-                {
-                    continue;
-                }
-
-                if (member is IPropertySymbol { IsIndexer: true })
-                {
-                    continue;
-                }
-
-                if (member is not IFieldSymbol && member is not IPropertySymbol)
-                {
-                    continue;
-                }
-
-                Storage? strg = null;
-                strg = ShaderProcessor.GetStorage(member, strg, null, compilation, stage, true);
-                properties.Add(strg);
-            }
-
-            storage = new IRTypes.CustomStruct(symbol.Name, storageKind, null)
-            {
-                Properties = properties
-            };
-        }
-
-        return storage ?? throw new NotSupportedException(
-            $"Type '{type.ToDisplayString()}' used by '{symbol.ToDisplayString()}' is not supported as shader local variable.");
+        statement = new Block(statements);
     }
 
     public void ProcessSimpleAssignmentOperation(ISimpleAssignmentOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        out Statement? statement)
+        Compilation compilation, Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
     public void ProcessCompoundAssignmentOperation(ICompoundAssignmentOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        out Statement? statement)
+        Compilation compilation, Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
     public void ProcessCoalesceAssignmentOperation(ICoalesceAssignmentOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        out Statement? statement)
+        Compilation compilation, Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
     public void ProcessDeconstructionAssignmentOperation(IDeconstructionAssignmentOperation operation, Dictionary<ISymbol, Storage> inputs,
-        Dictionary<ISymbol, Storage> outputs, out Statement? statement)
+        Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
     public void ProcessIncrementOrDecrementOperation(IIncrementOrDecrementOperation operation, Dictionary<ISymbol, Storage> inputs,
-        Dictionary<ISymbol, Storage> outputs, out Statement? statement)
+        Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
     public void ProcessInvocationOperation(IInvocationOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        out Statement? statement)
+        Compilation compilation, Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
     public void ProcessDynamicInvocationOperation(IDynamicInvocationOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        out Statement? statement)
+        Compilation compilation, Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
     public void ProcessFunctionPointerInvocationOperation(IFunctionPointerInvocationOperation operation, Dictionary<ISymbol, Storage> inputs,
-        Dictionary<ISymbol, Storage> outputs, out Statement? statement)
+        Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
     public void ProcessObjectCreationOperation(IObjectCreationOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        out Statement? statement)
+        Compilation compilation, Stage stage, out Statement? statement)
     {
-        throw new NotImplementedException();
+        //!TODO
+        throw new NotSupportedException(
+            "Una creación de objeto usada como sentencia no está soportada.");
     }
 
     public void ProcessDynamicObjectCreationOperation(IDynamicObjectCreationOperation operation, Dictionary<ISymbol, Storage> inputs,
-        Dictionary<ISymbol, Storage> outputs, out Statement? statement)
+        Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
     public void ProcessConditionalAccessOperation(IConditionalAccessOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        out Statement? statement)
+        Compilation compilation, Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
-    public void ProcessAwaitOperation(IAwaitOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, out Statement? statement)
+    public void ProcessAwaitOperation(IAwaitOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation,
+        Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
-    public void ProcessReturnOperation(IReturnOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        out Statement? statement)
+    public void ProcessReturnOperation(IReturnOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation,
+        Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
     public void ProcessConditionalOperation(IConditionalOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        out Statement? statement)
+        Compilation compilation, Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
     public void ProcessForLoopOperation(IForLoopOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        out Statement? statement)
+        Compilation compilation, Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
     public void ProcessForEachLoopOperation(IForEachLoopOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        out Statement? statement)
+        Compilation compilation, Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
     public void ProcessWhileLoopOperation(IWhileLoopOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        out Statement? statement)
+        Compilation compilation, Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
-    public void ProcessSwitchOperation(ISwitchOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        out Statement? statement)
+    public void ProcessSwitchOperation(ISwitchOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation,
+        Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
-    public void ProcessBranchOperation(IBranchOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        out Statement? statement)
+    public void ProcessBranchOperation(IBranchOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation,
+        Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
     public void ProcessLabeledOperation(ILabeledOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        out Statement? statement)
+        Compilation compilation, Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
-    public void ProcessTryOperation(ITryOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, out Statement? statement)
+    public void ProcessTryOperation(ITryOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation,
+        Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
-    public void ProcessThrowOperation(IThrowOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, out Statement? statement)
+    public void ProcessThrowOperation(IThrowOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation,
+        Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
-    public void ProcessUsingOperation(IUsingOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, out Statement? statement)
+    public void ProcessUsingOperation(IUsingOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation,
+        Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
     public void ProcessUsingDeclarationOperation(IUsingDeclarationOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        out Statement? statement)
+        Compilation compilation, Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
-    public void ProcessLockOperation(ILockOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, out Statement? statement)
+    public void ProcessLockOperation(ILockOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation,
+        Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
-    public void ProcessFixedOperation(IOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, out Statement? statement)
+    public void ProcessFixedOperation(IOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation,
+        Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
     public void ProcessLocalFunctionOperation(ILocalFunctionOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        out Statement? statement)
+        Compilation compilation, Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
     public void ProcessEventAssignmentOperation(IEventAssignmentOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        out Statement? statement)
+        Compilation compilation, Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
-    public void ProcessEmptyOperation(IEmptyOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, out Statement? statement)
+    public void ProcessEmptyOperation(IEmptyOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation,
+        Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
 
     public void ProcessInvalidOperation(IInvalidOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        out Statement? statement)
+        Compilation compilation, Stage stage, out Statement? statement)
     {
         throw new NotImplementedException();
     }
