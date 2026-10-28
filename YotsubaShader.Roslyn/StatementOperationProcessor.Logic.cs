@@ -373,22 +373,28 @@ public partial class StatementOperationProcessor
                 Expression ComponentValueToExpression(string value)
                 {
                     Expression? exp = null;
-                    switch (vectorComponentsType)
-                    {
-                        case IRTypes.VectorComponentsType.Float:
-                            exp = new FloatLiteral(float.Parse(value));
-                            break;
-                        case IRTypes.VectorComponentsType.Int:
-                            exp = new IntLiteral(value, true);
-                            break;
-                        case IRTypes.VectorComponentsType.Uint:
-                            exp = new IntLiteral(value, false);
-                            break;
-                        default:
-                            throw new NotSupportedException($"ComponentValueToExpression cant find a switch case for: {value}");
-                    }
 
-                    return exp;
+                    if (!string.IsNullOrWhiteSpace(value))
+                        return vectorComponentsType switch
+                        {
+                            IRTypes.VectorComponentsType.Float =>
+                                new FloatLiteral(float.Parse(value, CultureInfo.InvariantCulture)),
+                            IRTypes.VectorComponentsType.Int =>
+                                new IntLiteral(value, true),
+                            IRTypes.VectorComponentsType.Uint =>
+                                new IntLiteral(value, false),
+                            _ => throw new NotSupportedException(
+                                $"Unsupported vector component type '{vectorComponentsType}'.")
+                        };
+
+                    return vectorComponentsType switch
+                    {
+                        IRTypes.VectorComponentsType.Float => new FloatLiteral(0f),
+                        IRTypes.VectorComponentsType.Int => new IntLiteral("0", true),
+                        IRTypes.VectorComponentsType.Uint => new IntLiteral("0", false),
+                        _ => throw new NotSupportedException(
+                            $"Unsupported vector component type '{vectorComponentsType}'.")
+                    };
                 }
                         
                 Storage vector = new IRTypes.Vector(symbol.Name, storageKind, null)

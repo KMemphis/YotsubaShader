@@ -166,7 +166,7 @@ public class ShaderProcessor
                     }
                 }
                 
-                Function fn = new Function(shaderInfoEntryPoint.Name, stage, inputs.Values.ToArray(), outputs.Values.ToArray(), bodyFunc);
+                Function fn = new Function(shaderInfoEntryPoint.Name, stage, [.. inputs.Values], [.. outputs.Values], bodyFunc);
                 shaderFunction.Add(fn);
             }
             var shader = new Shader(shaderFunction);
@@ -333,22 +333,28 @@ public class ShaderProcessor
                 Expression ComponentValueToExpression(string value)
                 {
                     Expression? exp = null;
-                    switch (vectorComponentsType)
-                    {
-                        case VectorComponentsType.Float:
-                            exp = new FloatLiteral(float.Parse(value));
-                            break;
-                        case VectorComponentsType.Int:
-                            exp = new IntLiteral(value, true);
-                            break;
-                        case VectorComponentsType.Uint:
-                            exp = new IntLiteral(value, false);
-                            break;
-                        default:
-                            throw new NotSupportedException($"ComponentValueToExpression cant find a switch case for: {value}");
-                    }
 
-                    return exp;
+                    if (!string.IsNullOrWhiteSpace(value))
+                        return vectorComponentsType switch
+                        {
+                            VectorComponentsType.Float =>
+                                new FloatLiteral(float.Parse(value, CultureInfo.InvariantCulture)),
+                            VectorComponentsType.Int =>
+                                new IntLiteral(value, true),
+                            VectorComponentsType.Uint =>
+                                new IntLiteral(value, false),
+                            _ => throw new NotSupportedException(
+                                $"Unsupported vector component type '{vectorComponentsType}'.")
+                        };
+
+                    return vectorComponentsType switch
+                    {
+                        VectorComponentsType.Float => new FloatLiteral(0f),
+                        VectorComponentsType.Int => new IntLiteral("0", true),
+                        VectorComponentsType.Uint => new IntLiteral("0", false),
+                        _ => throw new NotSupportedException(
+                            $"Unsupported vector component type '{vectorComponentsType}'.")
+                    };
                 }
 
                 Storage vector = new Vector(symbol.Name, storageKind, slot)
@@ -650,22 +656,28 @@ public class ShaderProcessor
                 Expression ComponentValueToExpression(string value)
                 {
                     Expression? exp = null;
-                    switch (vectorComponentsType)
-                    {
-                        case VectorComponentsType.Float:
-                            exp = new FloatLiteral(float.Parse(value));
-                            break;
-                        case VectorComponentsType.Int:
-                            exp = new IntLiteral(value, true);
-                            break;
-                        case VectorComponentsType.Uint:
-                            exp = new IntLiteral(value, false);
-                            break;
-                        default:
-                            throw new NotSupportedException($"ComponentValueToExpression cant find a switch case for: {value}");
-                    }
 
-                    return exp;
+                    if (!string.IsNullOrWhiteSpace(value))
+                        return vectorComponentsType switch
+                        {
+                            VectorComponentsType.Float =>
+                                new FloatLiteral(float.Parse(value, CultureInfo.InvariantCulture)),
+                            VectorComponentsType.Int =>
+                                new IntLiteral(value, true),
+                            VectorComponentsType.Uint =>
+                                new IntLiteral(value, false),
+                            _ => throw new NotSupportedException(
+                                $"Unsupported vector component type '{vectorComponentsType}'.")
+                        };
+
+                    return vectorComponentsType switch
+                    {
+                        VectorComponentsType.Float => new FloatLiteral(0f),
+                        VectorComponentsType.Int => new IntLiteral("0", true),
+                        VectorComponentsType.Uint => new IntLiteral("0", false),
+                        _ => throw new NotSupportedException(
+                            $"Unsupported vector component type '{vectorComponentsType}'.")
+                    };
                 }
                 
                 Storage vector = new Vector(symbolName, storageKind, slot)
