@@ -70,15 +70,19 @@ using Microsoft.CodeAnalysis.Operations;
 using YotsubaShader.IR.Intermediate;
 using YotsubaShader.IR.Intermediate.FunctionBody;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.AssignmentTargets;
+using YotsubaShader.IR.Intermediate.FunctionBody.Statements;
+
 namespace YotsubaShader.Roslyn;
 
 /*
  *| Prioridad | Operación Roslyn | Casos que desbloquea |
    |---|---|---|
-   | 1 | `IVariableDeclarationGroupOperation` | `VertexOutput output`, `float numero` — ya está iniciado |
-   | 2 | `IObjectCreationOperation` | `new VertexOutput()`, `new Vector2(...)`, `new Vector4(...)` |
-   | 3 | `ISimpleAssignmentOperation` | `output.Position = ...`, `output.Uv = ...` |
-   | 4 | `IReturnOperation` | Todos los `return output` y `return new Vector4(...)` |
+   | 1 | `IVariableDeclarationGroupOperation` | `VertexOutput output`, `float numero` — ya está iniciado | XX
+   | 2 | `IObjectCreationOperation` | `new VertexOutput()`, `new Vector2(...)`, `new Vector4(...)` | -X
+   | 3 | `ISimpleAssignmentOperation` | `output.Position = ...`, `output.Uv = ...` | XX
+   | 4 | `IReturnOperation` | Todos los `return output` y `return new Vector4(...)` | XX
    | 5 | `IBinaryOperation` | `33 + 4`, `id * 3`, `id + 8`, `id * 7` |
    | 6 | `IConversionOperation` | `0`, `1`, `33 + 4`, etc., al ser convertidos implícitamente a `float`; y `uint` a `float` |
    | 7 | `ICompoundAssignmentOperation` | `output.Position *= numero` |
@@ -115,18 +119,18 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
                 //ProcessCoalesceAssignmentOperation(coalesceAssignmentOperation, inputs, outputs, compilation, stage, out statement);
                 throw new NotImplementedException(nameof(ProcessCoalesceAssignmentOperation));
                 break;
-            case ICompoundAssignmentOperation:
-                throw new NotImplementedException(
-                    nameof(ProcessCompoundAssignmentOperation));
-
+            case ICompoundAssignmentOperation compoundAssignmentOperation:
+                ProcessCompoundAssignmentOperation(compoundAssignmentOperation, inputs, outputs, compilation, stage,
+                    out statement);
+                break;
             case IDeconstructionAssignmentOperation:
                 throw new NotImplementedException(
                     nameof(ProcessDeconstructionAssignmentOperation));
 
-            case ISimpleAssignmentOperation:
-                throw new NotImplementedException(
-                    nameof(ProcessSimpleAssignmentOperation));
-
+            case ISimpleAssignmentOperation simpleAssignmentOperation:
+                 ProcessSimpleAssignmentOperation(simpleAssignmentOperation, inputs, outputs, compilation, stage,
+                    out statement);
+                 break;
             case IIncrementOrDecrementOperation:
                 throw new NotImplementedException(
                     nameof(ProcessIncrementOrDecrementOperation));
@@ -158,10 +162,9 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
                 throw new NotImplementedException(
                     nameof(ProcessAwaitOperation));
 
-            case IReturnOperation:
-                throw new NotImplementedException(
-                    nameof(ProcessReturnOperation));
-
+            case IReturnOperation returnOperation:
+                ProcessReturnOperation(returnOperation, inputs, outputs, compilation, stage, out statement);
+                break;
             case IConditionalOperation:
                 throw new NotImplementedException(
                     nameof(ProcessConditionalOperation));
@@ -222,10 +225,9 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
                 throw new NotImplementedException(
                     nameof(ProcessEventAssignmentOperation));
 
-            case IEmptyOperation:
-                throw new NotImplementedException(
-                    nameof(ProcessEmptyOperation));
-
+            case IEmptyOperation emptyOperation:
+                ProcessEmptyOperation(emptyOperation, inputs, outputs, compilation, stage, out statement);
+                break;
             case IInvalidOperation:
                 throw new NotImplementedException(
                     nameof(ProcessInvalidOperation));
@@ -287,13 +289,35 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
     public void ProcessSimpleAssignmentOperation(ISimpleAssignmentOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
         Compilation compilation, Stage stage, out Statement? statement)
     {
-        throw new NotImplementedException();
+        var target = ProcessExpression(operation.Target, inputs, outputs, compilation, stage) ?? throw new NotSupportedException(
+            "The assignment target did not produce an expression.");
+
+        var value = ProcessExpression(operation.Value, inputs, outputs, compilation, stage) ?? throw new NotSupportedException(
+            "The assignment value did not produce an expression.");
+
+        statement = new Assignment(target, value);
     }
 
     public void ProcessCompoundAssignmentOperation(ICompoundAssignmentOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
         Compilation compilation, Stage stage, out Statement? statement)
     {
-        throw new NotImplementedException();
+        var target = ProcessExpression(operation.Target, inputs, outputs, compilation, stage) ?? throw new NotSupportedException(
+            "The compound-assignment target did not produce an expression.");
+
+        if (target is not StorageReference && target is not StorageStructPropertyReference &&
+            target is not StorageArrayElementReference)
+        {
+            throw new NotSupportedException(
+                "The compound-assignment target is not assignable.");
+        }
+
+        var value = ProcessExpression(operation.Value, inputs, outputs, compilation, stage)  ?? throw new NotSupportedException(
+            "The compound-assignment value did not produce an expression.");
+
+        BinaryOperator binaryOperator = GetBinaryOperator(operation.OperatorKind);
+
+        statement = new Assignment(
+            target, value);
     }
 
     public void ProcessCoalesceAssignmentOperation(ICoalesceAssignmentOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
@@ -337,7 +361,7 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
     {
         //!TODO
         throw new NotSupportedException(
-            "Una creación de objeto usada como sentencia no está soportada.");
+            "Standalone object-creation statements are not supported.");
     }
 
     public void ProcessDynamicObjectCreationOperation(IDynamicObjectCreationOperation operation, Dictionary<ISymbol, Storage> inputs,
@@ -361,7 +385,11 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
     public void ProcessReturnOperation(IReturnOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation,
         Stage stage, out Statement? statement)
     {
-        throw new NotImplementedException();
+        Expression? value = operation.ReturnedValue is null
+            ? null
+            : ProcessExpression(operation.ReturnedValue, inputs, outputs, compilation, stage);
+
+        statement = new Return(value);
     }
 
     public void ProcessConditionalOperation(IConditionalOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
@@ -457,7 +485,7 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
     public void ProcessEmptyOperation(IEmptyOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation,
         Stage stage, out Statement? statement)
     {
-        throw new NotImplementedException();
+        statement = null;
     }
 
     public void ProcessInvalidOperation(IInvalidOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,

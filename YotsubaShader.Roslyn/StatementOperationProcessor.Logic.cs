@@ -70,6 +70,7 @@ using Microsoft.CodeAnalysis.Operations;
 using YotsubaShader.IR.Intermediate;
 using YotsubaShader.IR.Intermediate.FunctionBody;
 using System.Globalization;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.AssignmentTargets;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.Literals;
 using YotsubaShader.IR.Intermediate.ValueConvertions;
@@ -107,6 +108,9 @@ public partial class StatementOperationProcessor
                     inputs, outputs, compilation, stage);
             case IParenthesizedOperation parenthesizedOperation:
                 return ProcessExpression(parenthesizedOperation.Operand, inputs, outputs, compilation, stage);
+            case IBinaryOperation binaryOperation:
+                return ProcessBinaryExpression(
+                    binaryOperation, inputs, outputs, compilation, stage);
             case IConversionOperation conversionOperation:
                 return ProcessConversionExpression(conversionOperation, inputs, outputs, compilation, stage);
             case IObjectCreationOperation objectCreationOperation: 
@@ -116,6 +120,19 @@ public partial class StatementOperationProcessor
 
         throw new NotSupportedException(
             $"Expression operation '{initializerOperationValue.Kind}' is not supported yet.");
+    }
+
+    private Expression? ProcessBinaryExpression(IBinaryOperation binaryOperation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage)
+    {
+        var left = ProcessExpression(binaryOperation.LeftOperand, inputs, outputs, compilation, stage)   ?? throw new NotSupportedException(
+            "The left binary operand did not produce an expression.");
+
+        var right = ProcessExpression(binaryOperation.RightOperand, inputs, outputs, compilation, stage) ?? throw new NotSupportedException(
+            "The right binary operand did not produce an expression.");
+
+        BinaryOperator binaryOperator = GetBinaryOperator(binaryOperation.OperatorKind);
+
+        return new BinaryExpression(binaryOperator, left, right);
     }
 
     private Expression? ProcessConversionExpression(IConversionOperation conversionOperation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage)
@@ -422,4 +439,18 @@ public partial class StatementOperationProcessor
     }
 
         
+    private static BinaryOperator GetBinaryOperator(
+        BinaryOperatorKind operatorKind)
+    {
+        return operatorKind switch
+        {
+            BinaryOperatorKind.Add => BinaryOperator.Add,
+            BinaryOperatorKind.Subtract => BinaryOperator.Subtract,
+            BinaryOperatorKind.Multiply => BinaryOperator.Multiply,
+            BinaryOperatorKind.Divide => BinaryOperator.Divide,
+            BinaryOperatorKind.Remainder => BinaryOperator.Remainder,
+            _ => throw new NotSupportedException(
+                $"The binary operator '{operatorKind}' is not supported.")
+        };
+    }
 }
