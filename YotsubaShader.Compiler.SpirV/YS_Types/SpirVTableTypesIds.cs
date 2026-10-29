@@ -66,6 +66,8 @@
 */
 #endregion
 
+using YotsubaShader.IR.Intermediate.Types;
+
 namespace YotsubaShader.Compiler.SpirV.YS_Types;
 
 public class SpirVTableTypesIds
@@ -91,7 +93,22 @@ public class SpirVTableTypesIds
     public static string FloatDinamicId(int large) => "%float_" + large;
 
     /// <summary>%v2float, %v3float, %v4float.</summary>
-    public static string VectorFloatID(int components) => "%v" + components + "float";
+    public static string VectorID(int components, VectorComponentsType type) => "%v" + components + 
+        (type == VectorComponentsType.Int ? "int" :
+            type == VectorComponentsType.Float ? "float"
+                : type == VectorComponentsType.Uint ? "uint" : throw new NotSupportedException("Vector have to be Int, UInt, float or Double"));
+    
+
+    public static string MatrixID(int components, MatrixComponentType type) => "%mat" + components + 
+    (type == MatrixComponentType.Float ? "float"
+    : type == MatrixComponentType.Double ? "double" : throw new NotSupportedException("Vector have to be Int, UInt, float or Double"));
+
+    
+    public static string TextureID(Texture texture) =>
+        $"%img_{texture.Dimensions}_{texture.TextureComponentsType}_" +
+        $"{texture.Depth}_{(texture.Arrayed ? "array" : "single")}_" +
+        $"{(texture.Multisampled ? "ms" : "single")}_{texture.Usage}_{texture.Format}"
+            .ToLowerInvariant();
 
     public const string VoidID = "%void";
 
@@ -103,5 +120,9 @@ public class SpirVTableTypesIds
 
 
     public const string PtrTypeIDLastConcatenation = "_ptr";
+    
+    
+    public static string StructID(string humanName) =>
+        $"%struct_{humanName}";
 
 }

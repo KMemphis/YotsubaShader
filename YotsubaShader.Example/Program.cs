@@ -71,6 +71,7 @@ using YotsubaShader.Compiler;
 using YotsubaShader.Compiler.SpirV;
 using YotsubaShader.Compiler.SpirV.Builder;
 using YotsubaShader.Compiler.SpirV.YS_Types;
+using YotsubaShader.IR.Intermediate.Types;
 
 var module = new SpirVModule();
         
@@ -153,7 +154,7 @@ module.AddResultLine("%float_1", SpirVOpTable.OpConstant, new[]
 //Fourteen Line
 module.AddResultLine("%magenta", SpirVOpTable.OpConstantComposite, new[]
 {
-    new SpirVInstructionParameter(SpirVTableTypesIds.VectorFloatID(4),
+    new SpirVInstructionParameter(SpirVTableTypesIds.VectorID(4, VectorComponentsType.Float),
         SpirVInstructionType.IdRef),
     new SpirVInstructionParameter("%float_1", SpirVInstructionType.IdRef),
     new SpirVInstructionParameter("%float_0", SpirVInstructionType.IdRef),

@@ -69,6 +69,7 @@
 using System.Text;
 using Microsoft.Xna.Framework.Graphics;
 using YotsubaShader.Compiler.SpirV.YS_Types;
+using YotsubaShader.IR.Intermediate;
 
 namespace YotsubaShader.Compiler.SpirV.Builder;
 
@@ -78,6 +79,7 @@ public class SpirVModule
 
      private readonly HashSet<string> _definedIds = [];
      private readonly Dictionary<Type, string> _declaredTypes = [];
+     private readonly Dictionary<Storage, string> _declaredTypesStorages = [];
 
      /// <summary>Instrucción sin resultado (OpStore, OpReturn, OpDecorate...).</summary>
      public void AddLine(SpirVOperation operation, params SpirVInstructionParameter[] parameters)
@@ -125,8 +127,10 @@ public class SpirVModule
      public bool IsDefined(string id) => _definedIds.Contains(id);
 
      internal bool TryGetDeclaredType(Type type, out string id) => _declaredTypes.TryGetValue(type, out id!);
+     internal bool TryGetDeclaredType(Storage type, out string id) => _declaredTypesStorages.TryGetValue(type, out id!);
 
      internal void RegisterType(Type type, string id) => _declaredTypes[type] = id;
+     internal void RegisterType(Storage type, string id) => _declaredTypesStorages[type] = id;
 
      /// <summary>Texto en formato spirv-as (para depurar y validar con spirv-val).</summary>
      public string ToText()

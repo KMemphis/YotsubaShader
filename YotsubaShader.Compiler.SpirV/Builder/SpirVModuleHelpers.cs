@@ -68,6 +68,8 @@
 
 using Microsoft.Xna.Framework.Graphics;
 using YotsubaShader.Compiler.SpirV.YS_Types;
+using YotsubaShader.IR.Intermediate;
+using YotsubaShader.IR.Intermediate.Types;
 using XnaVector2 = Microsoft.Xna.Framework.Vector2;
 using NumVector2 = System.Numerics.Vector2;
 using XnaVector3 = Microsoft.Xna.Framework.Vector3;
@@ -76,6 +78,7 @@ using XnaVector4 = Microsoft.Xna.Framework.Vector4;
 using NumVector4 = System.Numerics.Vector4;
 using XnaMatrix = Microsoft.Xna.Framework.Matrix;
 using NumMatrix = System.Numerics.Matrix4x4;
+using Texture = YotsubaShader.IR.Intermediate.Types.Texture;
 
 namespace YotsubaShader.Compiler.SpirV.Builder;
 
@@ -87,6 +90,23 @@ public static class SpirVModuleHelpers
     /// que depende (p. ej. %float para un vector) se declaran antes, en orden de dependencias.
     /// </summary>
     public static string DeclareType(this SpirVModule module, Type type)
+    {
+        if (module.TryGetDeclaredType(type, out string existing))
+        {
+            return existing;
+        }
+
+        string id = EmitType(module, type);
+        module.RegisterType(type, id);
+        return id;
+    }
+    
+    /// <summary>
+    /// Declara (una sola vez) el tipo SPIR-V equivalente y devuelve su ID. Si el tipo ya existe,
+    /// devuelve el ID anterior: en SPIR-V los tipos simples no pueden repetirse. Los tipos de los
+    /// que depende (p. ej. %float para un vector) se declaran antes, en orden de dependencias.
+    /// </summary>
+    public static string DeclareType(this SpirVModule module, Storage type)
     {
         if (module.TryGetDeclaredType(type, out string existing))
         {
@@ -129,6 +149,139 @@ public static class SpirVModuleHelpers
             Id(uintId), new SpirVInstructionParameter(value.ToString(), SpirVInstructionType.UIntValue));
     }
 
+    private static string EmitType(SpirVModule module, Storage type)
+    {
+        switch (type)
+        {
+            case IR.Intermediate.Types.Int Integer:
+                if (Integer.Signed)
+                {
+                    return Define(module, SpirVTableTypesIds.IntID, SpirVOpTable.OpTypeInt, Int((int)Integer.Bits), Int(1));
+                }
+                else
+                {
+                    return Define(module, SpirVTableTypesIds.UIntID, SpirVOpTable.OpTypeInt, Int((int)Integer.Bits), Int(0));
+                }
+            case IR.Intermediate.Types.Float:
+                return Define(module, SpirVTableTypesIds.FloatID, SpirVOpTable.OpTypeFloat, Int(32));
+            case IR.Intermediate.Types.Bool:
+                return Define(module, SpirVTableTypesIds.BoolID, SpirVOpTable.OpTypeBool);
+            case IR.Intermediate.Types.Double Double:
+                return Define(module, SpirVTableTypesIds.FloatDinamicId(64), SpirVOpTable.OpTypeFloat, Int(64));
+            case IR.Intermediate.Types.Sampler:
+                return Define(module, SpirVTableTypesIds.SamplerID, SpirVOpTable.OpTypeSampler);
+            case IR.Intermediate.Types.CustomStruct customStruct:
+                return DefineStruct(module, customStruct);
+                break;
+            case IR.Intermediate.Types.Vector vector:
+                string componentTypeId = vector.ComponentsType switch
+                {
+                    VectorComponentsType.Float =>
+                        Define(module, SpirVTableTypesIds.FloatID,
+                            SpirVOpTable.OpTypeFloat, Int(32)),
+
+                    VectorComponentsType.Int =>
+                        Define(module, SpirVTableTypesIds.IntID,
+                            SpirVOpTable.OpTypeInt, Int(32), Int(1)),
+
+                    VectorComponentsType.Uint =>
+                        Define(module, SpirVTableTypesIds.UIntID,
+                            SpirVOpTable.OpTypeInt, Int(32), Int(0)),
+
+                    VectorComponentsType.Double =>
+                        Define(module, SpirVTableTypesIds.FloatDinamicId(64),
+                            SpirVOpTable.OpTypeFloat, Int(64)),
+
+                    _ => throw new NotSupportedException(
+                        $"El tipo de componente '{vector.ComponentsType}' no está soportado.")
+                };
+                return Define(module, 
+                    SpirVTableTypesIds.VectorID(vector.ComponentsLength, vector.ComponentsType),
+                    SpirVOpTable.OpTypeVector,
+                    Id(componentTypeId),
+                    Int(vector.ComponentsLength)
+                    );
+            
+            case IR.Intermediate.Types.Matrix matrix:
+                string MatrixTypeId = matrix.ComponentsType switch
+                {
+                    MatrixComponentType.Float =>
+                        Define(module, SpirVTableTypesIds.FloatID,
+                            SpirVOpTable.OpTypeFloat, Int(32)),
+                    MatrixComponentType.Double =>
+                        Define(module, SpirVTableTypesIds.FloatDinamicId(64),
+                            SpirVOpTable.OpTypeFloat, Int(64)),
+                    _ => throw new NotSupportedException(
+                        $"El tipo de componente '{matrix.ComponentsType}' no está soportado.")
+                };                
+                
+                return Define(module, 
+                    SpirVTableTypesIds.MatrixID((int)matrix.Columns, matrix.ComponentsType),
+                    SpirVOpTable.OpTypeMatrix,
+                    Id(MatrixTypeId),
+                    Int((int)matrix.Columns)
+                );
+            case IR.Intermediate.Types.Texture texture:
+            {
+                string sampledTypeId = texture.TextureComponentsType switch
+                {
+                    TextureComponentTypes.Float =>
+                        Define(module, SpirVTableTypesIds.FloatID,
+                            SpirVOpTable.OpTypeFloat, Int(32)),
+
+                    TextureComponentTypes.Int =>
+                        Define(module, SpirVTableTypesIds.IntID,
+                            SpirVOpTable.OpTypeInt, Int(32), Int(1)),
+
+                    TextureComponentTypes.Uint =>
+                        Define(module, SpirVTableTypesIds.UIntID,
+                            SpirVOpTable.OpTypeInt, Int(32), Int(0)),
+
+                    TextureComponentTypes.GenericDefine =>
+                        throw new NotSupportedException(
+                            "Una textura GenericDefine todavía no tiene un tipo de componente concreto."),
+
+                    _ => throw new NotSupportedException(
+                        $"El tipo de componente '{texture.TextureComponentsType}' no está soportado.")
+                };
+
+                (string dimensionName, int dimensionValue) = texture.Dimensions switch
+                {
+                    TextureDimensions.Texture_1D => ("1D", 0),
+                    TextureDimensions.Texture_2D => ("2D", 1),
+                    TextureDimensions.Texture_3D => ("3D", 2),
+                    TextureDimensions.Cube       => ("Cube", 3),
+                    _ => throw new NotSupportedException(
+                        $"La dimensión '{texture.Dimensions}' no está soportada.")
+                };
+
+                return Define(module,
+                    SpirVTableTypesIds.TextureID(texture),
+                    SpirVOpTable.OpTypeImage,
+                    Id(sampledTypeId),
+                    Enumerant(dimensionName, (uint)dimensionValue),
+                    Int((int)texture.Depth),
+                    Int(texture.Arrayed ? 1 : 0),
+                    Int(texture.Multisampled ? 1 : 0),
+                    Int((int)texture.Usage),
+                    Enumerant(texture.Format.ToString(), (uint)texture.Format));
+            }
+            default:
+                throw new Exception();
+        }
+    }
+
+    private static string DefineStruct(SpirVModule module, CustomStruct customStruct)
+    {
+        var memberTypes = customStruct.Properties
+            .Select(property => module.DeclareType(property))
+            .Select(Id)
+            .ToArray();
+
+        return Define(module, SpirVTableTypesIds.StructID(customStruct.HumanName), SpirVOpTable.OpTypeStruct,
+            memberTypes);
+    }
+
     private static string EmitType(SpirVModule module, Type type)
     {
         if (type == typeof(void))
@@ -143,6 +296,12 @@ public static class SpirVModuleHelpers
         // La signatura del literal (1/0) es lo único que distingue int de uint.
         if (type == typeof(int))
             return Define(module, SpirVTableTypesIds.IntID, SpirVOpTable.OpTypeInt, Int(32), Int(1));
+        
+        if (type == typeof(double))
+            return Define(module, SpirVTableTypesIds.FloatID, SpirVOpTable.OpTypeFloat, Int(64), Int(1));
+        
+        if (type == typeof(Int16))
+            return Define(module, SpirVTableTypesIds.IntID, SpirVOpTable.OpTypeInt, Int(16), Int(1));
 
         if (type == typeof(uint))
             return Define(module, SpirVTableTypesIds.UIntID, SpirVOpTable.OpTypeInt, Int(32), Int(0));
@@ -181,7 +340,7 @@ public static class SpirVModuleHelpers
     }
 
     private static string DeclareFloatVector(SpirVModule module, int components) =>
-        Define(module, SpirVTableTypesIds.VectorFloatID(components), SpirVOpTable.OpTypeVector,
+        Define(module, SpirVTableTypesIds.VectorID(components, VectorComponentsType.Float), SpirVOpTable.OpTypeVector,
             Id(module.DeclareType(typeof(float))), Int(components));
 
     public static string DeclarePointer(this SpirVModule module, SpirVStorageClass storage, string pointeeId)
@@ -209,7 +368,7 @@ public static class SpirVModuleHelpers
          (g == typeof(List<>) || g == typeof(System.Collections.Immutable.ImmutableArray<>) ||
           g == typeof(System.Collections.Immutable.ImmutableList<>)));
 
-    private static SpirVInstructionParameter Id(string id) => new(id, SpirVInstructionType.IdRef);
+    internal static SpirVInstructionParameter Id(string id) => new(id, SpirVInstructionType.IdRef);
 
     private static SpirVInstructionParameter Int(int value) =>
         new(value.ToString(), SpirVInstructionType.IntValue);
