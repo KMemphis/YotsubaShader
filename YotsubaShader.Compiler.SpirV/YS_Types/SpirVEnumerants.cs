@@ -132,3 +132,23 @@ public enum SpirVFunctionControl : uint
     Pure = 4,
     Const = 8,
 }
+
+
+public enum SpirVBuiltIn : uint
+{
+    Position = 0,
+    PointSize = 1,
+
+    FragCoord = 15,
+    FrontFacing = 17,
+    FragDepth = 22,
+
+    NumWorkgroups = 24,
+    WorkgroupId = 26,
+    LocalInvocationId = 27,
+    GlobalInvocationId = 28,
+    LocalInvocationIndex = 29,
+
+    VertexIndex = 42,
+    InstanceIndex = 43,
+}

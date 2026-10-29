@@ -74,4 +74,9 @@ public readonly record struct Function(
     Stage Stage,
     IReadOnlyList<Storage> Inputs,
     IReadOnlyList<Storage> Outputs,
-    IReadOnlyList<Statement> Body);
+    IReadOnlyList<Statement> Body,
+    FunctionExtraParams? ExtraParams = null
+    );
+
+public abstract record FunctionExtraParams;
+public record ComputeParams(uint X, uint Y, uint Z) : FunctionExtraParams;

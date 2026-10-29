@@ -74,6 +74,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Operations;
 using YotsubaShader.Concepts;
 using YotsubaShader.Concepts.BindingSlotsAndResources;
+using YotsubaShader.Concepts.Compute;
 using YotsubaShader.Concepts.Fragment;
 using YotsubaShader.Concepts.Vertex;
 using YotsubaShader.IR.Intermediate;
@@ -165,16 +166,42 @@ public class ShaderProcessor
                         bodyFunc.Add(statement);
                     }
                 }
-                
-                Function fn = new Function(shaderInfoEntryPoint.Name, stage, [.. inputs.Values], [.. outputs.Values], bodyFunc);
+
+                FunctionExtraParams? extraParams = GetStageExtraParams(shaderInfoEntryPoint.Method, stage);
+
+                Function fn = new Function(shaderInfoEntryPoint.Name, stage, [.. inputs.Values], [.. outputs.Values], bodyFunc, extraParams);
                 shaderFunction.Add(fn);
             }
+            
             var shader = new Shader(shaderFunction);
             shaders[i++] = shader;
         }
 
         return shaders;
     }
+
+    private FunctionExtraParams? GetStageExtraParams(IMethodSymbol method, IRStage stage)
+    {
+        if (stage != Stage.Compute) return null;
+
+        AttributeData? attribute = method.GetAttributes()
+            .FirstOrDefault(HasConcept<WorkgroupSizeMethodAttribute>);
+
+        if (attribute is null)
+        {
+            throw new NotSupportedException(
+                $"El compute shader '{method.Name}' requiere [numthreads(x, y, z)].");
+        }
+
+        if (attribute.ConstructorArguments is [{ Value: uint x and > 0 }, { Value: uint y and > 0 }, { Value: uint z and > 0 }])
+        {
+            return new ComputeParams(x, y, z);
+        }
+        
+        throw new NotSupportedException(
+            $"[numthreads] en '{method.Name}' debe contener tres valores positivos.");
+    }
+
     private static void ProcessStatement(
         IOperation op,
         Dictionary<ISymbol, Storage> inputs,
@@ -1017,6 +1044,15 @@ public class ShaderProcessor
                     HasConcept<VertexIndex>(attributeData))
                 {
                     builtIn = BuiltIn.VertexIndex;
+                } else if (HasConcept<GlobalInvocationId>(attributeData))
+                {
+                    if (stage != IRStage.Compute)
+                    {
+                        throw new NotSupportedException(
+                            "SV_DispatchThreadID solo puede usarse en un compute shader.");
+                    }
+
+                    builtIn = BuiltIn.GlobalInvocationId;
                 }
 
                 if (builtIn != null)

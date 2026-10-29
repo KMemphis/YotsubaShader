@@ -69,6 +69,9 @@
 using YotsubaShader.Compiler.SpirV.Builder;
 using YotsubaShader.Compiler.SpirV.YS_Types;
 using YotsubaShader.IR.Intermediate;
+using YotsubaShader.IR.Intermediate.Slot;
+using YotsubaShader.IR.Intermediate.Slot.Types;
+using YotsubaShader.IR.Intermediate.Types;
 
 namespace YotsubaShader.Compiler.SpirV;
 
@@ -134,7 +137,23 @@ public partial class IRToSpirvModule
                     new SpirVInstructionParameter(functionId, SpirVInstructionType.IdRef),
                     SpirVInstructionParameter.Enumerant(SpirVExecutionMode.OriginUpperLeft));
             }
-            
+
+            if (shaderFunction.Stage is Stage.Compute)
+            {
+                if (shaderFunction.ExtraParams is not ComputeParams compute)
+                {
+                    throw new InvalidOperationException(
+                        $"El compute shader '{shaderFunction.HumanName}' no tiene ComputeParams.");
+                }
+
+                module.AddLine(SpirVOpTable.OpExecutionMode,
+                    SpirVModuleHelpers.Id(functionId),
+                    SpirVInstructionParameter.Enumerant(SpirVExecutionMode.LocalSize),
+                    new SpirVInstructionParameter(compute.X.ToString(), SpirVInstructionType.UIntValue),
+                    new SpirVInstructionParameter(compute.Y.ToString(), SpirVInstructionType.UIntValue),
+                    new SpirVInstructionParameter(compute.Z.ToString(), SpirVInstructionType.UIntValue));
+            }
+
         }
     }
 
@@ -182,4 +201,122 @@ public partial class IRToSpirvModule
     {
         return $"%fn_{function.HumanName}";
     }
+
+    private void BuildDecorations(SpirVModule module, Shader shader)
+    {
+        foreach (var shaderFunction in shader.Functions)
+        {
+            if(shaderFunction.Stage == Stage.None) continue;
+
+            foreach (var storage in shaderFunction.Inputs.Concat(shaderFunction.Outputs))
+            {
+                if(storage.Kind is not (StorageKind.Input or StorageKind.Output)) continue;
+
+                string variableId = $"%{shaderFunction.HumanName}_{storage.Kind}_{storage.HumanName}";
+
+                if (storage is CustomStruct structure)
+                {
+                    string structId = SpirVTableTypesIds.StructID(structure.HumanName);
+
+                    for (int memberIndex = 0; memberIndex < structure.Properties.Count; memberIndex++)
+                    {
+                        DecorateMember(module, structId, memberIndex, structure.Properties[memberIndex].Slot);
+                    }
+                    continue;
+                }
+
+                DecorateVariable(module, variableId, storage.Slot);
+            }
+        }
+    }
+
+    private void DecorateVariable(SpirVModule module, string variableId, InterfaceSlot storageSlot)
+    {
+        switch (storageSlot)
+        {
+            case BuiltInSlot builtInSlot:
+                module.AddLine(SpirVOpTable.OpDecorate,
+                    SpirVModuleHelpers.Id(variableId),
+                    SpirVInstructionParameter.Enumerant(SpirVDecoration.BuiltIn),
+                    SpirVInstructionParameter.Enumerant(ToSpirVBuiltIn(builtInSlot.BuiltIn)));
+                break;
+            case LocationSlot locationSlot:
+                module.AddLine(SpirVOpTable.OpDecorate,
+                    SpirVModuleHelpers.Id(variableId),
+                    SpirVInstructionParameter.Enumerant(SpirVDecoration.Location),
+                    new(locationSlot.Location.ToString(), SpirVInstructionType.UIntValue));
+                break;
+        }
+    }
+
+    private void DecorateMember(SpirVModule module, string structId, int memberIndex, InterfaceSlot? slot)
+    {
+
+        if (slot is null) return;
+        switch (slot)
+        {
+            case BuiltInSlot builtInSlot:
+                module.AddLine(SpirVOpTable.OpMemberDecorate,
+                    SpirVModuleHelpers.Id(structId),
+                    new(memberIndex.ToString(),SpirVInstructionType.UIntValue),
+                    SpirVInstructionParameter.Enumerant(SpirVDecoration.BuiltIn),
+                    SpirVInstructionParameter.Enumerant(ToSpirVBuiltIn(builtInSlot.BuiltIn)));
+                break;
+            case LocationSlot locationSlot:
+                module.AddLine(SpirVOpTable.OpMemberDecorate,
+                    SpirVModuleHelpers.Id(structId),
+                    new(memberIndex.ToString(), SpirVInstructionType.UIntValue),
+                    SpirVInstructionParameter.Enumerant(SpirVDecoration.Location),
+                    new(locationSlot.Location.ToString(), SpirVInstructionType.UIntValue));
+                break;
+            case VertexSlot vertex:
+                int location = ResolveVertexLocation(vertex.Semantic);
+                module.AddLine(
+                    SpirVOpTable.OpMemberDecorate,
+                    SpirVModuleHelpers.Id(structId),
+                    new SpirVInstructionParameter(memberIndex.ToString(), SpirVInstructionType.UIntValue),
+                    SpirVInstructionParameter.Enumerant(SpirVDecoration.Location),
+                    new(location.ToString(), SpirVInstructionType.UIntValue));
+                break;
+        }
+    }
+
+    private int ResolveVertexLocation(VertexSemantic vertexSemantic)
+    {
+        switch (vertexSemantic.Usage)
+        {
+            case VertexUsage.TextureCoordinate:
+                return vertexSemantic.Index;
+            case VertexUsage.Color:
+                return 8 + vertexSemantic.Index;
+            case VertexUsage.Normal:
+                return 16 + vertexSemantic.Index;
+            case VertexUsage.Tangent:
+                return 16 + vertexSemantic.Index;
+            case VertexUsage.Binormal:
+                return 32 + vertexSemantic.Index;
+            default:
+                throw new NotSupportedException(
+                    $"El semántico '{vertexSemantic.Usage}{vertexSemantic.Index}' aún no tiene una Location SPIR-V.");
+        }
+    }
+    
+    private static SpirVBuiltIn ToSpirVBuiltIn(BuiltIn builtIn) =>
+        builtIn switch
+        {
+            BuiltIn.Position => SpirVBuiltIn.Position,
+            BuiltIn.PointSize => SpirVBuiltIn.PointSize,
+            BuiltIn.VertexIndex => SpirVBuiltIn.VertexIndex,
+            BuiltIn.InstanceIndex => SpirVBuiltIn.InstanceIndex,
+            BuiltIn.FragCoord => SpirVBuiltIn.FragCoord,
+            BuiltIn.FrontFacing => SpirVBuiltIn.FrontFacing,
+            BuiltIn.FragDepth => SpirVBuiltIn.FragDepth,
+            BuiltIn.GlobalInvocationId => SpirVBuiltIn.GlobalInvocationId,
+            BuiltIn.LocalInvocationId => SpirVBuiltIn.LocalInvocationId,
+            BuiltIn.LocalInvocationIndex => SpirVBuiltIn.LocalInvocationIndex,
+            BuiltIn.WorkgroupId => SpirVBuiltIn.WorkgroupId,
+            BuiltIn.NumWorkgroups => SpirVBuiltIn.NumWorkgroups,
+            _ => throw new NotSupportedException(
+                $"El built-in '{builtIn}' aún no está soportado por SPIR-V."),
+        };
 }

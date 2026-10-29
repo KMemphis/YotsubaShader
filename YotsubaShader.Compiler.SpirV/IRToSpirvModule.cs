@@ -83,6 +83,7 @@ public partial class IRToSpirvModule
         BuildHeader(module, shader);
         BuildEntryPoints(module, shader);
         // 2. Tipos, constantes e interfaces globales.
+        BuildDecorations(module, shader);
         BuildFunctionTypes(module);
         BuildIrTypes.BuildRequiredTypes(module, shader);
         // 3. Entry points.
