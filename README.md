@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="assets/Cherry%20Blossom%20Lake%20at%20Sunset.png" alt="Cherry blossoms over a mountain lake at sunset" />
+</p>
+
+<p align="center">
   <img src="assets/Yotsuba%20Hybrid%20Logo.webp" alt="Yotsuba Shader" width="220" />
 </p>
 
