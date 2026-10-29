@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/Readme%20Banner" alt="Yotsuba Shader over cherry blossoms, mountains, and a sunset lake" />
+  <img src="assets/Readme%20Banner.png" alt="Yotsuba Shader over cherry blossoms, mountains, and a sunset lake" />
 </p>
 
 <h1 align="center">YotsubaShader</h1>
