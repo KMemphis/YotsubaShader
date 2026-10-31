@@ -149,6 +149,10 @@ public class SpirVCompiler
                 float floatValue = float.Parse(parameter.Instruction, CultureInfo.InvariantCulture);
                 spirV.AddRange(BitConverter.GetBytes(floatValue));
                 break;
+            case SpirVInstructionType.DoubleValue:
+                double value = double.Parse(parameter.Instruction, CultureInfo.InvariantCulture);
+                spirV.AddRange(BitConverter.GetBytes(value));
+                break;
             case SpirVInstructionType.IntValue:
                 int intValue = int.Parse(parameter.Instruction);
                 spirV.AddRange(BitConverter.GetBytes(intValue));
@@ -159,6 +163,14 @@ public class SpirVCompiler
             case SpirVInstructionType.UIntValue:
                 uint uintValue = uint.Parse(parameter.Instruction);
                 spirV.AddRange(BitConverter.GetBytes(uintValue));
+                break;
+            case SpirVInstructionType.LongValue:
+                long longValue = long.Parse(parameter.Instruction);
+                spirV.AddRange(BitConverter.GetBytes(longValue));
+                break;
+            case SpirVInstructionType.UlongValue:
+                ulong ulongValue = ulong.Parse(parameter.Instruction);
+                spirV.AddRange(BitConverter.GetBytes(ulongValue));
                 break;
             case SpirVInstructionType.StringLiteral:
                 byte[] utf8 = Encoding.UTF8.GetBytes(parameter.Instruction);

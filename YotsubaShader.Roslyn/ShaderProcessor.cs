@@ -68,7 +68,6 @@
 
 using System.Collections.Immutable;
 using System.Globalization;
-using System.Reflection.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Operations;
@@ -79,8 +78,6 @@ using YotsubaShader.Concepts.Fragment;
 using YotsubaShader.Concepts.Vertex;
 using YotsubaShader.IR.Intermediate;
 using YotsubaShader.IR.Intermediate.FunctionBody;
-using YotsubaShader.IR.Intermediate.FunctionBody.Expressions;
-using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.AssignmentTargets;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.Literals;
 using YotsubaShader.IR.Intermediate.Slot;
 using YotsubaShader.IR.Intermediate.Slot.Types;
@@ -93,11 +90,9 @@ using YotsubaShader.Roslyn.Model;
 using Double = YotsubaShader.IR.Intermediate.Types.Double;
 using LanguageStage = YotsubaShader.Language.Stage;
 using IRStage = YotsubaShader.IR.Intermediate.Stage;
-using TextureComponentTypes = YotsubaShader.Language.Native.Types.Texture.TextureComponentTypes;
 using TextureDepth = YotsubaShader.Language.Native.Types.Texture.TextureDepth;
 using TextureFormat = YotsubaShader.Language.Native.Types.Texture.TextureFormat;
 using TextureUsage = YotsubaShader.Language.Native.Types.Texture.TextureUsage;
-using IR = YotsubaShader.IR.Intermediate;
 namespace YotsubaShader.Roslyn;
 
 public class ShaderProcessor
@@ -107,9 +102,15 @@ public class ShaderProcessor
         var csharpShaderMetadata = ShaderDiscovery.Find(compilation, token);
         Shader[] shaders = new Shader[csharpShaderMetadata.Length];
         int i = 0;
+
+        
         foreach (ShaderInfo shaderInfo in csharpShaderMetadata)
         {
+            var globals = new Dictionary<ISymbol, Storage>(SymbolEqualityComparer.Default);
+            
             var shaderFunction = new List<Function>();
+            AddResourceInputs(shaderInfo.Type, globals, compilation);
+            
             foreach (var shaderInfoEntryPoint in shaderInfo.EntryPoints)
             {
                 StatementOperationProcessor processor = new StatementOperationProcessor();
@@ -143,6 +144,7 @@ public class ShaderProcessor
                             break;
                     }
                 }
+                
 
                 if (shaderInfoEntryPoint.Method.ReturnType.SpecialType != SpecialType.System_Void)
                 {
@@ -173,7 +175,7 @@ public class ShaderProcessor
                 shaderFunction.Add(fn);
             }
             
-            var shader = new Shader(shaderFunction);
+            var shader = new Shader(shaderFunction, globals.Values.ToArray());
             shaders[i++] = shader;
         }
 
@@ -995,7 +997,70 @@ public class ShaderProcessor
 
     internal static InterfaceSlot? GetAttributeData(ImmutableArray<AttributeData> atributes, IRStage stage)
     {
+
+        int? descriptorSet = null;
+        int? descriptorBinding = null;
+        bool hasDescriptorAttribute = false;
+
+        
+        
+        foreach (var attributeData in atributes.AsSpan())
+        {
+            if(!HasConcept<BindingSlot>(attributeData)) continue;
+
+            hasDescriptorAttribute = true;
+
+            if (TryGetConceptArgument(
+                    attributeData,
+                    BindingSlot.SET,
+                    out TypedConstant setArgument) &&
+                setArgument.Value is int set)
+            {
+                descriptorSet = set;
+            }
+            
+            if (TryGetConceptArgument(attributeData, BindingSlot.BINDING, out TypedConstant bindingArgument) &&
+                bindingArgument.Value is int binding)
+            {
+                descriptorBinding = binding;
+            }
+
+            if (TryGetConceptArgument(attributeData, BindingSlot.RegisterString, out TypedConstant registerArgument)
+                && registerArgument.Value is string register)
+            {
+                ParseRegisterString(register, out int registerSet, out int registerBinding);
+                descriptorBinding = registerBinding;
+                descriptorSet = registerSet;
+            }
+        }
+
+        if (hasDescriptorAttribute)
+        {
+            descriptorSet ??= 0;
+
+            if (descriptorBinding is null)
+            {
+                throw new InvalidOperationException(
+                    "A shader resource descriptor set was specified without a binding.");
+            }
+
+            if (descriptorSet < 0)
+            {
+                throw new InvalidOperationException(
+                    $"Descriptor set cannot be negative: {descriptorSet}.");
+            }
+            
+            if (descriptorBinding < 0)
+            {
+                throw new InvalidOperationException(
+                    $"Descriptor binding cannot be negative: {descriptorBinding}.");
+            }
+
+            return new DescriptorSlot(descriptorSet.Value, descriptorBinding.Value);
+        }
+        
         InterfaceSlot? slot = null;
+
         foreach (var attributeData in atributes.AsSpan())
         {
             if (HasConcept<LocationAttribute>(attributeData)) 
@@ -1085,5 +1150,96 @@ public class ShaderProcessor
         // OriginalDefinition desenrolla el genérico: ConstantBuffer<MisDatos> -> ConstantBuffer<T>
         return type.OriginalDefinition.GetAttributes()
             .Any(a => a.AttributeClass?.ToDisplayString() == conceptFullName);
+    }
+
+
+    private static void AddResourceInputs(
+        INamedTypeSymbol shaderType,
+        Dictionary<ISymbol, Storage> inputs,
+        Compilation compilation)
+    {
+        foreach (var member in shaderType.GetMembers()
+                     .OfType<IFieldSymbol>())
+        {
+            if(member.IsStatic || member.IsImplicitlyDeclared) continue;
+
+            StorageKind kind = GetStorageKind(member, compilation);
+            
+            if(kind is not (StorageKind.Texture or StorageKind.Sampler)) continue;
+
+            InterfaceSlot? slot = GetAttributeData(member.GetAttributes(), Stage.None);
+            Storage resource = GetStorage(member, null, slot, compilation, Stage.None);
+            inputs.TryAdd(member,resource);
+        }
+    }
+    
+    private static bool TryGetConceptArgument(
+        AttributeData attribute,
+        string conceptKey,
+        out TypedConstant argument)
+    {
+        argument = default;
+
+        if (attribute.AttributeConstructor is not { } constructor)
+            return false;
+
+        var parameters = constructor.Parameters;
+        var arguments = attribute.ConstructorArguments;
+
+        int count = Math.Min(parameters.Length, arguments.Length);
+
+        for (int index = 0; index < count; index++)
+        {
+            bool hasRequestedKey = parameters[index]
+                .GetAttributes()
+                .Any(parameterAttribute =>
+                    parameterAttribute.AttributeClass?.ToDisplayString()
+                    == typeof(ConceptKeyAttribute).FullName &&
+                    parameterAttribute.ConstructorArguments
+                        is [{ Value: string key }] &&
+                    key == conceptKey);
+
+            if (!hasRequestedKey)
+                continue;
+
+            argument = arguments[index];
+            return true;
+        }
+
+        return false;
+    }
+    
+    private static void ParseRegisterString(
+        string register,
+        out int set,
+        out int binding)
+    {
+        if (string.IsNullOrWhiteSpace(register) || register.Length < 2)
+        {
+            throw new InvalidOperationException(
+                $"Invalid HLSL register: '{register}'.");
+        }
+
+        set = register[0] switch
+        {
+            'b' => 0,
+            't' => 1,
+            's' => 2,
+            'u' => 3,
+            'c' => 4,
+            _ => throw new InvalidOperationException(
+                $"Unknown HLSL register prefix: '{register[0]}'.")
+        };
+
+        if (!int.TryParse(
+                register.AsSpan(1),
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out binding) ||
+            binding < 0)
+        {
+            throw new InvalidOperationException(
+                $"Invalid HLSL register: '{register}'.");
+        }
     }
 }

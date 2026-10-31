@@ -153,15 +153,27 @@ public static class SpirVModuleHelpers
     {
         switch (type)
         {
-            case IR.Intermediate.Types.Int Integer:
-                if (Integer.Signed)
+            case IR.Intermediate.Types.Int integer:
+            {
+                string id = (integer.Bits, integer.Signed) switch
                 {
-                    return Define(module, SpirVTableTypesIds.IntID, SpirVOpTable.OpTypeInt, Int((int)Integer.Bits), Int(1));
-                }
-                else
-                {
-                    return Define(module, SpirVTableTypesIds.UIntID, SpirVOpTable.OpTypeInt, Int((int)Integer.Bits), Int(0));
-                }
+                    (16, true) => SpirVTableTypesIds.Int16ID,
+                    (16, false) => SpirVTableTypesIds.UInt16ID,
+                    (32, true) => SpirVTableTypesIds.IntID,
+                    (32, false) => SpirVTableTypesIds.UIntID,
+                    (64, true) => SpirVTableTypesIds.Int64ID,
+                    (64, false) => SpirVTableTypesIds.UInt64ID,
+                    _ => throw new NotSupportedException(
+                        $"Integer width '{integer.Bits}' is not supported.")
+                };
+
+                return Define(
+                    module,
+                    id,
+                    SpirVOpTable.OpTypeInt,
+                    Int((int)integer.Bits),
+                    Int(integer.Signed ? 1 : 0));
+            }
             case IR.Intermediate.Types.Float:
                 return Define(module, SpirVTableTypesIds.FloatID, SpirVOpTable.OpTypeFloat, Int(32));
             case IR.Intermediate.Types.Bool:
@@ -297,11 +309,20 @@ public static class SpirVModuleHelpers
         if (type == typeof(int))
             return Define(module, SpirVTableTypesIds.IntID, SpirVOpTable.OpTypeInt, Int(32), Int(1));
         
+        if (type == typeof(long))
+            return Define(module, SpirVTableTypesIds.Int64ID, SpirVOpTable.OpTypeInt, Int(64), Int(1));
+        
+        if (type == typeof(ulong))
+            return Define(module, SpirVTableTypesIds.UInt64ID, SpirVOpTable.OpTypeInt, Int(64), Int(0));
+        
+        if (type == typeof(UInt16))
+            return Define(module, SpirVTableTypesIds.UInt16ID, SpirVOpTable.OpTypeInt, Int(16), Int(0));
+        
         if (type == typeof(double))
-            return Define(module, SpirVTableTypesIds.FloatID, SpirVOpTable.OpTypeFloat, Int(64), Int(1));
+            return Define(module, SpirVTableTypesIds.FloatDinamicId(64), SpirVOpTable.OpTypeFloat, Int(64));
         
         if (type == typeof(Int16))
-            return Define(module, SpirVTableTypesIds.IntID, SpirVOpTable.OpTypeInt, Int(16), Int(1));
+            return Define(module, SpirVTableTypesIds.Int16ID, SpirVOpTable.OpTypeInt, Int(16), Int(1));
 
         if (type == typeof(uint))
             return Define(module, SpirVTableTypesIds.UIntID, SpirVOpTable.OpTypeInt, Int(32), Int(0));
@@ -375,4 +396,157 @@ public static class SpirVModuleHelpers
 
     private static SpirVInstructionParameter Enumerant(string name, uint value) =>
         new(name, SpirVInstructionType.Enumerant, value);
+    
+    
+    public static string DeclareBoolConstant(this SpirVModule module, bool literalValue)
+    {
+        string boolId = module.DeclareType(typeof(bool));
+        string constantId = $"%bool_{literalValue}";
+        
+        return Define(
+            module,
+            constantId,
+            (literalValue ?  SpirVOpTable.OpConstantTrue : SpirVOpTable.OpConstantFalse),
+            Id(boolId));
+    }
+    public static string DeclareFloatConstant(
+        this SpirVModule module,
+        float value)
+    {
+        if (!float.IsFinite(value))
+        {
+            throw new NotSupportedException(
+                "NaN and infinity float constants are not supported yet.");
+        }
+
+        string floatId = module.DeclareType(typeof(float));
+
+        uint bits = unchecked((uint)BitConverter.SingleToInt32Bits(value));
+        string constantId = $"%float_{bits:X8}";
+
+        return Define(
+            module,
+            constantId,
+            SpirVOpTable.OpConstant,
+            Id(floatId),
+            new SpirVInstructionParameter(
+                value.ToString(
+                    "R",
+                    System.Globalization.CultureInfo.InvariantCulture),
+                SpirVInstructionType.FloatValue));
+    }
+    
+    public static string DeclareDoubleConstant(
+        this SpirVModule module,
+        double value)
+    {
+        if (!double.IsFinite(value))
+        {
+            throw new NotSupportedException(
+                "NaN and infinity float constants are not supported yet.");
+        }
+
+        string doubleId = module.DeclareType(typeof(double));
+
+        long bits = BitConverter.DoubleToInt64Bits(value);
+        string constantId = $"%double_{bits:X16}";
+        
+        return Define(
+            module,
+            constantId,
+            SpirVOpTable.OpConstant,
+            Id(doubleId),
+            new SpirVInstructionParameter(
+                value.ToString(
+                    "R",
+                    System.Globalization.CultureInfo.InvariantCulture),
+                SpirVInstructionType.DoubleValue));
+    }
+
+
+    public static string DeclareIntConstant(
+        this SpirVModule module,
+        string value,
+        uint bits,
+         bool signed)
+    {
+
+        string id = "";
+        switch (bits)
+        {
+            case 16:
+                if (signed)
+                {
+                    id = module.DeclareType(typeof(Int16));
+                }
+                else
+                {
+                    id = module.DeclareType(typeof(UInt16));
+                }
+                break;
+            case 32:
+                if (signed)
+                {
+                    id = module.DeclareType(typeof(int));
+                }
+                else
+                {
+                    id = module.DeclareType(typeof(uint));
+                }
+                break;
+            case 64:
+                if (signed)
+                {
+                    id = module.DeclareType(typeof(long));
+                }
+                else
+                {
+                    id = module.DeclareType(typeof(ulong));
+                }
+                break;
+            default:
+                throw new NotSupportedException("Integers can be only 16, 32 or 64 bits");
+        }
+        
+        string constantId = (bits, signed) switch
+        {
+            (16, true) => $"%int16_{unchecked((ushort)short.Parse(
+                value, System.Globalization.CultureInfo.InvariantCulture)):X4}",
+
+            (16, false) => $"%uint16_{ushort.Parse(
+                value, System.Globalization.CultureInfo.InvariantCulture):X4}",
+
+            (32, true) => $"%int_{unchecked((uint)int.Parse(
+                value, System.Globalization.CultureInfo.InvariantCulture)):X8}",
+
+            (32, false) => $"%uint_{uint.Parse(
+                value, System.Globalization.CultureInfo.InvariantCulture):X8}",
+
+            (64, true) => $"%int64_{unchecked((ulong)long.Parse(
+                value, System.Globalization.CultureInfo.InvariantCulture)):X16}",
+
+            (64, false) => $"%uint64_{ulong.Parse(
+                value, System.Globalization.CultureInfo.InvariantCulture):X16}",
+
+            _ => throw new NotSupportedException(
+                $"Unsupported integer width: {bits}.")
+        };
+
+        SpirVInstructionType parameterType = (bits, signed) switch
+        {
+            (64, true)  => SpirVInstructionType.LongValue,
+            (64, false) => SpirVInstructionType.UlongValue,
+            (_, true)   => SpirVInstructionType.IntValue,
+            (_, false)  => SpirVInstructionType.UIntValue
+        };
+        return Define(
+            module,
+            constantId,
+            SpirVOpTable.OpConstant,
+            Id(id),
+            new SpirVInstructionParameter(
+                value.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture),
+                parameterType));
+    }
 }

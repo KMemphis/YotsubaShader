@@ -69,9 +69,15 @@
 using YotsubaShader.Compiler.SpirV.Builder;
 using YotsubaShader.Compiler.SpirV.YS_Types;
 using YotsubaShader.IR.Intermediate;
+using YotsubaShader.IR.Intermediate.FunctionBody;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.Literals;
+using YotsubaShader.IR.Intermediate.FunctionBody.Statements;
 using YotsubaShader.IR.Intermediate.Slot;
 using YotsubaShader.IR.Intermediate.Slot.Types;
 using YotsubaShader.IR.Intermediate.Types;
+using Array = YotsubaShader.IR.Intermediate.Types.Array;
+using Double = YotsubaShader.IR.Intermediate.Types.Double;
 
 namespace YotsubaShader.Compiler.SpirV;
 
@@ -80,14 +86,213 @@ public partial class IRToSpirvModule
 
     private void BuildHeader(SpirVModule module, Shader shader)
     {
-        module.AddLine(SpirVOpTable.OpCapability, 
-            SpirVInstructionParameter.Enumerant(SpirVCapability.Shader));
-        
+        CheckCapabilities(module, shader);
         module.AddLine(SpirVOpTable.OpMemoryModel, new []
         {
             SpirVInstructionParameter.Enumerant(SpirVAddressingModel.Logical),
             SpirVInstructionParameter.Enumerant(SpirVMemoryModel.GLSL450)
         });
+    }
+
+    private void CheckCapabilities(SpirVModule module, Shader shader)
+    {
+        HashSet<SpirVCapability> emittedCapabilities = new HashSet<SpirVCapability>();
+        
+        foreach (var shaderGlobalResource in shader.GlobalResources)
+        {
+            AddCapabilityForStorage(shaderGlobalResource, emittedCapabilities);
+        }
+        
+        foreach (var shaderFunction in shader.Functions)
+        {
+            foreach (var shaderFunctionInput in shaderFunction.Inputs)
+            {
+                AddCapabilityForStorage(shaderFunctionInput, emittedCapabilities);
+            }
+
+            foreach (var shaderFunctionOutput in shaderFunction.Outputs)
+            {
+                AddCapabilityForStorage(shaderFunctionOutput, emittedCapabilities);
+            }
+            
+            foreach (var statement in shaderFunction.Body)
+            {
+                switch (statement)
+                {
+                    case Block block:
+                        foreach (var childStatement in block.Statements)
+                        {
+                            CheckStatementCapabilities(module, childStatement, emittedCapabilities);
+                        }
+                        break;
+
+                    case VariableDeclaration declaration:
+                        AddCapabilityForStorage(declaration.Storage, emittedCapabilities);
+
+                        if (declaration.Initializer is not null)
+                        {
+                            AddCapabilityForExpression(
+                                declaration.Initializer, emittedCapabilities);
+                        }
+                        break;
+
+                    case Assignment assignment:
+                        AddCapabilityForExpression(assignment.Target, emittedCapabilities);
+                        AddCapabilityForExpression(assignment.Value, emittedCapabilities);
+                        break;
+
+                    case Return { Value: not null } @return:
+                        AddCapabilityForExpression(@return.Value, emittedCapabilities);
+                        break;
+                }
+            }
+        }
+        
+        module.AddLine(SpirVOpTable.OpCapability, 
+            SpirVInstructionParameter.Enumerant(SpirVCapability.Shader));
+        
+        foreach (SpirVCapability spirVCapability in emittedCapabilities)
+        {
+            module.AddLine(SpirVOpTable.OpCapability, 
+                SpirVInstructionParameter.Enumerant(spirVCapability));
+        }
+    }
+
+    private void CheckStatementCapabilities(SpirVModule module, 
+        Statement childStatement, 
+        HashSet<SpirVCapability> emittedCapabilities)
+    {
+        switch (childStatement)
+        {
+            case Block block:
+                foreach (var blockStatement in block.Statements)
+                {
+                    CheckStatementCapabilities(module, blockStatement, emittedCapabilities);
+                }
+                break;
+            case VariableDeclaration declaration:
+                AddCapabilityForStorage(declaration.Storage, emittedCapabilities);
+                AddCapabilityForExpression(declaration.Initializer, emittedCapabilities);
+                break;
+            case Return returnCase:
+                AddCapabilityForExpression(returnCase.Value, emittedCapabilities);
+                break;
+            case Assignment assignment:
+                AddCapabilityForExpression(assignment.Target, emittedCapabilities);
+                AddCapabilityForExpression(assignment.Value, emittedCapabilities);
+                break;
+        }
+    }
+
+    private static void AddCapabilityForExpression(
+        Expression? expression,
+        HashSet<SpirVCapability> emittedCapabilities)
+    {
+
+        if (expression is null) return;
+        switch (expression)
+        {
+            case DoubleLiteral:
+                AddCapability(SpirVCapability.Float64, emittedCapabilities);
+                break;
+            
+            case IntLiteral { Bits: 16 }:
+                AddCapability(SpirVCapability.Int16, emittedCapabilities);
+                break;
+
+            case IntLiteral { Bits: 64 }:
+                AddCapability(SpirVCapability.Int64, emittedCapabilities);
+                break;
+
+            case BinaryExpression binary:
+                AddCapabilityForExpression(binary.Left, emittedCapabilities);
+                AddCapabilityForExpression(binary.Right, emittedCapabilities);
+                break;
+
+            case VectorExpression vector:
+                foreach (Expression value in vector.Values)
+                {
+                    AddCapabilityForExpression(value, emittedCapabilities);
+                }
+                break;
+            case MatrixLiteral matrixLiteral:
+                AddCapability(SpirVCapability.Matrix, emittedCapabilities);
+                if (matrixLiteral.MatrixType.ComponentsType == MatrixComponentType.Double)
+                {
+                    AddCapability(SpirVCapability.Float64, emittedCapabilities);
+                }
+                break;
+            case CustomStructExpression customStructExpression:
+                foreach (var property in customStructExpression.Properties)
+                {
+                    AddCapabilityForExpression(property, emittedCapabilities);
+                }
+                foreach (var structTypeProperty in customStructExpression.StructType.Properties)
+                {
+                    AddCapabilityForStorage(structTypeProperty, emittedCapabilities);
+                }
+                break;
+            case ArrayLiteral arr:
+                foreach (var arrElement in arr.Elements)
+                {
+                    AddCapabilityForExpression(arrElement, emittedCapabilities);
+                }
+
+                AddCapabilityForStorage(arr.ArrayType.ElementType, emittedCapabilities);
+                break;
+        }
+    }
+
+    private static void AddCapability(SpirVCapability capability, HashSet<SpirVCapability> emittedCapabilities)
+    {
+        emittedCapabilities.Add(capability);
+    }
+
+    private static void AddCapabilityForStorage(Storage shaderGlobalResource, HashSet<SpirVCapability> emittedCapabilities)
+    {
+        switch (shaderGlobalResource)
+        {
+            case Double d:
+                AddCapability(SpirVCapability.Float64, emittedCapabilities);
+                break; 
+            case Int { Bits: 16 } int16:
+                AddCapability(SpirVCapability.Int16, emittedCapabilities);
+                break;
+            case Int { Bits: 64 } int16:
+                AddCapability(SpirVCapability.Int64, emittedCapabilities);
+                break;
+            case Matrix matrix:
+                AddCapability(SpirVCapability.Matrix, emittedCapabilities);
+                switch (matrix.ComponentsType)
+                {
+                    case MatrixComponentType.Double:
+                        AddCapability(SpirVCapability.Float64, emittedCapabilities);
+                        break;
+                }
+                break;
+            case Vector vector:
+                switch (vector.ComponentsType)
+                {
+                    case VectorComponentsType.Double:
+                        AddCapability(SpirVCapability.Float64, emittedCapabilities);
+                        break;
+                }
+                if(vector.ComponentsDefaultValues is not null)
+                foreach (var vectorComponentsDefaultValue in vector.ComponentsDefaultValues)
+                {
+                    AddCapabilityForExpression(vectorComponentsDefaultValue, emittedCapabilities);
+                }
+                break;
+            case Array array:
+                AddCapabilityForStorage(array.ElementType, emittedCapabilities);
+                break;
+            case CustomStruct customStruct:
+                foreach (var customStructProperty in customStruct.Properties)
+                {
+                    AddCapabilityForStorage(customStructProperty, emittedCapabilities);
+                }
+                break;
+        }
     }
 
     private void BuildEntryPoints(SpirVModule module, Shader shader)
@@ -167,7 +372,74 @@ public partial class IRToSpirvModule
             SpirVOpTable.OpTypeFunction,
             new SpirVInstructionParameter(voidTypeId, SpirVInstructionType.IdRef)
         );
+        
     }
+
+    private void BuildRequiredConstants(SpirVModule module, Shader shader)
+    {
+        foreach (var shaderFunction in shader.Functions)
+        {
+            foreach (var statement in shaderFunction.Body)
+            {
+                DeclareStatementConstants(module, statement);
+            }
+        }
+    }
+
+    private void DeclareStatementConstants(SpirVModule module, Statement statement)
+    {
+        switch (statement)
+        {
+            case Block block:
+                foreach (var blockStatement in block.Statements)
+                {
+                    DeclareStatementConstants(module, blockStatement);
+                }
+                break;
+            case VariableDeclaration {Initializer: not null } declaration :
+                DeclareExpressionConstants(module, declaration.Initializer);
+                break;
+            case Assignment assignment:
+                DeclareExpressionConstants(module, assignment.Target);
+                DeclareExpressionConstants(module, assignment.Value);
+                break;
+            case Return { Value:not null} @return:
+                DeclareExpressionConstants(module, @return.Value);
+                break;
+        }
+    }
+
+    private void DeclareExpressionConstants(SpirVModule module, Expression expression)
+    {
+        switch (expression)
+        {
+            case FloatLiteral literal:
+                module.DeclareFloatConstant(literal.Value);
+                break;
+            case BoolLiteral literal:
+                module.DeclareBoolConstant(literal.Value);
+                break;
+
+            case IntLiteral literal:
+                module.DeclareIntConstant(literal.Value, literal.Bits, literal.Signed);
+                break;
+            
+            case DoubleLiteral literal:
+                module.DeclareDoubleConstant(literal.Value);
+                break;
+            case BinaryExpression binaryExpression:
+                DeclareExpressionConstants(module, binaryExpression.Left);
+                DeclareExpressionConstants(module, binaryExpression.Right);
+                break;
+            case VectorExpression vectorExpression:
+                foreach (var vectorExpressionValue in vectorExpression.Values)
+                {
+                    DeclareExpressionConstants(module, vectorExpressionValue);
+                }
+                break;  
+        }
+    }
+
 
     private static void BuildFunctionSkeletons(
         SpirVModule module,
@@ -192,6 +464,12 @@ public partial class IRToSpirvModule
                     SpirVInstructionType.IdRef));
 
             module.AddResultLine(labelId, SpirVOpTable.OpLabel);
+
+            var pointers = new Dictionary<Storage, string>();
+
+            FunctionBodyEmitter emitter = new FunctionBodyEmitter(module, pointers);
+            emitter.EmitStatements(shaderFunction.Body, shaderFunction);
+            
             module.AddLine(SpirVOpTable.OpReturn);
             module.AddLine(SpirVOpTable.OpFunctionEnd);
         }
@@ -204,16 +482,27 @@ public partial class IRToSpirvModule
 
     private void BuildDecorations(SpirVModule module, Shader shader)
     {
+        foreach (var shaderGlobalResource in shader.GlobalResources)
+        {
+            if(shaderGlobalResource.Slot is not DescriptorSlot descriptor) continue;
+
+            DecorateDescriptor(module, BuildIrTypes.GlobalVariableId(shaderGlobalResource), descriptor);
+        }
+
         foreach (var shaderFunction in shader.Functions)
         {
             if(shaderFunction.Stage == Stage.None) continue;
 
             foreach (var storage in shaderFunction.Inputs.Concat(shaderFunction.Outputs))
             {
-                if(storage.Kind is not (StorageKind.Input or StorageKind.Output)) continue;
-
-                string variableId = $"%{shaderFunction.HumanName}_{storage.Kind}_{storage.HumanName}";
-
+                string variableId = BuildIrTypes.InterfaceVariableId(shaderFunction, storage);
+                
+                if (storage.Kind is not (
+                    StorageKind.Input or StorageKind.Output))
+                {
+                    continue;
+                }
+                
                 if (storage is CustomStruct structure)
                 {
                     string structId = SpirVTableTypesIds.StructID(structure.HumanName);
@@ -228,6 +517,26 @@ public partial class IRToSpirvModule
                 DecorateVariable(module, variableId, storage.Slot);
             }
         }
+    }
+
+    private void DecorateDescriptor(SpirVModule module, string globalVariableId, DescriptorSlot descriptor)
+    {
+        module.AddLine(
+            SpirVOpTable.OpDecorate,
+            SpirVModuleHelpers.Id(globalVariableId),
+            SpirVInstructionParameter.Enumerant(
+                SpirVDecoration.DescriptorSet),
+            new(
+                descriptor.Set.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture),
+                SpirVInstructionType.UIntValue));
+        
+        module.AddLine(SpirVOpTable.OpDecorate,
+            SpirVModuleHelpers.Id(globalVariableId),
+            SpirVInstructionParameter.Enumerant(
+                SpirVDecoration.Binding),
+            new(descriptor.Binding.ToString(System.Globalization.CultureInfo.InvariantCulture), 
+                SpirVInstructionType.UIntValue));
     }
 
     private void DecorateVariable(SpirVModule module, string variableId, InterfaceSlot storageSlot)

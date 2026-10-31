@@ -76,23 +76,37 @@ namespace YotsubaShader.Compiler.SpirV;
 
 public static class BuildIrTypes
 {
+    
+    internal static string GlobalVariableId(Storage storage) =>
+        $"%resource_{storage.HumanName}";
+
+    internal static string InterfaceVariableId(
+        Function function,
+        Storage storage) =>
+        $"%{function.HumanName}_{storage.Kind}_{storage.HumanName}";
+    
     public static void BuildRequiredTypes(SpirVModule module, Shader shader)
     {
+        foreach (var shaderGlobalResource in shader.GlobalResources)
+        {
+            BuildStorageTypes(module, shaderGlobalResource, GlobalVariableId(shaderGlobalResource));
+        }
+
         foreach (var shaderFunction in shader.Functions)
         {
             foreach (var shaderFunctionInput in shaderFunction.Inputs)
             {
-                BuildStorageTypes(module, shaderFunction, shaderFunctionInput);
+                BuildStorageTypes(module, shaderFunctionInput,  InterfaceVariableId(shaderFunction, shaderFunctionInput));
             }
 
             foreach (var shaderFunctionOutput in shaderFunction.Outputs)
             {
-                BuildStorageTypes(module, shaderFunction, shaderFunctionOutput);
+                BuildStorageTypes(module, shaderFunctionOutput, InterfaceVariableId(shaderFunction, shaderFunctionOutput));
             }
         }
     }
 
-    private static void BuildStorageTypes(SpirVModule module, Function shaderFunction, Storage storage)
+    private static void BuildStorageTypes(SpirVModule module, Storage storage, string variableId)
     {
         // if (storage is IRTypes.CustomStruct structure)
         // {
@@ -122,8 +136,6 @@ public static class BuildIrTypes
             storageClass,
             typeId);
         
-        string variableId = $"%{shaderFunction.HumanName}_{storage.Kind}_{storage.HumanName}";
-
         module.AddResultLine(
             variableId,
             SpirVOpTable.OpVariable,

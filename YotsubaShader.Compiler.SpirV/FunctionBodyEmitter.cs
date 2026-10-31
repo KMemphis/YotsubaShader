@@ -66,6 +66,60 @@
 */
 #endregion
 
-namespace YotsubaShader.IR.Intermediate.FunctionBody.Expressions;
+using YotsubaShader.Compiler.SpirV.Builder;
+using YotsubaShader.IR.Intermediate;
+using YotsubaShader.IR.Intermediate.FunctionBody;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions;
+using YotsubaShader.IR.Intermediate.FunctionBody.Statements;
 
-public record Assignment(Expression Target, Expression Value) : Statement;
+namespace YotsubaShader.Compiler.SpirV;
+
+internal sealed partial class FunctionBodyEmitter
+{
+    private readonly SpirVModule _module;
+    private readonly Dictionary<Storage, string> _pointers;
+
+    public FunctionBodyEmitter(
+        SpirVModule module,
+        Dictionary<Storage, string> pointers)
+    {
+        _module = module;
+        _pointers = pointers;
+    }
+
+    public void EmitStatements(IReadOnlyList<Statement> statements, Function function)
+    {
+        foreach (var statement in statements)
+        {
+            EmitStatement(statement, function);
+        }
+    }
+
+    private void EmitStatement(Statement statement, Function function)
+    {
+        switch (statement)
+        {
+            case VariableDeclaration declaration:
+                EmitLocal(declaration, ref  function);
+                break;
+
+            case Assignment assignment:
+                EmitAssignment(assignment,ref  function);
+                break;
+
+            case Return returnStatement:
+                EmitReturn(returnStatement,ref function);
+                break;
+            
+            case Block block:
+                foreach (Statement child in block.Statements)
+                {
+                    EmitStatement(child, function);
+                }
+                break;
+            default:
+                throw new NotSupportedException(
+                    $"IR statement '{statement.GetType().Name}' is not supported.");
+        }
+    }
+}

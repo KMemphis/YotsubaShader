@@ -77,6 +77,9 @@ public enum SpirVCapability : uint
 {
     Matrix = 0,
     Shader = 1,
+    Float64 = 10,
+    Int64 = 11,
+    Int16 = 22,
 }
 
 public enum SpirVAddressingModel : uint

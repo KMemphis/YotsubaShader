@@ -86,8 +86,10 @@ public class SpirVTableTypesIds
 
     public const string SamplerID = "%sampler";
 
-    public static string IntDinamicId(int large) => "%int_" + large;
-
+    public const string Int16ID = "%int16";
+    public const string UInt16ID = "%uint16";
+    public const string Int64ID = "%int64";
+    public const string UInt64ID = "%uint64";
     public static string UIntDinamicId(int large) => "%uint_" + large;
 
     public static string FloatDinamicId(int large) => "%float_" + large;

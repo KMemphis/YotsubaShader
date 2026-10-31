@@ -174,8 +174,11 @@ public enum SpirVInstructionType
      Enumerant,
      StringLiteral,
      FloatValue,
+     DoubleValue,
      IntValue,
-     UIntValue
+     UIntValue,
+     LongValue,
+     UlongValue
 }
 
 public readonly record struct SpirVInstructionParameter(
