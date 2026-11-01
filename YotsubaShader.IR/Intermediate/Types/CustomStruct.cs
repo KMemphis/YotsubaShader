@@ -72,5 +72,7 @@ namespace YotsubaShader.IR.Intermediate.Types;
 
 public record CustomStruct(string HumanName, StorageKind Kind, InterfaceSlot? Slot) : Storage(HumanName, Kind, Slot)
 {
+    public required string TypeName;
+
     public IReadOnlyList<Storage> Properties = new List<Storage>();
 }

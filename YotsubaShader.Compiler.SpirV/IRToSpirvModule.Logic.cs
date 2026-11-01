@@ -76,6 +76,7 @@ using YotsubaShader.IR.Intermediate.FunctionBody.Statements;
 using YotsubaShader.IR.Intermediate.Slot;
 using YotsubaShader.IR.Intermediate.Slot.Types;
 using YotsubaShader.IR.Intermediate.Types;
+using YotsubaShader.IR.Intermediate.ValueConvertions;
 using Array = YotsubaShader.IR.Intermediate.Types.Array;
 using Double = YotsubaShader.IR.Intermediate.Types.Double;
 
@@ -381,35 +382,35 @@ public partial class IRToSpirvModule
         {
             foreach (var statement in shaderFunction.Body)
             {
-                DeclareStatementConstants(module, statement);
+                DeclareStatementConstants(module, statement, shaderFunction.Stage);
             }
         }
     }
 
-    private void DeclareStatementConstants(SpirVModule module, Statement statement)
+    private void DeclareStatementConstants(SpirVModule module, Statement statement, Stage stage)
     {
         switch (statement)
         {
             case Block block:
                 foreach (var blockStatement in block.Statements)
                 {
-                    DeclareStatementConstants(module, blockStatement);
+                    DeclareStatementConstants(module, blockStatement, stage);
                 }
                 break;
             case VariableDeclaration {Initializer: not null } declaration :
-                DeclareExpressionConstants(module, declaration.Initializer);
+                DeclareExpressionConstants(module, declaration.Initializer, stage);
                 break;
             case Assignment assignment:
-                DeclareExpressionConstants(module, assignment.Target);
-                DeclareExpressionConstants(module, assignment.Value);
+                DeclareExpressionConstants(module, assignment.Target, stage);
+                DeclareExpressionConstants(module, assignment.Value, stage);
                 break;
             case Return { Value:not null} @return:
-                DeclareExpressionConstants(module, @return.Value);
+                DeclareExpressionConstants(module, @return.Value, stage);
                 break;
         }
     }
 
-    private void DeclareExpressionConstants(SpirVModule module, Expression expression)
+    private void DeclareExpressionConstants(SpirVModule module, Expression expression, Stage stage)
     {
         switch (expression)
         {
@@ -428,15 +429,46 @@ public partial class IRToSpirvModule
                 module.DeclareDoubleConstant(literal.Value);
                 break;
             case BinaryExpression binaryExpression:
-                DeclareExpressionConstants(module, binaryExpression.Left);
-                DeclareExpressionConstants(module, binaryExpression.Right);
+                DeclareExpressionConstants(module, binaryExpression.Left, stage);
+                DeclareExpressionConstants(module, binaryExpression.Right, stage);
+                break;
+            case NumericConversion conversion:
+                DeclareExpressionConstants(module, conversion.Operand, stage);
                 break;
             case VectorExpression vectorExpression:
                 foreach (var vectorExpressionValue in vectorExpression.Values)
                 {
-                    DeclareExpressionConstants(module, vectorExpressionValue);
+                    DeclareExpressionConstants(module, vectorExpressionValue, stage);
                 }
                 break;  
+            case CustomStructExpression structure:
+            {
+                // new VertexOutput() significa el valor cero/default del struct.
+                if (structure.Properties.Count == 0)
+                {
+                    string structTypeId = module.DeclareType(structure.StructType, stage);
+                    string nullId = $"%null_{structTypeId.TrimStart('%')}";
+
+                    if (!module.IsDefined(nullId))
+                    {
+                        module.AddResultLine(
+                            nullId,
+                            SpirVOpTable.OpConstantNull,
+                            SpirVModuleHelpers.Id(structTypeId));
+                    }
+
+                    break;
+                }
+
+                // Para new MiStruct(a, b, c): las partes pueden necesitar
+                // constantes escalares, aunque el composite se construya en la función.
+                foreach (Expression property in structure.Properties)
+                {
+                    DeclareExpressionConstants(module, property, stage);
+                }
+
+                break;
+            }
         }
     }
 
@@ -470,7 +502,6 @@ public partial class IRToSpirvModule
             FunctionBodyEmitter emitter = new FunctionBodyEmitter(module, pointers);
             emitter.EmitStatements(shaderFunction.Body, shaderFunction);
             
-            module.AddLine(SpirVOpTable.OpReturn);
             module.AddLine(SpirVOpTable.OpFunctionEnd);
         }
     }
@@ -505,7 +536,7 @@ public partial class IRToSpirvModule
                 
                 if (storage is CustomStruct structure)
                 {
-                    string structId = SpirVTableTypesIds.StructID(structure.HumanName);
+                    string structId = SpirVTableTypesIds.StructID(structure, shaderFunction.Stage);
 
                     for (int memberIndex = 0; memberIndex < structure.Properties.Count; memberIndex++)
                     {

@@ -89,24 +89,24 @@ public static class BuildIrTypes
     {
         foreach (var shaderGlobalResource in shader.GlobalResources)
         {
-            BuildStorageTypes(module, shaderGlobalResource, GlobalVariableId(shaderGlobalResource));
+            BuildStorageTypes(module, shaderGlobalResource, GlobalVariableId(shaderGlobalResource), Stage.None);
         }
 
         foreach (var shaderFunction in shader.Functions)
         {
             foreach (var shaderFunctionInput in shaderFunction.Inputs)
             {
-                BuildStorageTypes(module, shaderFunctionInput,  InterfaceVariableId(shaderFunction, shaderFunctionInput));
+                BuildStorageTypes(module, shaderFunctionInput,  InterfaceVariableId(shaderFunction, shaderFunctionInput), shaderFunction.Stage);
             }
 
             foreach (var shaderFunctionOutput in shaderFunction.Outputs)
             {
-                BuildStorageTypes(module, shaderFunctionOutput, InterfaceVariableId(shaderFunction, shaderFunctionOutput));
+                BuildStorageTypes(module, shaderFunctionOutput, InterfaceVariableId(shaderFunction, shaderFunctionOutput), shaderFunction.Stage);
             }
         }
     }
 
-    private static void BuildStorageTypes(SpirVModule module, Storage storage, string variableId)
+    private static void BuildStorageTypes(SpirVModule module, Storage storage, string variableId, Stage stage)
     {
         // if (storage is IRTypes.CustomStruct structure)
         // {
@@ -131,15 +131,67 @@ public static class BuildIrTypes
                 $"'{storage.Kind}' no es una interfaz de shader.")
         };
 
-        string typeId = module.DeclareType(storage);
+        string typeId = module.DeclareType(storage, stage);
+
+        DeclareStructMemberAccessTypes(module, storage, storageClass, stage);
+
         string pointerTypeId = module.DeclarePointer(
             storageClass,
             typeId);
-        
+
+        DeclareStructMemberIndices(module, storage);
+
         module.AddResultLine(
             variableId,
             SpirVOpTable.OpVariable,
             SpirVModuleHelpers.Id(pointerTypeId),
             SpirVInstructionParameter.Enumerant(storageClass));
+    }
+    
+      
+    private static void DeclareStructMemberIndices(
+        SpirVModule module,
+        Storage storage)
+    {
+        if (storage is not IRTypes.CustomStruct structure)
+        {
+            return;
+        }
+
+        for (int index = 0; index < structure.Properties.Count; index++)
+        {
+            module.DeclareUIntConstant(index);
+        }
+
+        foreach (Storage member in structure.Properties)
+        {
+            DeclareStructMemberIndices(module, member);
+        }
+    }
+    
+    private static void DeclareStructMemberAccessTypes(
+        SpirVModule module,
+        Storage storage,
+        SpirVStorageClass storageClass, Stage stage)
+    {
+        if (storage is not IRTypes.CustomStruct structure)
+        {
+            return;
+        }
+
+        foreach (Storage member in structure.Properties)
+        {
+            string memberTypeId = module.DeclareType(member,stage);
+
+            module.DeclarePointer(
+                storageClass,
+                memberTypeId);
+
+            DeclareStructMemberAccessTypes(
+                module,
+                member,
+                storageClass, 
+                stage);
+        }
     }
 }

@@ -106,15 +106,15 @@ public static class SpirVModuleHelpers
     /// devuelve el ID anterior: en SPIR-V los tipos simples no pueden repetirse. Los tipos de los
     /// que depende (p. ej. %float para un vector) se declaran antes, en orden de dependencias.
     /// </summary>
-    public static string DeclareType(this SpirVModule module, Storage type)
+    public static string DeclareType(this SpirVModule module, Storage type, Stage stage)
     {
-        if (module.TryGetDeclaredType(type, out string existing))
+        if (module.TryGetDeclaredType(type, stage, out string existing))
         {
             return existing;
         }
 
-        string id = EmitType(module, type);
-        module.RegisterType(type, id);
+        string id = EmitType(module, type, stage);
+        module.RegisterType(type, stage, id);
         return id;
     }
 
@@ -149,7 +149,7 @@ public static class SpirVModuleHelpers
             Id(uintId), new SpirVInstructionParameter(value.ToString(), SpirVInstructionType.UIntValue));
     }
 
-    private static string EmitType(SpirVModule module, Storage type)
+    private static string EmitType(SpirVModule module, Storage type, Stage stage)
     {
         switch (type)
         {
@@ -183,7 +183,7 @@ public static class SpirVModuleHelpers
             case IR.Intermediate.Types.Sampler:
                 return Define(module, SpirVTableTypesIds.SamplerID, SpirVOpTable.OpTypeSampler);
             case IR.Intermediate.Types.CustomStruct customStruct:
-                return DefineStruct(module, customStruct);
+                return DefineStruct(module, customStruct, stage);
                 break;
             case IR.Intermediate.Types.Vector vector:
                 string componentTypeId = vector.ComponentsType switch
@@ -283,14 +283,16 @@ public static class SpirVModuleHelpers
         }
     }
 
-    private static string DefineStruct(SpirVModule module, CustomStruct customStruct)
+    private static string DefineStruct(SpirVModule module, CustomStruct customStruct, Stage stage)
     {
         var memberTypes = customStruct.Properties
-            .Select(property => module.DeclareType(property))
+            .Select(property => module.DeclareType(property, stage))
             .Select(Id)
             .ToArray();
 
-        return Define(module, SpirVTableTypesIds.StructID(customStruct.HumanName), SpirVOpTable.OpTypeStruct,
+        return Define(module, 
+            SpirVTableTypesIds.StructID(customStruct, stage), 
+            SpirVOpTable.OpTypeStruct,
             memberTypes);
     }
 

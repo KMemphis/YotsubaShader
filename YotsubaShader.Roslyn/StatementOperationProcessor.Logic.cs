@@ -433,10 +433,22 @@ public partial class StatementOperationProcessor
                 strg = ShaderProcessor.GetStorage(member, strg, null, compilation, stage, true);
                 properties.Add(strg);
             }
+            
+            string typeName = structType.OriginalDefinition.Name;
+            if (structType.IsGenericType)
+            {
+                string genericArgs = string.Join("_",
+                    structType.TypeArguments.Select(t => t.Name));
+
+                typeName = $"{typeName}_{genericArgs}";
+            }
+
+
 
             storage = new IRTypes.CustomStruct(symbol.Name, storageKind, null)
             {
-                Properties = properties
+                Properties = properties,
+                TypeName = typeName
             };
         }
 

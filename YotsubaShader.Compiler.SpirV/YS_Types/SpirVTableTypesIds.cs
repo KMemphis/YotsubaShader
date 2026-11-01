@@ -66,6 +66,7 @@
 */
 #endregion
 
+using YotsubaShader.IR.Intermediate;
 using YotsubaShader.IR.Intermediate.Types;
 
 namespace YotsubaShader.Compiler.SpirV.YS_Types;
@@ -124,7 +125,7 @@ public class SpirVTableTypesIds
     public const string PtrTypeIDLastConcatenation = "_ptr";
     
     
-    public static string StructID(string humanName) =>
-        $"%struct_{humanName}";
+    public static string StructID(CustomStruct structure, Stage stage) =>
+        $"%struct_{structure.TypeName}_{stage}_{structure.Kind}";
 
 }

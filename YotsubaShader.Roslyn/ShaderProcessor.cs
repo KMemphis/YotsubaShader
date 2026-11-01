@@ -545,10 +545,21 @@ public class ShaderProcessor
                 
             properties.Add(GetStorage(member, null, memberSlot, compilation, stage, isLocal));
         }
+        
+        string typeName = structType.OriginalDefinition.Name;
+        if (structType.IsGenericType)
+        {
+            string genericArgs = string.Join("_",
+                structType.TypeArguments.Select(t => t.Name));
+
+            typeName = $"{typeName}_{genericArgs}";
+        }
+
 
         storage = new CustomStruct(symbol.Name, storageKind, slot)
         {
-            Properties = properties
+            Properties = properties,
+            TypeName = typeName
         };
         return storage;
     }
@@ -828,9 +839,19 @@ public class ShaderProcessor
                 properties.Add(GetStorage(memberType, member.Name, memberSlot, storageKind, compilation, stage));
             }
 
+            string typeName = structType.OriginalDefinition.Name;
+            if (structType.IsGenericType)
+            {
+                string genericArgs = string.Join("_",
+                    structType.TypeArguments.Select(t => t.Name));
+
+                typeName = $"{typeName}_{genericArgs}";
+            }
+            
             storage = new CustomStruct(symbolName, storageKind, slot)
             {
-                Properties = properties
+                Properties = properties,
+                TypeName = typeName
             };
         }
 

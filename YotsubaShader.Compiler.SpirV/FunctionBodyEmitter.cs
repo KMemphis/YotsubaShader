@@ -78,6 +78,7 @@ internal sealed partial class FunctionBodyEmitter
 {
     private readonly SpirVModule _module;
     private readonly Dictionary<Storage, string> _pointers;
+    private int _nextTemporaryValue;
 
     public FunctionBodyEmitter(
         SpirVModule module,
