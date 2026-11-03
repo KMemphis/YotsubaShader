@@ -86,6 +86,7 @@ public partial class IRToSpirvModule
         BuildDecorations(module, shader);
         BuildFunctionTypes(module);
         BuildIrTypes.BuildRequiredTypes(module, shader);
+        BuildDebugNames(module, shader);
         BuildRequiredConstants(module, shader);
         // 3. Entry points.
         BuildFunctionSkeletons(module, shader);

@@ -97,10 +97,10 @@ namespace YotsubaShader.Roslyn;
 
 public class ShaderProcessor
 {
-    public Shader[] Process(Compilation compilation, CancellationToken token)
+    public (string, Shader)[] Process(Compilation compilation, CancellationToken token)
     {
         var csharpShaderMetadata = ShaderDiscovery.Find(compilation, token);
-        Shader[] shaders = new Shader[csharpShaderMetadata.Length];
+        (string, Shader)[] shaders = new (string, Shader)[csharpShaderMetadata.Length];
         int i = 0;
 
         
@@ -113,7 +113,7 @@ public class ShaderProcessor
             
             foreach (var shaderInfoEntryPoint in shaderInfo.EntryPoints)
             {
-                StatementOperationProcessor processor = new StatementOperationProcessor();
+                var processor = new StatementOperationProcessor();
                 IRStage stage = shaderInfoEntryPoint.Stage switch
                 {
                     LanguageStage.Compute  => IRStage.Compute,
@@ -174,9 +174,9 @@ public class ShaderProcessor
                 Function fn = new Function(shaderInfoEntryPoint.Name, stage, [.. inputs.Values], [.. outputs.Values], bodyFunc, extraParams);
                 shaderFunction.Add(fn);
             }
-            
+
             var shader = new Shader(shaderFunction, globals.Values.ToArray());
-            shaders[i++] = shader;
+            shaders[i++] = (shaderInfo.FullName, shader);
         }
 
         return shaders;

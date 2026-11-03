@@ -1,35 +1,43 @@
-# YotsubaShader.Example
+# YotsubaShader.Frontend.Tests
 
 ## Purpose
 
-`YotsubaShader.Example` is an executable development example for the current SPIR-V module builder and binary encoder.
+`YotsubaShader.Frontend.Tests` contains xUnit tests for the C# frontend and its Roslyn-based shader discovery behavior.
 
-## What it demonstrates
+## Current coverage
 
-The program manually constructs a fragment-stage `SpirVModule` that writes a constant magenta color. It declares capabilities, the memory model, an entry point, output location, scalar/vector types, constants, a function, and a basic block. It then:
+- Building in-memory C# compilations with Roslyn.
+- Finding shader types and stage entry points.
+- Preserving entry-point declaration order.
+- Exposing parameters and return types.
+- Ignoring ordinary CPU/helper methods.
+- Discovering nested types and multiple namespaces.
+- Matching attributes by symbol identity instead of source spelling.
+- Ignoring look-alike attributes and types from referenced assemblies.
+- Returning no shaders when the language assembly is unavailable.
 
-1. Prints the assembly-like module representation.
-2. Encodes the module through `SpirVCompiler`.
-3. Writes `mi modulo spirv.spv` in the process working directory.
+`BasicColorShader` provides a representative shader declaration used by frontend tests.
 
-## Running it
+## Running the tests
 
 ```bash
-dotnet run --project YotsubaShader.Example
+dotnet test YotsubaShader.Frontend.Tests/YotsubaShader.Frontend.Tests.csproj
 ```
-
-The generated file is a local example artifact and should not be treated as source.
 
 ## Dependencies
 
-- `YotsubaShader.Compiler.SpirV`
+- xUnit and Microsoft.NET.Test.Sdk
+- MonoGame DesktopGL for shader data types used by fixtures
+- `YotsubaShader.Roslyn`
+- `YotsubaShader.Language`
+- HLSL and SPIR-V authoring vocabularies
 
 ## Out of scope
 
-This example does not currently demonstrate C# shader discovery, Roslyn-to-IR translation, or automatic IR-to-SPIR-V lowering. It exercises the lower-level SPIR-V construction API directly.
+This project does not currently provide comprehensive IR-node, SPIR-V lowering, binary validation, or end-to-end compilation coverage.
 
 ## Status
 
-The example reflects the manual backend workflow available today. It should evolve into an end-to-end example after IR lowering is implemented.
+The current suite is concentrated on discovery. It should grow alongside statement/expression processing and should eventually be complemented by IR and backend tests.
 
-See the [repository README](../README.md) for the intended product workflow.
+See the [Roslyn frontend README](../YotsubaShader.Roslyn/README.md) for the component under test.

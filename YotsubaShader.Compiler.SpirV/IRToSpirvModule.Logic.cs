@@ -386,6 +386,54 @@ public partial class IRToSpirvModule
         
     }
 
+    private static void BuildDebugNames(
+        SpirVModule module,
+        Shader shader)
+    {
+        foreach (Storage resource in shader.GlobalResources)
+        {
+            module.Name(
+                BuildIrTypes.GlobalVariableId(resource),
+                resource.HumanName);
+        }
+
+        foreach (Function function in shader.Functions)
+        {
+            if (function.Stage == Stage.None)
+                continue;
+
+            module.Name(
+                GetFunctionId(function),
+                function.HumanName);
+
+            foreach (Storage storage in function.Inputs.Concat(function.Outputs))
+            {
+                string variableId = BuildIrTypes.InterfaceVariableId(
+                    function,
+                    storage);
+
+                module.Name(variableId, storage.HumanName);
+
+                if (storage is not CustomStruct structure)
+                    continue;
+
+                string structId = SpirVTableTypesIds.StructID(
+                    structure,
+                    function.Stage);
+
+                module.Name(structId, structure.TypeName);
+
+                for (int index = 0; index < structure.Properties.Count; index++)
+                {
+                    module.MemberName(
+                        structId,
+                        index,
+                        structure.Properties[index].HumanName);
+                }
+            }
+        }
+    }
+    
     private void BuildRequiredConstants(SpirVModule module, Shader shader)
     {
         foreach (var shaderFunction in shader.Functions)
@@ -674,12 +722,16 @@ public partial class IRToSpirvModule
                 return 16 + vertexSemantic.Index;
             case VertexUsage.Binormal:
                 return 32 + vertexSemantic.Index;
+            case VertexUsage.Position:
+                return vertexSemantic.Index;
             default:
                 throw new NotSupportedException(
                     $"El semántico '{vertexSemantic.Usage}{vertexSemantic.Index}' aún no tiene una Location SPIR-V.");
         }
     }
     
+    
+
     private static SpirVBuiltIn ToSpirVBuiltIn(BuiltIn builtIn) =>
         builtIn switch
         {

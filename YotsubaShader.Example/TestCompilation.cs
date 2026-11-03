@@ -70,7 +70,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using YotsubaShader.Language;
 
-namespace YotsubaShader.Frontend.Tests;
+namespace YotsubaShader.Example;
 
 /// <summary>Puerta 1 del libro: del texto a una compilación, y comprobar que compila.</summary>
 internal static class TestCompilation

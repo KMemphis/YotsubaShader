@@ -96,6 +96,7 @@ internal sealed partial class FunctionBodyEmitter
             SpirVInstructionParameter.Enumerant(
                 SpirVStorageClass.Function));
 
+        _module.Name(pointerId, storage.HumanName);
         _pointers.Add(storage, pointerId);
         
         if (declaration.Initializer is not null)

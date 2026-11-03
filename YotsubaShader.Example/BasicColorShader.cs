@@ -66,175 +66,98 @@
 */
 #endregion
 
-using System.Collections.Immutable;
-using Microsoft.CodeAnalysis;
-using YotsubaShader.Roslyn.Model;
+// using Microsoft.Xna.Framework;
 using YotsubaShader.Language;
-using YotsubaShader.Roslyn;
+using YotsubaShader.HlslSyntax;
+using YotsubaShader.Language.Native.Types.Vector;
 
-namespace YotsubaShader.Frontend.Tests;
+namespace YotsubaShader.Example;
 
-public class ShaderDiscoveryTests
+public class BasicColorShader
 {
-    private const string MegaShaderLike = """
-        using YotsubaShader.Compiler.SpirV.Stages;
-
-        namespace Game;
-
-        public struct VertexInput { public float X; public float Y; }
-        public struct VertexOutput { public float X; public float Y; }
-
-        public sealed partial class MegaShader
-        {
-            public string DebugName { get; set; } = "mega";
-
-            [ShaderStage(ShaderStage.Vertex)]
-            private VertexOutput VS(VertexInput input) => new VertexOutput { X = input.X, Y = input.Y };
-
-            [ShaderStage(ShaderStage.Fragment)]
-            private float FS(VertexOutput input, int index) => Lighting(input.X);
-
-            private float Lighting(float x) => x;
-
-            public void RefreshFromDatabase() { }
-        }
-        """;
-
-    [Fact]
-    public void Finds_the_shader_class_with_its_stages_in_declaration_order()
+    public struct VS_Input
     {
-        ImmutableArray<ShaderInfo> shaders = ShaderDiscovery.Find(TestCompilation.Create(MegaShaderLike));
+        [POSITION]
+        public Vector2 Position;
 
-        ShaderInfo shader = Assert.Single(shaders);
-        Assert.Equal("Game.MegaShader", shader.FullName);
-        Assert.Equal(["VS", "FS"], shader.EntryPoints.Select(e => e.Name));
-        Assert.Equal([Stage.Vertex, Stage.Fragment], shader.EntryPoints.Select(e => e.Stage));
+        [COLOR]
+        public Vector4 Color;
     }
 
-    [Fact]
-    public void Entry_points_expose_parameters_and_return_type()
+    public struct VS_Output
     {
-        ShaderInfo shader = Assert.Single(ShaderDiscovery.Find(TestCompilation.Create(MegaShaderLike)));
+        [SV_Position]
+        public Vector4 Position;
 
-        EntryPointInfo vs = shader.EntryPoints[0];
-        Assert.Equal("VertexOutput", vs.ReturnType.Name);
-        ParameterInfo input = Assert.Single(vs.Parameters);
-        Assert.Equal("input", input.Name);
-        Assert.Equal("VertexInput", input.Type.Name);
-
-        EntryPointInfo fs = shader.EntryPoints[1];
-        Assert.Equal(SpecialType.System_Single, fs.ReturnType.SpecialType);
-        Assert.Equal(["input", "index"], fs.Parameters.Select(p => p.Name));
-        Assert.Equal(SpecialType.System_Int32, fs.Parameters[1].Type.SpecialType);
+        [COLOR]
+        public Vector4 Color;
     }
 
-    [Fact]
-    public void Helpers_and_cpu_methods_are_not_entry_points()
+    public struct FS_Input
     {
-        ShaderInfo shader = Assert.Single(ShaderDiscovery.Find(TestCompilation.Create(MegaShaderLike)));
-
-        Assert.DoesNotContain(shader.EntryPoints, e => e.Name is "Lighting" or "RefreshFromDatabase");
+        [COLOR]
+        public Vector4 Color;
     }
 
-    [Fact]
-    public void Class_without_stage_methods_is_not_a_shader()
+    [ShaderStage(Stage.Vertex)]
+    public VS_Output VS(VS_Input input)
     {
-        const string code = """
-            public class Plain { public void Update() { } }
-            """;
+        VS_Output output;
 
-        Assert.Empty(ShaderDiscovery.Find(TestCompilation.Create(code)));
+        output.Position = new Vector4(
+            input.Position.X,
+            input.Position.Y,
+            0.0f,
+            1.0f
+        );
+
+        output.Color = input.Color;
+
+        return output;
     }
 
-    [Fact]
-    public void Finds_shaders_in_nested_types_and_several_namespaces()
+    [ShaderStage(Stage.Fragment)]
+    public Vector4 FS(FS_Input input)
     {
-        const string code = """
-            using YotsubaShader.Compiler.SpirV.Stages;
-
-            namespace A.B
-            {
-                public class Outer
-                {
-                    public class Inner
-                    {
-                        [ShaderStage(ShaderStage.Compute)] void CS() { }
-                    }
-                }
-            }
-
-            public class TopLevel
-            {
-                [ShaderStage(ShaderStage.Fragment)] static float FS() => 1f;
-            }
-            """;
-
-        ImmutableArray<ShaderInfo> shaders = ShaderDiscovery.Find(TestCompilation.Create(code));
-
-        Assert.Equal(["A.B.Outer.Inner", "TopLevel"], shaders.Select(s => s.FullName).OrderBy(n => n));
-        Assert.Equal(Stage.Compute, shaders.Single(s => s.Name == "Inner").EntryPoints[0].Stage);
+        return input.Color;
     }
 
-    [Theory]
-    [InlineData("[ShaderStage(ShaderStage.Fragment)]")]
-    [InlineData("[ShaderStageAttribute(ShaderStage.Fragment)]")]
-    [InlineData("[Ys.ShaderStage(Ys.ShaderStage.Fragment)]")]
-    [InlineData("[Stage(ShaderStage.Fragment)]")]
-    [InlineData("[YotsubaShader.Compiler.SpirV.Stages.ShaderStage(YotsubaShader.Compiler.SpirV.Stages.ShaderStage.Fragment)]")]
-    public void Attribute_is_matched_by_symbol_not_by_text(string attribute)
+    [ShaderStage(Stage.Compute)]
+    [numthreads(3,3,3)]
+    public void Compute()
     {
-        string code = $$"""
-            using YotsubaShader.Compiler.SpirV.Stages;
-            using Ys = YotsubaShader.Compiler.SpirV.Stages;
-            using Stage = YotsubaShader.Compiler.SpirV.Stages.ShaderStageAttribute;
-
-            public class S
-            {
-                {{attribute}}
-                float FS() => 1f;
-            }
-            """;
-
-        ShaderInfo shader = Assert.Single(ShaderDiscovery.Find(TestCompilation.Create(code)));
-        Assert.Equal(Stage.Fragment, Assert.Single(shader.EntryPoints).Stage);
+        
     }
+}
 
-    [Fact]
-    public void A_look_alike_attribute_from_another_namespace_is_ignored()
-    {
-        const string code = """
-            namespace Other { public class ShaderStageAttribute : System.Attribute { public ShaderStageAttribute(int s) { } } }
 
-            public class S
-            {
-                [Other.ShaderStage(1)] float FS() => 1f;
-            }
-            """;
 
-        Assert.Empty(ShaderDiscovery.Find(TestCompilation.Create(code)));
-    }
+[Vector]
+public struct Vector2
+{
+    [VectorComponent(0)] public float X;
+    [VectorComponent(1)] public float Y;
 
-    [Fact]
-    public void Only_types_of_this_project_are_scanned_not_referenced_ones()
-    {
-        CSharpCompilationHolder lib = CSharpCompilationHolder.From(TestCompilation.Create(MegaShaderLike, "ShaderLibrary"));
+    public Vector2(float x, float y) { X = x; Y = y; }
+}
 
-        var game = TestCompilation.Create("public class Game { }", "Game", true, lib.Reference);
+[Vector]
+public struct Vector3
+{
+    [VectorComponent(0)] public float X;
+    [VectorComponent(1)] public float Y;
+    [VectorComponent(2)] public float Z;
 
-        Assert.Single(ShaderDiscovery.Find(lib.Compilation));
-        Assert.Empty(ShaderDiscovery.Find(game));
-    }
+    public Vector3(float x, float y, float z) { X = x; Y = y; Z = z; }
+}
 
-    [Fact]
-    public void Returns_nothing_when_the_project_does_not_reference_YotsubaShader()
-    {
-        var compilation = TestCompilation.Create("public class S { }", referenceYotsubaShader: false);
+[Vector]
+public struct Vector4
+{
+    [VectorComponent(0)] public float X;
+    [VectorComponent(1)] public float Y;
+    [VectorComponent(2)] public float Z;
+    [VectorComponent(3)] public float W;
 
-        Assert.Empty(ShaderDiscovery.Find(compilation));
-    }
-
-    private sealed record CSharpCompilationHolder(Compilation Compilation, MetadataReference Reference)
-    {
-        public static CSharpCompilationHolder From(Compilation c) => new(c, c.ToMetadataReference());
-    }
+    public Vector4(float x, float y, float z, float w) { X = x; Y = y; Z = z; W = w; }
 }

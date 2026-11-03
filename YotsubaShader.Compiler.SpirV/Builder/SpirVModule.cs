@@ -91,6 +91,9 @@ public class SpirVModule
      
                foreach (SpirVInstruction instruction in _entryPoints)
                     yield return instruction;
+               
+               foreach (SpirVInstruction instruction in _debug)
+                    yield return instruction;
      
                foreach (SpirVInstruction instruction in _annotations)
                     yield return instruction;
@@ -120,6 +123,7 @@ public class SpirVModule
      
      private readonly List<SpirVInstruction> _header = [];
      private readonly List<SpirVInstruction> _entryPoints = [];
+     private readonly List<SpirVInstruction> _debug = [];
      private readonly List<SpirVInstruction> _annotations = [];
      private readonly List<SpirVInstruction> _types = [];
      private readonly List<SpirVInstruction> _constants = [];
@@ -164,7 +168,8 @@ public class SpirVModule
      private void AddInstruction(SpirVInstruction instruction)
      {
           SpirVOperation operation = instruction.Operation;
-
+          
+          
           if (operation.Name.StartsWith("OpType", StringComparison.Ordinal))
           {
                _types.Add(instruction);
@@ -178,7 +183,13 @@ public class SpirVModule
                _constants.Add(instruction);
                return;
           }
-
+           
+          if (operation.Name is "OpName" or "OpMemberName")
+          {
+               _debug.Add(instruction);
+               return;
+          }
+          
           if (_currentFunction is not null)
           {
                if (operation.Name == "OpVariable")
@@ -224,6 +235,37 @@ public class SpirVModule
                     throw new InvalidOperationException(
                          $"No sé en qué sección colocar '{operation.Name}'.");
           }
+     }
+     
+     
+     public void Name(string id, string name)
+     {
+          ArgumentException.ThrowIfNullOrWhiteSpace(id);
+          ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+          AddLine(
+               SpirVOpTable.OpName,
+               SpirVModuleHelpers.Id(id),
+               new SpirVInstructionParameter(
+                    name,
+                    SpirVInstructionType.StringLiteral));
+     }
+
+     public void MemberName(string structTypeId, int memberIndex, string name)
+     {
+          ArgumentException.ThrowIfNullOrWhiteSpace(structTypeId);
+          ArgumentOutOfRangeException.ThrowIfNegative(memberIndex);
+          ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+          AddLine(
+               SpirVOpTable.OpMemberName,
+               SpirVModuleHelpers.Id(structTypeId),
+               new SpirVInstructionParameter(
+                    memberIndex.ToString(),
+                    SpirVInstructionType.UIntValue),
+               new SpirVInstructionParameter(
+                    name,
+                    SpirVInstructionType.StringLiteral));
      }
      
      /// <summary>Instrucción sin resultado (OpStore, OpReturn, OpDecorate...).</summary>
@@ -280,6 +322,7 @@ public class SpirVModule
      internal void RegisterType(Type type, string id) => _declaredTypes[type] = id;
      internal void RegisterType(Storage type, Stage stage,  string id) => _declaredTypesStorages[(type, stage)] = id;
 
+     public string ToSpirVAs => ToText();
      /// <summary>Texto en formato spirv-as (para depurar y validar con spirv-val).</summary>
      public string ToText()
      {
