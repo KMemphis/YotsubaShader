@@ -337,6 +337,16 @@ public partial class IRToSpirvModule
                             $"%{shaderFunction.HumanName}_{storage.Kind}_{storage.HumanName}")));
 
             module.AddLine(SpirVOpTable.OpEntryPoint, [.. parameters]);
+
+        }
+        
+        
+        foreach (var shaderFunction in shader.Functions)
+        {
+            if(shaderFunction.Stage == Stage.None) continue;
+            
+            string functionId = GetFunctionId(shaderFunction);
+
             if (shaderFunction.Stage == Stage.Fragment)
             {
                 module.AddLine(SpirVOpTable.OpExecutionMode,
@@ -484,6 +494,7 @@ public partial class IRToSpirvModule
             string functionId = GetFunctionId(shaderFunction);
             string labelId = $"%label_{shaderFunction.HumanName}";
 
+            module.BeginFunction();
             module.AddResultLine(
                 functionId,
                 SpirVOpTable.OpFunction,
@@ -502,10 +513,33 @@ public partial class IRToSpirvModule
             FunctionBodyEmitter emitter = new FunctionBodyEmitter(module, pointers);
             emitter.EmitStatements(shaderFunction.Body, shaderFunction);
             
+            if (!EndsInReturn(shaderFunction.Body))
+            {
+                module.AddLine(SpirVOpTable.OpReturn);
+            }
+
             module.AddLine(SpirVOpTable.OpFunctionEnd);
+            
+            module.EndFunction();
         }
     }
 
+    private static bool EndsInReturn(IReadOnlyList<Statement> statements)
+    {
+        return statements.Count > 0 &&
+               EndsInReturn(statements[^1]);
+    }
+
+    private static bool EndsInReturn(Statement statement)
+    {
+        return statement switch
+        {
+            Return => true,
+            Block block => EndsInReturn(block.Statements),
+            _ => false
+        };
+    }
+    
     private static string GetFunctionId(Function function)
     {
         return $"%fn_{function.HumanName}";
@@ -538,6 +572,11 @@ public partial class IRToSpirvModule
                 {
                     string structId = SpirVTableTypesIds.StructID(structure, shaderFunction.Stage);
 
+                    module.AddLine(
+                        SpirVOpTable.OpDecorate,
+                        SpirVModuleHelpers.Id(structId),
+                        SpirVInstructionParameter.Enumerant(SpirVDecoration.Block));
+                    
                     for (int memberIndex = 0; memberIndex < structure.Properties.Count; memberIndex++)
                     {
                         DecorateMember(module, structId, memberIndex, structure.Properties[memberIndex].Slot);

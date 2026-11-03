@@ -75,12 +75,157 @@ namespace YotsubaShader.Compiler.SpirV.Builder;
 
 public class SpirVModule
 {
-     internal List<SpirVInstruction> Instructions = [];
 
+     internal IEnumerable<SpirVInstruction> Instructions
+     {
+          get
+          {
+               if (_currentFunction is not null)
+               {
+                    throw new InvalidOperationException(
+                         "No se puede serializar un módulo con una función abierta.");
+               }
+     
+               foreach (SpirVInstruction instruction in _header)
+                    yield return instruction;
+     
+               foreach (SpirVInstruction instruction in _entryPoints)
+                    yield return instruction;
+     
+               foreach (SpirVInstruction instruction in _annotations)
+                    yield return instruction;
+     
+               foreach (SpirVInstruction instruction in _types)
+                    yield return instruction;
+     
+               foreach (SpirVInstruction instruction in _constants)
+                    yield return instruction;
+     
+               foreach (SpirVInstruction instruction in _globals)
+                    yield return instruction;
+     
+               foreach (FunctionSection function in _functions)
+               {
+                    foreach (SpirVInstruction instruction in function.Header)
+                         yield return instruction;
+     
+                    foreach (SpirVInstruction instruction in function.Variables)
+                         yield return instruction;
+     
+                    foreach (SpirVInstruction instruction in function.Body)
+                         yield return instruction;
+               }
+          }
+     }
+     
+     private readonly List<SpirVInstruction> _header = [];
+     private readonly List<SpirVInstruction> _entryPoints = [];
+     private readonly List<SpirVInstruction> _annotations = [];
+     private readonly List<SpirVInstruction> _types = [];
+     private readonly List<SpirVInstruction> _constants = [];
+     private readonly List<SpirVInstruction> _globals = [];
+     private readonly List<FunctionSection> _functions = [];
+     
+     private FunctionSection? _currentFunction;
+
+     private sealed class FunctionSection
+     {
+          public List<SpirVInstruction> Header { get; } = [];
+          public List<SpirVInstruction> Variables { get; } = [];
+          public List<SpirVInstruction> Body { get; } = [];
+     }
+     
      private readonly HashSet<string> _definedIds = [];
      private readonly Dictionary<Type, string> _declaredTypes = [];
      private readonly Dictionary<(Storage, Stage), string> _declaredTypesStorages = [];
 
+     
+     public void BeginFunction()
+     {
+          if (_currentFunction is not null)
+          {
+               throw new InvalidOperationException("Ya hay una función abierta.");
+          }
+
+          _currentFunction = new FunctionSection();
+     }
+
+     public void EndFunction()
+     {
+          if (_currentFunction is null)
+          {
+               throw new InvalidOperationException("No hay una función abierta.");
+          }
+
+          _functions.Add(_currentFunction);
+          _currentFunction = null;
+     }
+     
+     private void AddInstruction(SpirVInstruction instruction)
+     {
+          SpirVOperation operation = instruction.Operation;
+
+          if (operation.Name.StartsWith("OpType", StringComparison.Ordinal))
+          {
+               _types.Add(instruction);
+               return;
+          }
+
+          if (operation.Name.StartsWith("OpConstant", StringComparison.Ordinal) ||
+              operation.Name.StartsWith("OpSpecConstant", StringComparison.Ordinal) ||
+              operation.Name == "OpUndef")
+          {
+               _constants.Add(instruction);
+               return;
+          }
+
+          if (_currentFunction is not null)
+          {
+               if (operation.Name == "OpVariable")
+               {
+                    _currentFunction.Variables.Add(instruction);
+               }
+               else if (operation.Name is "OpFunction" or "OpFunctionParameter" or "OpLabel")
+               {
+                    _currentFunction.Header.Add(instruction);
+               }
+               else
+               {
+                    _currentFunction.Body.Add(instruction);
+               }
+
+               return;
+          }
+
+          switch (operation.Name)
+          {
+               case "OpCapability":
+               case "OpExtension":
+               case "OpExtInstImport":
+               case "OpMemoryModel":
+                    _header.Add(instruction);
+                    break;
+
+               case "OpEntryPoint":
+               case "OpExecutionMode":
+                    _entryPoints.Add(instruction);
+                    break;
+
+               case "OpDecorate":
+               case "OpMemberDecorate":
+                    _annotations.Add(instruction);
+                    break;
+
+               case "OpVariable":
+                    _globals.Add(instruction);
+                    break;
+
+               default:
+                    throw new InvalidOperationException(
+                         $"No sé en qué sección colocar '{operation.Name}'.");
+          }
+     }
+     
      /// <summary>Instrucción sin resultado (OpStore, OpReturn, OpDecorate...).</summary>
      public void AddLine(SpirVOperation operation, params SpirVInstructionParameter[] parameters)
      {
@@ -89,7 +234,7 @@ public class SpirVModule
                throw new InvalidOperationException($"{operation.Name} produce un resultado; usa AddResultLine.");
           }
 
-          Instructions.Add(new SpirVInstruction(operation, parameters));
+          AddInstruction(new SpirVInstruction(operation, parameters));
      }
 
      /// <summary>Instrucción con resultado: <c>%result = Op ...</c>. Cada ID se define una sola vez.</summary>
@@ -120,7 +265,10 @@ public class SpirVModule
                parameters = parameters[1..];
           }
 
-          Instructions.Add(new SpirVInstruction(operation, parameters, result, resultType));
+          SpirVInstruction instruction =
+               new(operation, parameters, result, resultType);
+
+          AddInstruction(instruction);
           return result;
      }
 
