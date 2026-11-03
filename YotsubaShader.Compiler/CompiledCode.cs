@@ -21,7 +21,7 @@ public record CompiledCode(
 
     public string ToMsl(Stage stage)
     {
-        (string entryPoint, YotsubaShaderCross.Spv.ExecutionModel executionModel) =
+        (string entryPoint, ExecutionModel executionModel) =
             GetEntryPoint(stage);
 
         var compiler = new CompilerMSL(ByteArrToCppVector());
@@ -33,7 +33,7 @@ public record CompiledCode(
 
     public string ToHlsl(Stage stage)
     {
-        (string entryPoint, YotsubaShaderCross.Spv.ExecutionModel executionModel) =
+        (string entryPoint, ExecutionModel executionModel) =
             GetEntryPoint(stage);
 
         var compiler = new CompilerHLSL(ByteArrToCppVector());
