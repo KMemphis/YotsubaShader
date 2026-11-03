@@ -5,6 +5,10 @@ using YotsubaShader.CLI;
 using YotsubaShader.Compiler;
 using YotsubaShader.IR.Intermediate;
 
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+
 Args parameters = new Args(args);
 
 if (!File.Exists(parameters.ProjectPath))

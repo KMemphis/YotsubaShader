@@ -242,7 +242,7 @@ public class ShaderProcessor
             IPropertySymbol property => property.Type,
             _ => null
         };  
-
+        
         if (type is null)
         {
             throw new NotSupportedException(
