@@ -66,10 +66,12 @@
 */
 #endregion
 
+using System.Collections.Immutable;
 using YotsubaShader.Compiler.SpirV.Builder;
 using YotsubaShader.IR.Intermediate;
 using YotsubaShader.IR.Intermediate.FunctionBody;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.FunctionCalls;
 using YotsubaShader.IR.Intermediate.FunctionBody.Statements;
 
 namespace YotsubaShader.Compiler.SpirV;
@@ -78,25 +80,30 @@ internal sealed partial class FunctionBodyEmitter
 {
     private readonly SpirVModule _module;
     private readonly Dictionary<Storage, string> _pointers;
+    private readonly Dictionary<Storage, string> _values;
+    
     private int _nextTemporaryValue;
+    
 
     public FunctionBodyEmitter(
         SpirVModule module,
-        Dictionary<Storage, string> pointers)
+        Dictionary<Storage, string> pointers,
+        Dictionary<Storage, string> values)
     {
         _module = module;
         _pointers = pointers;
+        _values = values;
     }
 
-    public void EmitStatements(IReadOnlyList<Statement> statements, Function function)
+    public void EmitStatements(IReadOnlyList<Statement> statements, Function function, IReadOnlyList<Function> otherFuncs)
     {
         foreach (var statement in statements)
         {
-            EmitStatement(statement, function);
+            EmitStatement(statement, function, otherFuncs);
         }
     }
 
-    private void EmitStatement(Statement statement, Function function)
+    private void EmitStatement(Statement statement, Function function,  IReadOnlyList<Function> otherFuncs)
     {
         switch (statement)
         {
@@ -115,8 +122,11 @@ internal sealed partial class FunctionBodyEmitter
             case Block block:
                 foreach (Statement child in block.Statements)
                 {
-                    EmitStatement(child, function);
+                    EmitStatement(child, function, otherFuncs);
                 }
+                break;
+            case FunctionCallStatement functionCallStatement:
+                _ = EmitFunctionCall(functionCallStatement, function, otherFuncs);
                 break;
             default:
                 throw new NotSupportedException(

@@ -17,7 +17,7 @@
 
 ## The product
 
-YotsubaShader aims to be the shader authoring layer for your engine, framework, or content tool. Your team writes shaders in C# using types, structures, and attributes. The compiler interprets their interfaces and stages, lowers them to a shared intermediate representation, and generates output for the selected backend.
+YotsubaShader is the shader authoring layer for your engine, framework, or content tool. Your team writes shaders in C# using types, structures, and attributes. The compiler interprets their interfaces and stages, lowers them to a shared intermediate representation, and generates output for the selected backend.
 
 The central idea is simple: **the attribute style you use does not determine the output target**. HLSL, GLSL, Metal, Vulkan, and WGSL provide equivalent authoring vocabularies. Choose the one your team knows best, then select SPIR-V or another backend when compiling.
 
@@ -28,7 +28,7 @@ semantic analysis and validation
           ↓
 Yotsuba IR
           ↓
-SPIR-V · future backends
+SPIR-V · HLSL · GLSL · GLSL ES · MSL · C++
 ```
 
 ## Why YotsubaShader
@@ -250,50 +250,53 @@ Here the input semantics use the HLSL-style names, and `Lighting.Material` is bo
 
 ## Compiling to SPIR-V
 
-### Compilation CLI — planned interface
+### Compilation CLI
 
-The CLI is intended for builds, CI, and content tools. It is not part of the current distribution; the following command illustrates the planned product interface.
+The repository includes a CLI for builds, CI, and content tools. It opens the supplied `.csproj`, discovers shader entry points marked with `[ShaderStage]`, compiles them, and writes the selected targets to the output directory.
 
 ```bash
-yotsuba compile Game.Graphics.csproj \
+dotnet run --project YotsubaShader.CLI/YotsubaShader.CLI.csproj -- \
+  compile Game.Graphics.csproj \
   --target spirv \
   --output artifacts/
 ```
 
-The command would scan the `.csproj`, discover every shader entry point marked with `[ShaderStage]`, validate each interface, generate Yotsuba IR, and emit the selected output for every discovered shader in the output directory. `--target` selects the backend independently of the attributes used to write the shader.
+The CLI supports SPIR-V, HLSL, GLSL, GLSL ES, Metal, and C++ output. Repeat `--target` to generate several targets in one invocation. `--target` selects the backend independently of the attributes used to write the shader.
 
-### Project compilation library — planned interface
+### Compiler library
 
-The planned library entry point receives a `.csproj`, scans the project with Roslyn, discovers the shader entry points, and returns one compilation result for each shader it finds. The exact type and method names are not final; this illustrates the intended data flow rather than a released API.
+The `YotsubaShader.Compiler` library exposes the compilation pipeline through `CSharpToSpirvCompiler.Compile`. It accepts a Roslyn `Compilation`, discovers shader entry points, builds the intermediate representation, generates SPIR-V, and returns a `CompiledCode` result for each shader.
 
 ```csharp
-using YotsubaShader.Compilation;
+using Microsoft.CodeAnalysis;
+using YotsubaShader.Compiler;
 
-// Planned shape: one result per discovered shader in the project.
-var shaderCompilations = await YotsubaCompiler.CompileProjectAsync(
-    "Game.Graphics.csproj",
-    target: ShaderTarget.SpirV);
+// `compilation` is the Roslyn compilation for the project.
+List<CompiledCode> shaderCompilations =
+    CSharpToSpirvCompiler.Compile(compilation);
 
 foreach (var shaderCompilation in shaderCompilations)
 {
-    Console.WriteLine(shaderCompilation.ShaderName);
-    // Each result can expose its generated target output and diagnostics.
+    Console.WriteLine(shaderCompilation.CSharpFullClassName);
+    File.WriteAllBytes(
+        $"{shaderCompilation.CSharpFullClassName}.spv",
+        shaderCompilation.SpirV);
 }
 ```
 
-The project scan is intended to include the source files and references from the `.csproj`, identify methods marked with `[ShaderStage]`, compile each discovered shader for the selected target, and return the outputs and diagnostics together. The final API and package names may change before the first release.
+Each `CompiledCode` result contains the generated SPIR-V and shader reflection. It also provides helpers for emitting HLSL, GLSL, GLSL ES, Metal, and C++ for each shader stage.
 
-## Implementation status
+## Compiler components
 
-YotsubaShader is under active development. The repository currently contains:
+The repository brings together:
 
 - Language attributes for HLSL, GLSL, Metal, Vulkan, and WGSL styles.
 - Roslyn-based discovery of C# classes and methods marked with `[ShaderStage]`.
 - An intermediate representation for stages, functions, storage, types, interface slots, and expressions.
+- A C#-to-SPIR-V compiler pipeline exposed through `YotsubaShader.Compiler`.
 - Low-level SPIR-V 1.6 module construction through `SpirVModule` and `SpirVCompiler`.
 - Helpers for SPIR-V scalar, vector, matrix, image, sampler, array, and pointer types.
-
-The pipeline that converts a complete C# shader class to IR and then SPIR-V is still being assembled. The CLI and high-level API shown above have not been released. The authoring examples show the intended language; not every operation in a shader body can be compiled yet.
+- A command-line compiler in `YotsubaShader.CLI` for project builds and multi-target output.
 
 ## Working with the repository
 
@@ -323,7 +326,9 @@ This creates `mi modulo spirv.spv` in the working directory. For details on the 
 | `YotsubaShader.{Glsl,Hlsl,Msl,Spirv,Wgsl}Syntax` | Optional syntax vocabularies that map familiar backend names to the shared concepts. |
 | `YotsubaShader.Roslyn` | Roslyn-based discovery and processing of C# shaders into the intermediate representation. |
 | `YotsubaShader.IR` | Intermediate model for shaders, stages, functions, storage, interface slots, expressions, and types. |
+| `YotsubaShader.Compiler` | C# shader compilation pipeline, reflection, SPIR-V generation, and target conversion. |
 | `YotsubaShader.Compiler.SpirV` | Low-level SPIR-V module construction and binary encoding. |
+| `YotsubaShader.CLI` | Command-line project compilation and target emission. |
 | `YotsubaShader.Generator` | SPIR-V operation metadata generated from the Khronos grammar. |
 | `YotsubaShaderCross` | Separate submodule that translates SPIR-V into GLSL, HLSL, MSL, or reflection output. |
 | `YotsubaShader.Example` | Executable example that builds a low-level SPIR-V module. |

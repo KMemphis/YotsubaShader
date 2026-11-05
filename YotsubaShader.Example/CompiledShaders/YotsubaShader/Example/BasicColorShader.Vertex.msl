@@ -14,7 +14,7 @@ struct FS_Input
     float4 Color;
 };
 
-struct _24
+struct _25
 {
     float4 _m0;
     float4 _m1;
@@ -38,7 +38,7 @@ vertex VS_out VS(VS_in in [[stage_in]])
     VS_Input _input = {};
     _input.Position = in._input_Position;
     _input.Color = in._input_Color;
-    _24 _output;
+    _25 _output;
     _output._m0 = float4(_input.Position.x, _input.Position.y, 0.0, 1.0);
     _output._m1 = _input.Color;
     _return = VS_Output{ _output._m0, _output._m1 };

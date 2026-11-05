@@ -11,7 +11,7 @@ namespace Impl
 {
     struct Shader
     {
-        struct _24
+        struct _25
         {
             vec4 _m0;
             vec4 _m1;

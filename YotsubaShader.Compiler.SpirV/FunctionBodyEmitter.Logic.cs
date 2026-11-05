@@ -74,6 +74,7 @@ using YotsubaShader.IR.Intermediate;
 using YotsubaShader.IR.Intermediate.FunctionBody;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.AssignmentTargets;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.FunctionCalls;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.Literals;
 using YotsubaShader.IR.Intermediate.FunctionBody.Statements;
 using YotsubaShader.IR.Intermediate.Types;
@@ -119,31 +120,75 @@ internal sealed partial class FunctionBodyEmitter
             SpirVOpTable.OpStore,
             SpirVModuleHelpers.Id(targetPointerId),
             SpirVModuleHelpers.Id(valueId));
-    }
-
-    private void EmitReturn(Return returnStatement,ref  Function function)
+        }
+    private void EmitReturn(
+        Return returnStatement,
+        ref Function function)
     {
         if (returnStatement.Value is null)
         {
             _module.AddLine(SpirVOpTable.OpReturn);
             return;
         }
-        
-        Storage returnOutput = function.Outputs.SingleOrDefault(output => output.HumanName == "__return")
-            ?? throw new InvalidOperationException(
-                $"Function '{function.HumanName}' returns a value, " +
+
+        string valueId =
+            EmitValue(returnStatement.Value, ref function);
+
+        Storage? returnOutput = function.Outputs
+            .SingleOrDefault(output =>
+                output.HumanName == "__return");
+
+        if (function.Stage == Stage.None)
+        {
+            if (returnOutput is null)
+            {
+                throw new InvalidOperationException(
+                    $"Function '{function.HumanName}' has no return output.");
+            }
+
+            if (returnOutput is CustomStruct targetStruct &&
+                TryGetStructType(
+                    returnStatement.Value,
+                    out CustomStruct? sourceStruct) &&
+                sourceStruct is not null)
+            {
+                valueId = RepackStruct(
+                    valueId,
+                    sourceStruct,
+                    targetStruct,
+                    ref function);
+            }
+
+            _module.AddLine(
+                SpirVOpTable.OpReturnValue,
+                SpirVModuleHelpers.Id(valueId));
+
+            return;
+        }
+
+        // Los entry points escriben en su variable de salida.
+        if (returnOutput is null)
+        {
+            throw new InvalidOperationException(
+                $"Function '{function.HumanName}' returns a value " +
                 "but has no '__return' output.");
+        }
 
-        string returnPointerId = EmitAddress(new StorageReference(returnOutput), ref function);
-        string valueId = EmitValue(returnStatement.Value, ref function);
+        string returnPointerId =
+            EmitAddress(
+                new StorageReference(returnOutput),
+                ref function);
 
-        if (returnOutput is CustomStruct targetStruct &&
-            TryGetStructType(returnStatement.Value, out CustomStruct? sourceStruct))
+        if (returnOutput is CustomStruct entryPointStruct &&
+            TryGetStructType(
+                returnStatement.Value,
+                out CustomStruct? entrySourceStruct) &&
+            entrySourceStruct is not null)
         {
             valueId = RepackStruct(
                 valueId,
-                sourceStruct,
-                targetStruct,
+                entrySourceStruct,
+                entryPointStruct,
                 ref function);
         }
 
@@ -151,10 +196,9 @@ internal sealed partial class FunctionBodyEmitter
             SpirVOpTable.OpStore,
             SpirVModuleHelpers.Id(returnPointerId),
             SpirVModuleHelpers.Id(valueId));
-        
+
         _module.AddLine(SpirVOpTable.OpReturn);
     }
-    
     private static bool TryGetStructType(
         Expression expression,
         out CustomStruct? structure)
@@ -427,9 +471,19 @@ internal sealed partial class FunctionBodyEmitter
                 break;
             
             case StorageReference reference:
-                id = EmitLoad(reference, ref function);
+                if (_values.TryGetValue(
+                        reference.Storage,
+                        out string parameterValueId))
+                {
+                    id = parameterValueId;
+                }
+                else
+                {
+                    id = EmitLoad(
+                        reference,
+                        ref function);
+                }
                 break;
-            
             case StorageStructPropertyReference property:
                 id = EmitStructPropertyValue(property, ref function);
                 break;
@@ -778,5 +832,68 @@ internal sealed partial class FunctionBodyEmitter
             _ => throw new NotSupportedException(
                 $"Integer width '{literal.Bits}' is not supported.")
         };
+    }
+
+    private string EmitFunctionCall(FunctionCallStatement functionCallStatement, Function function, 
+        IReadOnlyList<Function> otherFuncs)
+    {
+        var dictionary = otherFuncs.ToDictionary(x => x.Id);
+     
+        if (!dictionary.TryGetValue(
+                functionCallStatement.Target,
+                out Function functionCalled))
+        {
+            throw new InvalidOperationException(
+                $"No se encontró la función con ID " +
+                $"{functionCallStatement.Target.Value}.");
+        }
+        
+        if (functionCalled.Stage != Stage.None)
+        {
+            throw new NotSupportedException(
+                "Only helper functions can be called.");
+        }
+        
+        if (functionCallStatement.Arguments.Count != functionCalled.Inputs.Count)
+        {
+            throw new InvalidOperationException(
+                $"Function '{functionCalled.HumanName}' expects " +
+                $"{functionCalled.Inputs.Count} arguments, " +
+                $"but received {functionCallStatement.Arguments.Count}.");
+        }
+
+        Storage? returnStorage = functionCalled.Outputs.SingleOrDefault(x => x.HumanName == "__return");
+
+        string returnTypeId = returnStorage is null
+            ? SpirVTableTypesIds.VoidID
+            : _module.DeclareType(returnStorage, Stage.None);
+
+        var parameters = new List<SpirVInstructionParameter>()
+        {
+            new SpirVInstructionParameter(returnTypeId,
+                SpirVInstructionType.IdRef),
+            new SpirVInstructionParameter(
+                GetFunctionId(functionCalled),
+                SpirVInstructionType.IdRef)
+        };
+
+        foreach (var expression in functionCallStatement.Arguments)
+        {
+            string argumentId = EmitValue(expression, ref function);
+            parameters.Add(
+                SpirVModuleHelpers.Id(argumentId));
+        }
+
+        string resultId = $"%call_{function.Id.Value}_{_nextTemporaryValue++}";
+
+        _module.AddResultLine(resultId, SpirVOpTable.OpFunctionCall,
+            parameters.ToArray());
+
+        return resultId;
+    }
+    
+    private static string GetFunctionId(Function function)
+    {
+        return $"%fn_{function.HumanName}_{function.Id.Value}";
     }
 }

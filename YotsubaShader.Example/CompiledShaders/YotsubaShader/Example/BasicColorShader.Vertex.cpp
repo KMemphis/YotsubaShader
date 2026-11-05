@@ -11,7 +11,7 @@ namespace Impl
 {
     struct Shader
     {
-        struct _24
+        struct _25
         {
             vec4 _m0;
             vec4 _m1;
@@ -39,7 +39,7 @@ namespace Impl
         
         inline void main()
         {
-            struct _24 output;
+            struct _25 output;
             output._m0 = vec4(input.Position.x, input.Position.y, 0.0f, 1.0f);
             output._m1 = input.Color;
             _return = { output._m0, output._m1 };

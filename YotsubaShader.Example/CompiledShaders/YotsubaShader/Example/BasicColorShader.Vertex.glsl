@@ -1,6 +1,6 @@
 #version 450
 
-struct _24
+struct _25
 {
     vec4 _m0;
     vec4 _m1;
@@ -15,7 +15,7 @@ in VS_Input
 
 void main()
 {
-    _24 _output;
+    _25 _output;
     _output._m0 = vec4(_input.Position.x, _input.Position.y, 0.0, 1.0);
     _output._m1 = _input.Color;
     _return = VS_Output(_output._m0, _output._m1);

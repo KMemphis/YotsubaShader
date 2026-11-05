@@ -65,6 +65,8 @@
 ╚════════════════════════════════════════════════════════════════════════════════════╝
 */
 #endregion
+
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Operations;
 using YotsubaShader.IR.Intermediate;
@@ -72,23 +74,11 @@ using YotsubaShader.IR.Intermediate.FunctionBody;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.AssignmentTargets;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.FunctionCalls;
 using YotsubaShader.IR.Intermediate.FunctionBody.Statements;
+using YotsubaShader.Roslyn.Model;
 
 namespace YotsubaShader.Roslyn;
-
-/*
- *| Prioridad | Operación Roslyn | Casos que desbloquea |
-   |---|---|---|
-   | 1 | `IVariableDeclarationGroupOperation` | `VertexOutput output`, `float numero` — ya está iniciado | XX
-   | 2 | `IObjectCreationOperation` | `new VertexOutput()`, `new Vector2(...)`, `new Vector4(...)` | -X
-   | 3 | `ISimpleAssignmentOperation` | `output.Position = ...`, `output.Uv = ...` | XX
-   | 4 | `IReturnOperation` | Todos los `return output` y `return new Vector4(...)` | XX
-   | 5 | `IBinaryOperation` | `33 + 4`, `id * 3`, `id + 8`, `id * 7` |
-   | 6 | `IConversionOperation` | `0`, `1`, `33 + 4`, etc., al ser convertidos implícitamente a `float`; y `uint` a `float` |
-   | 7 | `ICompoundAssignmentOperation` | `output.Position *= numero` |
-   | 8 | `IEmptyOperation` | El cuerpo vacío de `Compute`; debe producir `statement = null`, no un error |
- */
-
 public partial class StatementOperationProcessor : IStatementOperationProcessor
 {
     
@@ -135,10 +125,9 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
                 throw new NotImplementedException(
                     nameof(ProcessIncrementOrDecrementOperation));
 
-            case IInvocationOperation:
-                throw new NotImplementedException(
-                    nameof(ProcessInvocationOperation));
-
+            case IInvocationOperation invocationOperation:
+                ProcessInvocationOperation(invocationOperation, inputs, outputs, compilation, stage, out statement);
+            break;
             case IDynamicInvocationOperation:
                 throw new NotImplementedException(
                     nameof(ProcessDynamicInvocationOperation));
@@ -338,10 +327,51 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
         throw new NotImplementedException();
     }
 
-    public void ProcessInvocationOperation(IInvocationOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
+    public void ProcessInvocationOperation(IInvocationOperation operation, 
+        Dictionary<ISymbol, Storage> inputs, 
+        Dictionary<ISymbol, Storage> outputs,
         Compilation compilation, Stage stage, out Statement? statement)
     {
-        throw new NotImplementedException();
+        List<Expression> arguments = new List<Expression>(operation.Arguments.Length);
+        
+        foreach (var operationArgument in operation.Arguments)
+        {
+            Expression argument = ProcessExpression(
+                operationArgument.Value, 
+                inputs, 
+                outputs, 
+                compilation, 
+                stage) ?? throw new NotSupportedException(
+                $"El argumento de '{operation.TargetMethod.Name}' " +
+                "no produjo una expresión.");
+            arguments.Add(argument);
+        }
+
+        if (!ShaderProcessor.functionIds.TryGetValue(operation.TargetMethod, out FunctionId functionId))
+        {
+            functionId = new FunctionId(
+                (uint)ShaderProcessor.functionIds.Count);
+
+            ShaderProcessor.functionIds.Add(
+                operation.TargetMethod,
+                functionId);
+
+            var parameters = operation.TargetMethod.Parameters
+                .Select(parameter => new ParameterInfo(
+                    parameter,
+                    IsField: false))
+                .ToImmutableArray();
+
+            var functionInfo = new FunctionsInfo(
+                operation.TargetMethod,
+                Language.Stage.None,
+                parameters,
+                operation.TargetMethod.ReturnType);
+
+            ShaderProcessor.PendingFunctionsInfos.Add(functionInfo);
+        }
+     
+        statement = new FunctionCallStatement(functionId, arguments);
     }
 
     public void ProcessDynamicInvocationOperation(IDynamicInvocationOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,

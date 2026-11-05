@@ -300,8 +300,6 @@ public partial class IRToSpirvModule
     {
         foreach (var shaderFunction in shader.Functions)
         {
-            if(shaderFunction.Stage == Stage.None) continue;
-            
             string functionId = GetFunctionId(shaderFunction);
             SpirVExecutionModel executionModel;
             switch (shaderFunction.Stage)
@@ -315,6 +313,8 @@ public partial class IRToSpirvModule
                 case Stage.Compute:
                     executionModel = SpirVExecutionModel.GLCompute;
                     break;
+                case Stage.None:
+                    continue;
                 default:
                     throw new NotSupportedException(
                         $"La etapa '{shaderFunction.Stage}' no esta soportada");
@@ -343,7 +343,6 @@ public partial class IRToSpirvModule
         
         foreach (var shaderFunction in shader.Functions)
         {
-            if(shaderFunction.Stage == Stage.None) continue;
             
             string functionId = GetFunctionId(shaderFunction);
 
@@ -530,36 +529,114 @@ public partial class IRToSpirvModule
         }
     }
 
+    private static string GetFunctionReturnType(
+        SpirVModule module,
+        Function function)
+    {
+        // Los entry points SPIR-V siempre retornan void.
+        if (function.Stage != Stage.None)
+            return SpirVTableTypesIds.VoidID;
 
+        Storage? returnStorage = function.Outputs
+            .SingleOrDefault(storage => storage.HumanName == "__return");
+
+        return returnStorage is null
+            ? SpirVTableTypesIds.VoidID
+            : module.DeclareType(returnStorage, Stage.None);
+    }
+
+    private static string DeclareFunctionType(
+        SpirVModule module,
+        Function function)
+    {
+        string functionTypeId =
+            $"%fn_type_{function.Id.Value}";
+
+        if (module.IsDefined(functionTypeId))
+            return functionTypeId;
+
+        string returnTypeId =
+            GetFunctionReturnType(module, function);
+
+        var parameters = new List<SpirVInstructionParameter>
+        {
+            new(returnTypeId, SpirVInstructionType.IdRef)
+        };
+
+        // Solo las funciones auxiliares tienen parámetros SPIR-V.
+        if (function.Stage == Stage.None)
+        {
+            foreach (Storage input in function.Inputs)
+            {
+                string inputTypeId =
+                    module.DeclareType(input, Stage.None);
+
+                parameters.Add(
+                    new SpirVInstructionParameter(
+                        inputTypeId,
+                        SpirVInstructionType.IdRef));
+            }
+        }
+
+        module.AddResultLine(
+            functionTypeId,
+            SpirVOpTable.OpTypeFunction,
+            parameters.ToArray());
+
+        return functionTypeId;
+    }
     private static void BuildFunctionSkeletons(
         SpirVModule module,
         Shader shader)
     {
         foreach (var shaderFunction in shader.Functions)
         {
-            if(shaderFunction.Stage == Stage.None) continue;
-
             string functionId = GetFunctionId(shaderFunction);
-            string labelId = $"%label_{shaderFunction.HumanName}";
+            string labelId = $"%label_{shaderFunction.HumanName}_{shaderFunction.Id.Value}";
 
+            var declareFunctionType = DeclareFunctionType(module, shaderFunction);
+            var functionReturnType = GetFunctionReturnType(module, shaderFunction);
+            
             module.BeginFunction();
             module.AddResultLine(
                 functionId,
                 SpirVOpTable.OpFunction,
                 new SpirVInstructionParameter(
-                    SpirVTableTypesIds.VoidID,
+                    functionReturnType,
                     SpirVInstructionType.IdRef),
                 SpirVInstructionParameter.Enumerant(SpirVFunctionControl.None),
                 new SpirVInstructionParameter(
-                    SpirVTableTypesIds.VoidFunctionID,
+                    declareFunctionType,
                     SpirVInstructionType.IdRef));
 
+            var pointers = new Dictionary<Storage, string>();
+            var values = new Dictionary<Storage, string>();
+            
+            if (shaderFunction.Stage == Stage.None)
+            {
+                foreach (Storage input in shaderFunction.Inputs)
+                {
+                    string inputTypeId =
+                        module.DeclareType(input, Stage.None);
+                    string parameterId =
+                        $"%param_{shaderFunction.Id.Value}_{input.HumanName}";
+
+                    module.AddResultLine(
+                        parameterId,
+                        SpirVOpTable.OpFunctionParameter,
+                        new SpirVInstructionParameter(
+                            inputTypeId,
+                            SpirVInstructionType.IdRef));
+
+                    values[input] = parameterId;
+                }
+            }
+            
             module.AddResultLine(labelId, SpirVOpTable.OpLabel);
 
-            var pointers = new Dictionary<Storage, string>();
-
-            FunctionBodyEmitter emitter = new FunctionBodyEmitter(module, pointers);
-            emitter.EmitStatements(shaderFunction.Body, shaderFunction);
+           
+            FunctionBodyEmitter emitter = new FunctionBodyEmitter(module, pointers, values);
+            emitter.EmitStatements(shaderFunction.Body, shaderFunction, shader.Functions);
             
             if (!EndsInReturn(shaderFunction.Body))
             {
@@ -590,7 +667,7 @@ public partial class IRToSpirvModule
     
     private static string GetFunctionId(Function function)
     {
-        return $"%fn_{function.HumanName}";
+        return $"%fn_{function.HumanName}_{function.Id.Value}";
     }
 
     private void BuildDecorations(SpirVModule module, Shader shader)

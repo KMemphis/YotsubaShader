@@ -97,92 +97,127 @@ namespace YotsubaShader.Roslyn;
 
 public class ShaderProcessor
 {
+    
+    internal static Dictionary<IMethodSymbol, FunctionId> functionIds =
+        new(SymbolEqualityComparer.Default);
+
+    internal static List<FunctionsInfo> PendingFunctionsInfos;
+
+    
     public (string, Shader)[] Process(Compilation compilation, CancellationToken token)
     {
         var csharpShaderMetadata = ShaderDiscovery.Find(compilation, token);
         (string, Shader)[] shaders = new (string, Shader)[csharpShaderMetadata.Length];
         int i = 0;
-
         
         foreach (ShaderInfo shaderInfo in csharpShaderMetadata)
         {
+            functionIds = new Dictionary<IMethodSymbol, FunctionId>(SymbolEqualityComparer.Default);
+            
             var globals = new Dictionary<ISymbol, Storage>(SymbolEqualityComparer.Default);
             
-            var shaderFunction = new List<Function>();
+            var functions = new List<Function>();
             AddResourceInputs(shaderInfo.Type, globals, compilation);
-            
-            foreach (var shaderInfoEntryPoint in shaderInfo.EntryPoints)
+
+            PendingFunctionsInfos = new List<FunctionsInfo>();
+            foreach (var shaderInfoEntryPoint in shaderInfo.Functions)
             {
-                var processor = new StatementOperationProcessor();
-                IRStage stage = shaderInfoEntryPoint.Stage switch
-                {
-                    LanguageStage.Compute  => IRStage.Compute,
-                    LanguageStage.Fragment => IRStage.Fragment,
-                    LanguageStage.Vertex   => IRStage.Vertex,
-                    _ => IRStage.None
-                };
-
-                var inputs = new Dictionary<ISymbol, Storage>(SymbolEqualityComparer.Default);
-                var outputs = new Dictionary<ISymbol, Storage>(SymbolEqualityComparer.Default);
-                var bodyFunc = new List<Statement>();
-                
-                //Process Inputs
-                foreach (var parameterInfo in shaderInfoEntryPoint.Parameters)
-                {
-                    var param = ProcessParameter(parameterInfo, compilation, stage);
-                    switch (parameterInfo.RefKind)
-                    {
-                        case RefKind.Out:
-                            outputs.Add(parameterInfo.Symbol, param);
-                            break;
-                        case RefKind.None:
-                        case RefKind.In:
-                        case RefKind.Ref:
-                        case RefKind.RefReadOnlyParameter:
-                        default:
-                            inputs.Add(parameterInfo.Symbol, param);
-                            break;
-                    }
-                }
-                
-
-                if (shaderInfoEntryPoint.Method.ReturnType.SpecialType != SpecialType.System_Void)
-                {
-                    Storage? returnType = ProcessReturn(shaderInfoEntryPoint, compilation, stage);
-                    if(returnType is not null) outputs.Add(shaderInfoEntryPoint.ReturnType, returnType);
-                }
-                
-                var syntax = shaderInfoEntryPoint.Method.DeclaringSyntaxReferences[0].GetSyntax();
-                var semanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
-
-                var operations = semanticModel.GetOperation(syntax);
-
-                if (operations is IMethodBodyOperation body)
-                {
-                    var blockOperations = body.BlockBody ?? body.ExpressionBody ?? throw new NotImplementedException();
-                    var span = blockOperations.Operations.AsSpan();
-                    foreach (var op in span)
-                    {
-                        ProcessStatement(op, inputs, outputs, processor, compilation, stage, out var statement);
-                        if (statement is null) continue;
-                        bodyFunc.Add(statement);
-                    }
-                }
-
-                FunctionExtraParams? extraParams = GetStageExtraParams(shaderInfoEntryPoint.Method, stage);
-
-                Function fn = new Function(shaderInfoEntryPoint.Name, stage, [.. inputs.Values], [.. outputs.Values], bodyFunc, extraParams);
-                shaderFunction.Add(fn);
+                ProcessShaderFunction(compilation, shaderInfoEntryPoint, functions, PendingFunctionsInfos);
             }
 
-            var shader = new Shader(shaderFunction, globals.Values.ToArray());
+            for (int index = 0;
+                 index < PendingFunctionsInfos.Count;
+                 index++)
+            {
+                var functionInfo = PendingFunctionsInfos[index];
+
+                ProcessShaderFunction(
+                    compilation,
+                    functionInfo,
+                    functions,
+                    PendingFunctionsInfos);
+            }
+
+            var shader = new Shader(functions, globals.Values.ToArray());
             shaders[i++] = (shaderInfo.FullName, shader);
         }
 
         return shaders;
     }
 
-    private FunctionExtraParams? GetStageExtraParams(IMethodSymbol method, IRStage stage)
+    internal static void ProcessShaderFunction(Compilation compilation, FunctionsInfo shaderInfoEntryPoint, List<Function> shaderFunction, List<FunctionsInfo> extraMethods)
+    {
+        
+        if (!functionIds.TryGetValue(shaderInfoEntryPoint.Method, out var functionId))
+        {
+            functionId = new FunctionId((uint)functionIds.Count);
+            functionIds[shaderInfoEntryPoint.Method] = functionId;
+        }
+        
+        var processor = new StatementOperationProcessor();
+        IRStage stage = shaderInfoEntryPoint.Stage switch
+        {
+            LanguageStage.Compute  => IRStage.Compute,
+            LanguageStage.Fragment => IRStage.Fragment,
+            LanguageStage.Vertex   => IRStage.Vertex,
+            _ => IRStage.None
+        };
+
+        var inputs = new Dictionary<ISymbol, Storage>(SymbolEqualityComparer.Default);
+        var outputs = new Dictionary<ISymbol, Storage>(SymbolEqualityComparer.Default);
+        var bodyFunc = new List<Statement>();
+                
+        //Process Inputs
+        foreach (var parameterInfo in shaderInfoEntryPoint.Parameters)
+        {
+            var param = ProcessParameter(parameterInfo, compilation, stage);
+            switch (parameterInfo.RefKind)
+            {
+                case RefKind.Out:
+                    outputs.Add(parameterInfo.Symbol, param);
+                    break;
+                case RefKind.None:
+                case RefKind.In:
+                case RefKind.Ref:
+                case RefKind.RefReadOnlyParameter:
+                default:
+                    inputs.Add(parameterInfo.Symbol, param);
+                    break;
+            }
+        }
+                
+
+        if (shaderInfoEntryPoint.Method.ReturnType.SpecialType != SpecialType.System_Void)
+        {
+            Storage? returnType = ProcessReturn(shaderInfoEntryPoint, compilation, stage);
+            if(returnType is not null) outputs.Add(shaderInfoEntryPoint.ReturnType, returnType);
+        }
+                
+        var syntax = shaderInfoEntryPoint.Method.DeclaringSyntaxReferences[0].GetSyntax();
+        var semanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
+
+        var operations = semanticModel.GetOperation(syntax);
+
+        if (operations is IMethodBodyOperation body)
+        {
+            var blockOperations = body.BlockBody ?? body.ExpressionBody ?? throw new NotImplementedException();
+            var span = blockOperations.Operations.AsSpan();
+            foreach (var op in span)
+            {
+                ProcessStatement(op, inputs, outputs, processor, compilation, stage, out var statement);
+                if (statement is null) continue;
+                bodyFunc.Add(statement);
+            }
+        }
+
+        FunctionExtraParams? extraParams = GetStageExtraParams(shaderInfoEntryPoint.Method, stage);
+
+       
+        Function fn = new Function(functionId, shaderInfoEntryPoint.Name, stage, [.. inputs.Values], [.. outputs.Values], bodyFunc, extraParams);
+        shaderFunction.Add(fn);
+    }
+
+    private static FunctionExtraParams? GetStageExtraParams(IMethodSymbol method, IRStage stage)
     {
         if (stage != Stage.Compute) return null;
 
@@ -216,7 +251,7 @@ public class ShaderProcessor
         processor.ProcessStatement(op, inputs, outputs, compilation, stage, out statement);
     }
 
-    private Storage ProcessParameter(ParameterInfo parameterInfo, Compilation compilation, IRStage stage)
+    private static Storage ProcessParameter(ParameterInfo parameterInfo, Compilation compilation, IRStage stage)
     {
         InterfaceSlot? slot
              = GetAttributeData(parameterInfo.Symbol.GetAttributes(), stage);
@@ -564,12 +599,12 @@ public class ShaderProcessor
         return storage;
     }
 
-    private Storage? ProcessReturn(
-        EntryPointInfo entryPoint,
+    private static Storage? ProcessReturn(
+        FunctionsInfo functions,
         Compilation compilation,
         IRStage stage)
     {
-        IMethodSymbol method = entryPoint.Method;
+        IMethodSymbol method = functions.Method;
 
         if (method.ReturnType.SpecialType == SpecialType.System_Void)
             return null;

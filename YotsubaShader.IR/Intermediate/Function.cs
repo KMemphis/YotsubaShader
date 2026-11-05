@@ -70,6 +70,7 @@ using YotsubaShader.IR.Intermediate.FunctionBody;
 
 namespace YotsubaShader.IR.Intermediate;
 public readonly record struct Function(
+    FunctionId Id,
     string HumanName,
     Stage Stage,
     IReadOnlyList<Storage> Inputs,

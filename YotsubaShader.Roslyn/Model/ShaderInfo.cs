@@ -86,7 +86,7 @@ public sealed record ResourceInfo(ISymbol Symbol)
 }
 
 /// <summary>Un método marcado con <c>[ShaderStage]</c>.</summary>
-public sealed record EntryPointInfo(
+public sealed record FunctionsInfo(
     IMethodSymbol Method,
     Stage Stage,
     ImmutableArray<ParameterInfo> Parameters,
@@ -98,7 +98,7 @@ public sealed record EntryPointInfo(
 /// <summary>La "ficha" de un shader: la clase y las etapas que declara.</summary>
 public sealed record ShaderInfo(
     INamedTypeSymbol Type,
-    ImmutableArray<EntryPointInfo> EntryPoints)
+    ImmutableArray<FunctionsInfo> Functions)
 {
     public string Name => Type.Name;
 

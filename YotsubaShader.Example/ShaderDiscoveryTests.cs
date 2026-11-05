@@ -107,8 +107,8 @@ public class ShaderDiscoveryTests
 
         ShaderInfo shader = Assert.Single(shaders);
         Assert.Equal("Game.MegaShader", shader.FullName);
-        Assert.Equal(["VS", "FS"], shader.EntryPoints.Select(e => e.Name));
-        Assert.Equal([Stage.Vertex, Stage.Fragment], shader.EntryPoints.Select(e => e.Stage));
+        Assert.Equal(["VS", "FS"], shader.Functions.Select(e => e.Name));
+        Assert.Equal([Stage.Vertex, Stage.Fragment], shader.Functions.Select(e => e.Stage));
     }
 
     [Fact]
@@ -116,13 +116,13 @@ public class ShaderDiscoveryTests
     {
         ShaderInfo shader = Assert.Single(ShaderDiscovery.Find(TestCompilation.Create(MegaShaderLike)));
 
-        EntryPointInfo vs = shader.EntryPoints[0];
+        FunctionsInfo vs = shader.Functions[0];
         Assert.Equal("VertexOutput", vs.ReturnType.Name);
         ParameterInfo input = Assert.Single(vs.Parameters);
         Assert.Equal("input", input.Name);
         Assert.Equal("VertexInput", input.Type.Name);
 
-        EntryPointInfo fs = shader.EntryPoints[1];
+        FunctionsInfo fs = shader.Functions[1];
         Assert.Equal(SpecialType.System_Single, fs.ReturnType.SpecialType);
         Assert.Equal(["input", "index"], fs.Parameters.Select(p => p.Name));
         Assert.Equal(SpecialType.System_Int32, fs.Parameters[1].Type.SpecialType);
@@ -133,7 +133,7 @@ public class ShaderDiscoveryTests
     {
         ShaderInfo shader = Assert.Single(ShaderDiscovery.Find(TestCompilation.Create(MegaShaderLike)));
 
-        Assert.DoesNotContain(shader.EntryPoints, e => e.Name is "Lighting" or "RefreshFromDatabase");
+        Assert.DoesNotContain(shader.Functions, e => e.Name is "Lighting" or "RefreshFromDatabase");
     }
 
     [Fact]
@@ -172,7 +172,7 @@ public class ShaderDiscoveryTests
         ImmutableArray<ShaderInfo> shaders = ShaderDiscovery.Find(TestCompilation.Create(code));
 
         Assert.Equal(["A.B.Outer.Inner", "TopLevel"], shaders.Select(s => s.FullName).OrderBy(n => n));
-        Assert.Equal(Stage.Compute, shaders.Single(s => s.Name == "Inner").EntryPoints[0].Stage);
+        Assert.Equal(Stage.Compute, shaders.Single(s => s.Name == "Inner").Functions[0].Stage);
     }
 
     [Theory]
@@ -196,7 +196,7 @@ public class ShaderDiscoveryTests
             """;
 
         ShaderInfo shader = Assert.Single(ShaderDiscovery.Find(TestCompilation.Create(code)));
-        Assert.Equal(Stage.Fragment, Assert.Single(shader.EntryPoints).Stage);
+        Assert.Equal(Stage.Fragment, Assert.Single(shader.Functions).Stage);
     }
 
     [Fact]

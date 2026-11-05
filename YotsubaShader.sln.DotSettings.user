@@ -12,9 +12,9 @@
   &lt;Project Location="/Users/memphis/YotsubaShader/YotsubaShader.Frontend.Tests" Presentation="&amp;lt;YotsubaShader.Frontend.Tests&amp;gt;" /&gt;
 &lt;/SessionState&gt;</s:String>
 	<s:Boolean x:Key="/Default/UnloadedProject/UnloadedProjects/=3b30d117_002D829e_002D401e_002Dbb40_002D42ca42b07691_0023YotsubaShader_002EWgslSyntax/@EntryIndexedValue">True</s:Boolean>
-	<s:Boolean x:Key="/Default/UnloadedProject/UnloadedProjects/=58507bdd_002D60d6_002D4adf_002Da25c_002D64dd79f82695_0023YotsubaShader_002EIR/@EntryIndexedValue">True</s:Boolean>
+	
 	<s:Boolean x:Key="/Default/UnloadedProject/UnloadedProjects/=63aae646_002Dcbe9_002D4a53_002Dab4f_002D6256c979d1d7_0023YotsubaShader_002EMslSyntax/@EntryIndexedValue">True</s:Boolean>
-	<s:Boolean x:Key="/Default/UnloadedProject/UnloadedProjects/=668a3bbd_002D6a31_002D49ea_002Da576_002Dcba2c89a22c6_0023YotsubaShader_002ELanguage/@EntryIndexedValue">True</s:Boolean>
+	
 	
 	<s:Boolean x:Key="/Default/UnloadedProject/UnloadedProjects/=a7a3276e_002D03c0_002D49ac_002D899a_002De892c0fba338_0023YotsubaShader_002EConcepts/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/UnloadedProject/UnloadedProjects/=b7bccd2c_002D0388_002D4440_002D8b4b_002D82473d1be1f3_0023YotsubaShader_002EGlslSyntax/@EntryIndexedValue">True</s:Boolean>

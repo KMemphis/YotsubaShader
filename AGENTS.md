@@ -24,7 +24,8 @@ Agents must not:
 - edit, create, rename, move, or delete source files, non-Markdown documentation, configuration, assets, or generated files outside `Web/`, except as allowed by the copyright notice and housekeeping exceptions;
 - apply patches, format files, regenerate code, or update dependencies, except for authorized Markdown documentation, copyright-notice additions, web changes, and housekeeping work;
 - use Git operations to introduce code or documentation changes that the developer did not request;
-- create pull requests or issues on behalf of the developer;
+- create pull requests on behalf of the developer;
+- create, edit, label, assign, close, or otherwise manage GitHub issues unless the developer explicitly requests that GitHub action;
 - run commands whose purpose or side effect is to modify the working tree or repository, except for authorized Markdown documentation, copyright-notice additions, web changes, Git backup operations, and housekeeping work described below;
 - present an unimplemented suggestion as if it had already been applied.
 

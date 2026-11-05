@@ -3,7 +3,7 @@
 precision mediump float;
 precision highp int;
 
-struct _24
+struct _25
 {
     highp vec4 _m0;
     highp vec4 _m1;

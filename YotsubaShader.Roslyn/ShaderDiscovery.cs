@@ -97,7 +97,7 @@ public static class ShaderDiscovery
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            ImmutableArray<EntryPointInfo> entryPoints = FindEntryPoints(type, stageAttribute);
+            ImmutableArray<FunctionsInfo> entryPoints = FindEntryPoints(type, stageAttribute);
             if (!entryPoints.IsEmpty)
             {
                 shaders.Add(new ShaderInfo(type, entryPoints));
@@ -107,9 +107,9 @@ public static class ShaderDiscovery
         return shaders.ToImmutable();
     }
 
-    private static ImmutableArray<EntryPointInfo> FindEntryPoints(INamedTypeSymbol type, INamedTypeSymbol stageAttribute)
+    private static ImmutableArray<FunctionsInfo> FindEntryPoints(INamedTypeSymbol type, INamedTypeSymbol stageAttribute)
     {
-        var entryPoints = ImmutableArray.CreateBuilder<EntryPointInfo>();
+        var entryPoints = ImmutableArray.CreateBuilder<FunctionsInfo>();
 
         ImmutableArray<ParameterInfo> parameters = new ImmutableArray<ParameterInfo>();
         foreach (ISymbol member in type.GetMembers())
@@ -130,7 +130,7 @@ public static class ShaderDiscovery
                 .ToImmutableArray();
             
             
-            entryPoints.Add(new EntryPointInfo(method, stage, parameters, method.ReturnType));
+            entryPoints.Add(new FunctionsInfo(method, stage, parameters, method.ReturnType));
         }
 
         

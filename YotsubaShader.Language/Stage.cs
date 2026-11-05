@@ -72,5 +72,6 @@ public enum Stage
 {
     Vertex,
     Fragment,
-    Compute
+    Compute,
+    None
 }
