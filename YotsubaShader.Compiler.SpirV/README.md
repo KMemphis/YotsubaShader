@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`YotsubaShader.Compiler.SpirV` is the SPIR-V backend. It owns the SPIR-V instruction model, module construction, binary encoding, and the planned lowering from Yotsuba IR.
+`YotsubaShader.Compiler.SpirV` is the SPIR-V backend. It owns the SPIR-V instruction model, module construction, binary encoding, and the lowering used by the supported C# shader compilation path.
 
 ## Position in the pipeline
 
@@ -44,6 +44,6 @@ This project must not discover C# methods or inspect Roslyn operations. Those ta
 
 ## Status
 
-Instruction generation, manual module construction, text rendering, and binary encoding exist. Automatic lowering from `YotsubaShader.IR` to `SpirVModule` is not yet complete.
+Instruction generation, manual module construction, text rendering, and binary encoding exist. The high-level compiler lowers its supported IR subset into this backend; automatic lowering for every IR declaration and arbitrary C# construct is not complete.
 
 See the [repository README](../README.md) for the intended end-to-end API.

@@ -48,6 +48,6 @@ The frontend must not construct SPIR-V instructions or depend on a specific outp
 
 ## Status
 
-Discovery and much of interface/type processing exist. Statement dispatch is defined, but most operation handlers still throw `NotImplementedException`; complete body lowering is therefore still in progress.
+Discovery and interface/type processing are available, and the current compiler uses the frontend to lower a supported subset of shader bodies. Unsupported operations still surface `NotImplementedException` or processing diagnostics, so arbitrary C# method bodies are not treated as GPU-compatible automatically.
 
 See the [repository README](../README.md) for the overall architecture.

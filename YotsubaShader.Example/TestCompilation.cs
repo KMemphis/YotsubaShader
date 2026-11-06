@@ -87,6 +87,9 @@ internal static class TestCompilation
     public static CSharpCompilation Create(string code, string name = "ShaderAnalysis",
         bool referenceYotsubaShader = true, params MetadataReference[] extra)
     {
+
+        var shader = new BasicColorShader();
+        shader.ToSpirV();
         SyntaxTree tree = CSharpSyntaxTree.ParseText(code, new CSharpParseOptions(LanguageVersion.Latest));
 
         IEnumerable<MetadataReference> references = PlatformReferences.Concat(extra);

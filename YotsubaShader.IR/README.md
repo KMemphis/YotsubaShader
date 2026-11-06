@@ -41,6 +41,6 @@ The project has no project or package dependencies and targets .NET 8.
 
 ## Status
 
-The interface, storage, type, literal, and assignment foundations exist. The statement and expression model is still being expanded for calls, operators, returns, local declarations, and structured control flow.
+The interface, storage, type, literal, assignment, and supported function-body foundations exist. The statement and expression model continues to expand for calls, operators, returns, local declarations, and structured control flow; an IR node declaration does not by itself promise frontend or backend support.
 
 See the [repository README](../README.md) for the full compilation flow.

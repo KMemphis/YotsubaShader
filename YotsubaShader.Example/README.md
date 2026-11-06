@@ -1,8 +1,8 @@
-# YotsubaShader.Frontend.Tests
+# YotsubaShader.Example
 
 ## Purpose
 
-`YotsubaShader.Frontend.Tests` contains xUnit tests for the C# frontend and its Roslyn-based shader discovery behavior.
+`YotsubaShader.Example` contains the representative `BasicColorShader` declarations, xUnit coverage for the C# frontend, and the generated project accessors produced by the CLI `add` command.
 
 ## Current coverage
 
@@ -16,12 +16,12 @@
 - Ignoring look-alike attributes and types from referenced assemblies.
 - Returning no shaders when the language assembly is unavailable.
 
-`BasicColorShader` provides a representative shader declaration used by frontend tests.
+`BasicColorShader` provides representative `Vertex`, `Fragment`, and `Compute` entry points. The example project is also used to exercise the supported C#-to-SPIR-V and backend-source compilation path.
 
 ## Running the tests
 
 ```bash
-dotnet test YotsubaShader.Frontend.Tests/YotsubaShader.Frontend.Tests.csproj
+dotnet test YotsubaShader.Example/YotsubaShader.Example.csproj
 ```
 
 ## Dependencies
@@ -34,10 +34,10 @@ dotnet test YotsubaShader.Frontend.Tests/YotsubaShader.Frontend.Tests.csproj
 
 ## Out of scope
 
-This project does not currently provide comprehensive IR-node, SPIR-V lowering, binary validation, or end-to-end compilation coverage.
+The suite is not a complete conformance suite for every IR node, SPIR-V instruction, resource type, or backend. It covers the current discovery behavior and representative supported compilation paths; unsupported shader-body operations and complete engine integration remain outside this example.
 
 ## Status
 
-The current suite is concentrated on discovery. It should grow alongside statement/expression processing and should eventually be complemented by IR and backend tests.
+The current suite combines discovery tests with representative compilation coverage. It should continue to grow as additional statement, expression, resource, and backend paths become supported.
 
 See the [Roslyn frontend README](../YotsubaShader.Roslyn/README.md) for the component under test.

@@ -17,9 +17,9 @@
 
 ## The product
 
-YotsubaShader is the shader authoring layer for your engine, framework, or content tool. Your team writes shaders in C# using types, structures, and attributes. The compiler interprets their interfaces and stages, lowers them to a shared intermediate representation, and generates output for the selected backend.
+YotsubaShader is the shader authoring layer for your engine, framework, or content tool. Your team writes shaders in C# using types, structures, and attributes. The compiler interprets their interfaces and stages, lowers the supported shader subset to a shared intermediate representation, and generates output for the selected backend.
 
-The central idea is simple: **the attribute style you use does not determine the output target**. HLSL, GLSL, Metal, Vulkan, and WGSL provide equivalent authoring vocabularies. Choose the one your team knows best, then select SPIR-V or another backend when compiling.
+The central idea is simple: **the attribute style you use does not determine the output target**. HLSL, GLSL, Metal, Vulkan, and WGSL provide equivalent authoring vocabularies. Choose the one your team knows best, then select SPIR-V or another backend when compiling. WGSL-style authoring is available; WGSL output itself remains planned.
 
 ```text
 C# with familiar attributes
@@ -261,11 +261,28 @@ dotnet run --project YotsubaShader.CLI/YotsubaShader.CLI.csproj -- \
   --output artifacts/
 ```
 
-The CLI supports SPIR-V, HLSL, GLSL, GLSL ES, Metal, and C++ output. Repeat `--target` to generate several targets in one invocation. `--target` selects the backend independently of the attributes used to write the shader.
+The CLI supports SPIR-V, HLSL, GLSL, GLSL ES, Metal, and C++ output. Repeat `--target` to generate several targets in one invocation. `--target` selects the backend independently of the attributes used to write the shader. The current compiler path covers the `Vertex`, `Fragment`, and `Compute` stages and the supported subset of shader-body operations.
+
+### Generated project accessors
+
+Use the `add` command when the project should contain a visible generated C# file instead of only external shader artifacts:
+
+```bash
+dotnet run --project YotsubaShader.CLI/YotsubaShader.CLI.csproj -- \
+  add Game.Graphics.csproj \
+  --target spirv
+```
+
+The command discovers and compiles the shader classes, then writes `YotsubaShader.g.cs` beside the supplied `.csproj`. The generated file contains the public static `YotsubaShader_ShadersCompilations` extension class. For each discovered shader it exposes:
+
+- `ToSpirV(this ShaderType shader)`, returning the embedded SPIR-V `byte[]`.
+- `ToHlsl(Stage stage)`, `ToGlsl(Stage stage)`, `ToGlslEs(Stage stage)`, and `ToMSL(Stage stage)`, returning the generated source text for that stage.
+
+The generated source uses raw string literals so the emitted shader text remains readable. `CompilerGenerated` and `EditorBrowsable(Never)` keep the helper out of normal IntelliSense lists while leaving the generated file and its methods available to the project. The `add` command currently requires at least one `--target` for CLI argument compatibility; its generated helper set is not filtered by that value. Use `compile` when you need target-specific files in an output directory.
 
 ### Compiler library
 
-The `YotsubaShader.Compiler` library exposes the compilation pipeline through `CSharpToSpirvCompiler.Compile`. It accepts a Roslyn `Compilation`, discovers shader entry points, builds the intermediate representation, generates SPIR-V, and returns a `CompiledCode` result for each shader.
+The `YotsubaShader.Compiler` library exposes the compilation pipeline through `CSharpToSpirvCompiler.Compile`. It accepts a Roslyn `Compilation`, discovers shader entry points, builds the intermediate representation for supported shader constructs, generates SPIR-V, and returns a `CompiledCode` result for each shader.
 
 ```csharp
 using Microsoft.CodeAnalysis;
@@ -284,7 +301,7 @@ foreach (var shaderCompilation in shaderCompilations)
 }
 ```
 
-Each `CompiledCode` result contains the generated SPIR-V and shader reflection. It also provides helpers for emitting HLSL, GLSL, GLSL ES, Metal, and C++ for each shader stage.
+Each `CompiledCode` result contains the generated SPIR-V and shader reflection. It also provides helpers for emitting HLSL, GLSL, GLSL ES, Metal, and C++ for each shader stage. These helpers operate on the stages and body operations supported by the current frontend and backend.
 
 ## Compiler components
 
@@ -309,13 +326,13 @@ Requirements:
 dotnet build YotsubaShader.sln
 ```
 
-The current example project constructs a low-level SPIR-V module explicitly:
+The example project contains `BasicColorShader`, a representative vertex, fragment, and compute shader. Building the project also invokes the current CLI `add` hook and regenerates its project-local `YotsubaShader.g.cs` file:
 
 ```bash
-dotnet run --project YotsubaShader.Example/YotsubaShader.Example.csproj
+dotnet build YotsubaShader.Example/YotsubaShader.Example.csproj
 ```
 
-This creates `mi modulo spirv.spv` in the working directory. For details on the module header and the SPIR-V output, see [SPIR-V in the documentation](https://yotsubashader.com/technologies/spir-v/).
+To create external `.spv`, HLSL, GLSL, GLSL ES, MSL, or C++ artifacts, invoke the CLI with `compile` and the targets you need. The low-level `SpirVModule` API remains available for explicit module construction; it is separate from the C# shader compilation path.
 
 ## Repository architecture
 
@@ -331,8 +348,7 @@ This creates `mi modulo spirv.spv` in the working directory. For details on the 
 | `YotsubaShader.CLI` | Command-line project compilation and target emission. |
 | `YotsubaShader.Generator` | SPIR-V operation metadata generated from the Khronos grammar. |
 | `YotsubaShaderCross` | Separate submodule that translates SPIR-V into GLSL, HLSL, MSL, or reflection output. |
-| `YotsubaShader.Example` | Executable example that builds a low-level SPIR-V module. |
-| `YotsubaShader.Frontend.Tests` | Tests for shader discovery, semantic analysis, and frontend processing. |
+| `YotsubaShader.Example` | `BasicColorShader`, frontend tests, and the generated project accessors used by the example build. |
 
 ## Website and playground
 

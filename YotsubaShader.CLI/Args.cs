@@ -2,7 +2,8 @@ namespace YotsubaShader.CLI;
 
 public enum Command
 {
-    Compile
+    Compile,
+    Add
 }
 
 public enum ShaderTarget
@@ -98,7 +99,9 @@ public sealed class Args
     private static Command ParseCommand(string value) =>
         value.Equals("compile", StringComparison.OrdinalIgnoreCase)
             ? Command.Compile
-            : throw new CliUsageException($"Comando desconocido '{value}'.");
+            : value.Equals("add", StringComparison.OrdinalIgnoreCase) ?
+                Command.Add:
+            throw new CliUsageException($"Comando desconocido '{value}'.");
 
     private static ShaderTarget ParseTarget(string value) =>
         value.ToLowerInvariant() switch

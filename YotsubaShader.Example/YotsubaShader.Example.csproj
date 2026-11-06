@@ -35,7 +35,7 @@
             AfterTargets="Build"
             Condition="'$(CompileYotsubaShaders)' == 'true'
                    And '$(DesignTimeBuild)' != 'true'">
-        <Exec Command="dotnet run --project &quot;$(YotsubaCliProject)&quot; -- compile &quot;$(MSBuildProjectFullPath)&quot; --target spirv --target hlsl --target glsl --target gles --target msl --target cpp --output &quot;$(YotsubaShaderOutput)&quot;" />
+        <Exec Command="dotnet run --project &quot;$(YotsubaCliProject)&quot; -- add &quot;$(MSBuildProjectFullPath)&quot; --target spirv --target hlsl --target glsl --target gles --target msl --target cpp --output &quot;$(YotsubaShaderOutput)&quot;" />
     </Target>
 
 </Project>
