@@ -327,51 +327,23 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
         throw new NotImplementedException();
     }
 
-    public void ProcessInvocationOperation(IInvocationOperation operation, 
-        Dictionary<ISymbol, Storage> inputs, 
+    public void ProcessInvocationOperation(
+        IInvocationOperation operation,
+        Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs,
-        Compilation compilation, Stage stage, out Statement? statement)
+        Compilation compilation,
+        Stage stage,
+        out Statement? statement)
     {
-        List<Expression> arguments = new List<Expression>(operation.Arguments.Length);
-        
-        foreach (var operationArgument in operation.Arguments)
-        {
-            Expression argument = ProcessExpression(
-                operationArgument.Value, 
-                inputs, 
-                outputs, 
-                compilation, 
-                stage) ?? throw new NotSupportedException(
-                $"El argumento de '{operation.TargetMethod.Name}' " +
-                "no produjo una expresión.");
-            arguments.Add(argument);
-        }
-
-        if (!ShaderProcessor.functionIds.TryGetValue(operation.TargetMethod, out FunctionId functionId))
-        {
-            functionId = new FunctionId(
-                (uint)ShaderProcessor.functionIds.Count);
-
-            ShaderProcessor.functionIds.Add(
-                operation.TargetMethod,
-                functionId);
-
-            var parameters = operation.TargetMethod.Parameters
-                .Select(parameter => new ParameterInfo(
-                    parameter,
-                    IsField: false))
-                .ToImmutableArray();
-
-            var functionInfo = new FunctionsInfo(
-                operation.TargetMethod,
-                Language.Stage.None,
-                parameters,
-                operation.TargetMethod.ReturnType);
-
-            ShaderProcessor.PendingFunctionsInfos.Add(functionInfo);
-        }
-     
-        statement = new FunctionCallStatement(functionId, arguments);
+        (FunctionId functionId, IReadOnlyList<Expression> arguments) = ProcessInvocation(
+                                                                        operation,
+                                                                        inputs,
+                                                                        outputs,
+                                                                        compilation,
+                                                                        stage);
+        statement = new FunctionCallStatement(
+            functionId,
+            arguments);
     }
 
     public void ProcessDynamicInvocationOperation(IDynamicInvocationOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,

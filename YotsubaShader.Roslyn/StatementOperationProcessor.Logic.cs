@@ -65,6 +65,8 @@
 ╚════════════════════════════════════════════════════════════════════════════════════╝
 */
 #endregion
+
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Operations;
 using YotsubaShader.IR.Intermediate;
@@ -76,6 +78,8 @@ using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.Literals;
 using YotsubaShader.IR.Intermediate.ValueConvertions;
 using YotsubaShader.Language.Native.Types.Vector;
 using YotsubaShader.Language.Native.Types.Vector.Exceptions;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.FunctionCalls;
+using YotsubaShader.Roslyn.Model;
 using IRTypes = YotsubaShader.IR.Intermediate.Types;
 namespace YotsubaShader.Roslyn;
 
@@ -116,10 +120,140 @@ public partial class StatementOperationProcessor
             case IObjectCreationOperation objectCreationOperation: 
                 return ProcessObjectCreationExpression(
                     objectCreationOperation, inputs, outputs, compilation, stage);
+            case IInvocationOperation invocationOperation:
+                return ProcessInvocationExpression(invocationOperation, inputs, outputs, compilation, stage);
         }
 
         throw new NotSupportedException(
             $"Expression operation '{initializerOperationValue.Kind}' is not supported yet.");
+    }
+
+    private (
+    FunctionId FunctionId,
+    IReadOnlyList<Expression> Arguments)
+    ProcessInvocation(
+        IInvocationOperation operation,
+        Dictionary<ISymbol, Storage> inputs,
+        Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage)
+{
+    IMethodSymbol targetMethod = operation.TargetMethod;
+
+    if (targetMethod.MethodKind != MethodKind.Ordinary ||
+        targetMethod.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+    {
+        throw new NotSupportedException(
+            $"El método '{targetMethod.ToDisplayString()}' " +
+            "no tiene un cuerpo de shader compilable.");
+    }
+
+    if (targetMethod.IsGenericMethod)
+    {
+        throw new NotSupportedException(
+            $"El método genérico '{targetMethod.Name}' " +
+            "aún no está soportado.");
+    }
+
+    if (targetMethod.Parameters.Any(parameter =>
+            parameter.RefKind != RefKind.None))
+    {
+        throw new NotSupportedException(
+            $"El método '{targetMethod.Name}' no puede usar " +
+            "parámetros ref, in u out todavía.");
+    }
+
+    if (targetMethod.Parameters.Any(parameter => parameter.IsParams))
+    {
+        throw new NotSupportedException(
+            $"El método '{targetMethod.Name}' no puede usar params todavía.");
+    }
+
+    if (targetMethod.GetAttributes().Any(attribute =>
+            attribute.AttributeClass?.ToDisplayString() ==
+            ShaderDiscovery.ShaderStageAttributeMetadataName))
+    {
+        throw new NotSupportedException(
+            $"No se puede llamar directamente a la etapa " +
+            $"'{targetMethod.Name}'.");
+    }
+
+    var invocationArguments = operation.Arguments
+        .OrderBy(argument =>
+            argument.Parameter?.Ordinal
+            ?? throw new NotSupportedException(
+                $"No se pudo resolver un parámetro de " +
+                $"'{targetMethod.Name}'."))
+        .ToArray();
+
+    var arguments = new List<Expression>(
+        invocationArguments.Length);
+
+    foreach (IArgumentOperation operationArgument in invocationArguments)
+    {
+        Expression argument =
+            ProcessExpression(
+                operationArgument.Value,
+                inputs,
+                outputs,
+                compilation,
+                stage)
+            ?? throw new NotSupportedException(
+                $"El argumento de '{targetMethod.Name}' " +
+                "no produjo una expresión.");
+
+        arguments.Add(argument);
+    }
+
+    if (!ShaderProcessor.functionIds.TryGetValue(
+            targetMethod,
+            out FunctionId functionId))
+    {
+        functionId = new FunctionId(
+            (uint)ShaderProcessor.functionIds.Count);
+
+        ShaderProcessor.functionIds.Add(
+            targetMethod,
+            functionId);
+
+        var parameters = targetMethod.Parameters
+            .OrderBy(parameter => parameter.Ordinal)
+            .Select(parameter => new ParameterInfo(
+                parameter,
+                IsField: false))
+            .ToImmutableArray();
+
+        var functionInfo = new FunctionsInfo(
+            targetMethod,
+            Language.Stage.None,
+            parameters,
+            targetMethod.ReturnType);
+
+        ShaderProcessor.PendingFunctionsInfos.Add(functionInfo);
+    }
+
+    return (functionId, arguments);
+}
+    private Expression? ProcessInvocationExpression(IInvocationOperation invocationOperation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage)
+    {
+        if (invocationOperation.TargetMethod.ReturnsVoid)
+        {
+            throw new NotSupportedException(
+                $"El método '{invocationOperation.TargetMethod.Name}' " +
+                "no retorna un valor y no puede usarse como expresión.");
+        }
+        
+        (FunctionId functionId, IReadOnlyList<Expression> arguments) =
+            ProcessInvocation(
+                invocationOperation,
+                inputs,
+                outputs,
+                compilation,
+                stage);
+        
+        return new FunctionCallExpression(
+            functionId,
+            arguments);
     }
 
     private Expression? ProcessBinaryExpression(IBinaryOperation binaryOperation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage)

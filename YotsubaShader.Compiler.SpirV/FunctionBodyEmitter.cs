@@ -81,6 +81,7 @@ internal sealed partial class FunctionBodyEmitter
     private readonly SpirVModule _module;
     private readonly Dictionary<Storage, string> _pointers;
     private readonly Dictionary<Storage, string> _values;
+    private IReadOnlyDictionary<FunctionId, Function> _functionsById = new Dictionary<FunctionId, Function>();
     
     private int _nextTemporaryValue;
     
@@ -97,6 +98,7 @@ internal sealed partial class FunctionBodyEmitter
 
     public void EmitStatements(IReadOnlyList<Statement> statements, Function function, IReadOnlyList<Function> otherFuncs)
     {
+        _functionsById = otherFuncs.ToDictionary(d => d.Id);
         foreach (var statement in statements)
         {
             EmitStatement(statement, function, otherFuncs);
@@ -126,7 +128,11 @@ internal sealed partial class FunctionBodyEmitter
                 }
                 break;
             case FunctionCallStatement functionCallStatement:
-                _ = EmitFunctionCall(functionCallStatement, function, otherFuncs);
+                _ = EmitFunctionCall(
+                    functionCallStatement.Target,
+                    functionCallStatement.Arguments,
+                    function,
+                    requiresValue: false);
                 break;
             default:
                 throw new NotSupportedException(

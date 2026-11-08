@@ -94,6 +94,10 @@ public static class BuildIrTypes
 
         foreach (var shaderFunction in shader.Functions)
         {
+            
+            if (shaderFunction.Stage == Stage.None)
+                continue;
+            
             foreach (var shaderFunctionInput in shaderFunction.Inputs)
             {
                 BuildStorageTypes(module, shaderFunctionInput,  InterfaceVariableId(shaderFunction, shaderFunctionInput), shaderFunction.Stage);

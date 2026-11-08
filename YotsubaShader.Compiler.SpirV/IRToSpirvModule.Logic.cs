@@ -71,6 +71,7 @@ using YotsubaShader.Compiler.SpirV.YS_Types;
 using YotsubaShader.IR.Intermediate;
 using YotsubaShader.IR.Intermediate.FunctionBody;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.FunctionCalls;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.Literals;
 using YotsubaShader.IR.Intermediate.FunctionBody.Statements;
 using YotsubaShader.IR.Intermediate.Slot;
@@ -398,13 +399,13 @@ public partial class IRToSpirvModule
 
         foreach (Function function in shader.Functions)
         {
-            if (function.Stage == Stage.None)
-                continue;
-
             module.Name(
                 GetFunctionId(function),
                 function.HumanName);
 
+            if (function.Stage == Stage.None)
+                continue;
+            
             foreach (Storage storage in function.Inputs.Concat(function.Outputs))
             {
                 string variableId = BuildIrTypes.InterfaceVariableId(
@@ -525,7 +526,14 @@ public partial class IRToSpirvModule
                 }
 
                 break;
+                
             }
+            case FunctionCallExpression call:
+                foreach (Expression argument in call.Arguments)
+                {
+                    DeclareExpressionConstants(module, argument, stage);
+                }
+                break;
         }
     }
 
@@ -619,7 +627,7 @@ public partial class IRToSpirvModule
                     string inputTypeId =
                         module.DeclareType(input, Stage.None);
                     string parameterId =
-                        $"%param_{shaderFunction.Id.Value}_{input.HumanName}";
+                        FunctionParameterId(shaderFunction, input);
 
                     module.AddResultLine(
                         parameterId,
@@ -628,6 +636,10 @@ public partial class IRToSpirvModule
                             inputTypeId,
                             SpirVInstructionType.IdRef));
 
+                    module.Name(
+                        parameterId,
+                        input.HumanName);
+                    
                     values[input] = parameterId;
                 }
             }
@@ -649,6 +661,13 @@ public partial class IRToSpirvModule
         }
     }
 
+    
+    internal static string FunctionParameterId(
+        Function function,
+        Storage input)
+    {
+        return $"%param_{function.Id.Value}_{input.HumanName}";
+    }
     private static bool EndsInReturn(IReadOnlyList<Statement> statements)
     {
         return statements.Count > 0 &&
