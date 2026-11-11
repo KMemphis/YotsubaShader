@@ -142,6 +142,7 @@ public class SpirVModule
      }
      
      private readonly HashSet<string> _definedIds = [];
+     private readonly Dictionary<string, string> _definitions = [];
      private readonly Dictionary<Type, string> _declaredTypes = [];
      private readonly Dictionary<(Storage, Stage), string> _declaredTypesStorages = [];
 
@@ -307,8 +308,12 @@ public class SpirVModule
 
           if (!_definedIds.Add(result))
           {
-               throw new InvalidOperationException($"El ID {result} ya está definido en el módulo.");
+               throw new InvalidOperationException(
+                    $"El ID {result} ya está definido en el módulo como '{_definitions.GetValueOrDefault(result)}'; " +
+                    $"otra entidad intentó definirlo como '{Describe(operation, parameters)}'.");
           }
+
+          _definitions[result] = Describe(operation, parameters);
 
           // Quien llama pasa el tipo como primer parámetro (como en el texto); aquí se separa,
           // porque en binario va antes del Result <id>.
@@ -333,6 +338,24 @@ public class SpirVModule
      }
 
      public bool IsDefined(string id) => _definedIds.Contains(id);
+
+     internal static string Describe(SpirVOperation operation, SpirVInstructionParameter[] parameters) =>
+          operation.Name + " " + string.Join(" ", parameters.Select(p => p.Instruction));
+
+     /// <summary>
+     /// Redeclarar un ID es válido solo si es exactamente la misma definición (los tipos y constantes se reutilizan).
+     /// Si dos entidades distintas producen el mismo ID, falla en vez de fusionarlas en silencio.
+     /// </summary>
+     internal void EnsureSameDefinition(string id, SpirVOperation operation, SpirVInstructionParameter[] parameters)
+     {
+          string requested = Describe(operation, parameters);
+
+          if (_definitions.TryGetValue(id, out string? existing) && existing != requested)
+          {
+               throw new InvalidOperationException(
+                    $"Colisión de ID {id}: ya está definido como '{existing}', pero otra entidad necesita '{requested}'.");
+          }
+     }
 
      internal bool TryGetDeclaredType(Type type, out string id) => _declaredTypes.TryGetValue(type, out id!);
      internal bool TryGetDeclaredType(Storage type, Stage stage,  out string id) => _declaredTypesStorages.TryGetValue((type, stage), out id!);

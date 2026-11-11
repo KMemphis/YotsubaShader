@@ -87,6 +87,7 @@ internal sealed partial class FunctionBodyEmitter
     private readonly Stack<(string Merge, string Continue)> _loops = new();
     private bool _terminated;   // el bloque actual ya terminó (OpBranch/OpReturn/...)
     private int _nextLabel;
+    private IReadOnlyList<Function> _otherFuncs = [];
 
     private static readonly SpirVInstructionParameter NoneControl =
         new("None", SpirVInstructionType.Enumerant, 0);
@@ -106,6 +107,7 @@ internal sealed partial class FunctionBodyEmitter
     public void EmitStatements(IReadOnlyList<Statement> statements, Function function, IReadOnlyList<Function> otherFuncs)
     {
         _functionsById = otherFuncs.ToDictionary(d => d.Id);
+        _otherFuncs = otherFuncs;
         foreach (var statement in statements)
         {
             EmitStatement(statement, function, otherFuncs);

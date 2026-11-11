@@ -75,5 +75,6 @@ public enum BinaryOperator
 {
     Add, Subtract, Multiply, Divide, Remainder,
     LogicalAnd, LogicalOr,
-    Equal, NotEqual, Less, LessEqual, Greater, GreaterEqual
+    Equal, NotEqual, Less, LessEqual, Greater, GreaterEqual,
+    BitwiseAnd, BitwiseOr, BitwiseXor, ShiftLeft, ShiftRight
 }

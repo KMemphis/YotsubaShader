@@ -139,6 +139,10 @@ public partial class StatementOperationProcessor
                 return ProcessInvocationExpression(invocationOperation, inputs, outputs, compilation, stage);
             case IUnaryOperation unaryOperation:
                 return ProcessUnaryExpression(unaryOperation, inputs, outputs, compilation, stage);
+            case IConditionalOperation { WhenFalse: not null } conditionalExpression:
+                return ProcessConditionalExpression(conditionalExpression, inputs, outputs, compilation, stage);
+            case IIncrementOrDecrementOperation incrementExpression:
+                return ProcessIncrementExpression(incrementExpression, inputs, outputs, compilation, stage);
             case IArrayElementReferenceOperation arrayElement:
             {
                 if (arrayElement.Indices.Length != 1)
@@ -163,6 +167,14 @@ public partial class StatementOperationProcessor
         Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
         Compilation compilation, Stage stage)
     {
+        if (operation.OperatorMethod is { MethodKind: MethodKind.UserDefinedOperator } userOperator)
+        {
+            var (functionId, arguments) = ProcessMethodCall(
+                userOperator, [operation.Operand], inputs, outputs, compilation, stage);
+
+            return new FunctionCallExpression(functionId, arguments);
+        }
+
         var operand = ProcessExpression(operation.Operand, inputs, outputs, compilation, stage)
                       ?? throw new NotSupportedException("The unary operand did not produce an expression.");
 
@@ -170,6 +182,7 @@ public partial class StatementOperationProcessor
         {
             UnaryOperatorKind.Minus => new UnaryExpression(UnaryOperator.Negate, operand),
             UnaryOperatorKind.Not   => new UnaryExpression(UnaryOperator.LogicalNot, operand),
+            UnaryOperatorKind.BitwiseNegation => new UnaryExpression(UnaryOperator.BitwiseNot, operand),
             UnaryOperatorKind.Plus  => operand,
             _ => throw new NotSupportedException(
                 $"The unary operator '{operation.OperatorKind}' is not supported.")
@@ -186,9 +199,37 @@ public partial class StatementOperationProcessor
         Compilation compilation,
         Stage stage)
 {
-    IMethodSymbol targetMethod = operation.TargetMethod;
+    IMethodSymbol method = operation.TargetMethod;
 
-    if (targetMethod.MethodKind != MethodKind.Ordinary ||
+    IOperation[] orderedArguments = operation.Arguments
+        .OrderBy(argument =>
+            argument.Parameter?.Ordinal
+            ?? throw new NotSupportedException(
+                $"No se pudo resolver un parámetro de " +
+                $"'{method.Name}'."))
+        .Select(argument => argument.Value)
+        .ToArray();
+
+    return ProcessMethodCall(method, orderedArguments, inputs, outputs, compilation, stage);
+}
+
+    /// <summary>
+    /// Llama a un método del shader (ordinario u operador definido por el usuario) con sus argumentos
+    /// ya ordenados por parámetro; lo registra para que se compile como función auxiliar.
+    /// </summary>
+    private (
+    FunctionId FunctionId,
+    IReadOnlyList<Expression> Arguments)
+    ProcessMethodCall(
+        IMethodSymbol targetMethod,
+        IReadOnlyList<IOperation> argumentOperations,
+        Dictionary<ISymbol, Storage> inputs,
+        Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage,
+        IReadOnlyList<Expression>? preparedArguments = null)
+{
+    if (targetMethod.MethodKind is not (MethodKind.Ordinary or MethodKind.UserDefinedOperator) ||
         targetMethod.DeclaringSyntaxReferences.IsDefaultOrEmpty)
     {
         throw new NotSupportedException(
@@ -226,22 +267,20 @@ public partial class StatementOperationProcessor
             $"'{targetMethod.Name}'.");
     }
 
-    var invocationArguments = operation.Arguments
-        .OrderBy(argument =>
-            argument.Parameter?.Ordinal
-            ?? throw new NotSupportedException(
-                $"No se pudo resolver un parámetro de " +
-                $"'{targetMethod.Name}'."))
-        .ToArray();
-
     var arguments = new List<Expression>(
-        invocationArguments.Length);
+        preparedArguments?.Count ?? argumentOperations.Count);
 
-    foreach (IArgumentOperation operationArgument in invocationArguments)
+    // Los argumentos ya pueden venir convertidos a expresiones (asignación compuesta con operador del usuario).
+    if (preparedArguments is not null)
+    {
+        arguments.AddRange(preparedArguments);
+    }
+    else
+    foreach (IOperation argumentOperation in argumentOperations)
     {
         Expression argument =
             ProcessExpression(
-                operationArgument.Value,
+                argumentOperation,
                 inputs,
                 outputs,
                 compilation,
@@ -306,13 +345,46 @@ public partial class StatementOperationProcessor
 
     private Expression? ProcessBinaryExpression(IBinaryOperation binaryOperation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage)
     {
+        // Un operador definido por el usuario se compila como la función que Roslyn ya resolvió.
+        if (binaryOperation.OperatorMethod is { MethodKind: MethodKind.UserDefinedOperator } userOperator)
+        {
+            var (functionId, arguments) = ProcessMethodCall(
+                userOperator,
+                [binaryOperation.LeftOperand, binaryOperation.RightOperand],
+                inputs, outputs, compilation, stage);
+
+            return new FunctionCallExpression(functionId, arguments);
+        }
+
         var left = ProcessExpression(binaryOperation.LeftOperand, inputs, outputs, compilation, stage)   ?? throw new NotSupportedException(
             "The left binary operand did not produce an expression.");
 
         var right = ProcessExpression(binaryOperation.RightOperand, inputs, outputs, compilation, stage) ?? throw new NotSupportedException(
             "The right binary operand did not produce an expression.");
 
-        BinaryOperator binaryOperator = GetBinaryOperator(binaryOperation.OperatorKind);
+        // `a && b` / `a || b` no evalúan b si a decide el resultado. OpLogicalAnd/Or evalúan ambos lados,
+        // lo cual solo importa si b tiene efectos secundarios reales (++, --, ?: con ellos): ahí se baja a un If.
+        if (binaryOperation.OperatorKind is BinaryOperatorKind.ConditionalAnd or BinaryOperatorKind.ConditionalOr &&
+            ContainsSequence(right))
+        {
+            Storage result = new IRTypes.Bool(UniqueLocalName("__shortcircuit"), StorageKind.Local, null);
+            var resultReference = new StorageReference(result);
+
+            Expression runRight = binaryOperation.OperatorKind == BinaryOperatorKind.ConditionalAnd
+                ? resultReference
+                : new UnaryExpression(UnaryOperator.LogicalNot, resultReference);
+
+            return new SequenceExpression(
+                [
+                    new VariableDeclaration(result, left),
+                    new If(runRight, new Assignment(resultReference, right), null)
+                ],
+                resultReference);
+        }
+
+        BinaryOperator binaryOperator = GetBinaryOperator(
+            binaryOperation.OperatorKind,
+            binaryOperation.LeftOperand.Type?.SpecialType == SpecialType.System_Boolean);
 
         return new BinaryExpression(binaryOperator, left, right);
     }
@@ -444,8 +516,34 @@ public partial class StatementOperationProcessor
                 $"Storage for symbol '{symbol.ToDisplayString()}' was not found.");
         }
     
+    /// <summary>Lo que hace falta de un símbolo para crear su Storage: un tipo y un nombre.</summary>
+    private readonly record struct StorageSource(ITypeSymbol Type, string Name, RefKind RefKind = RefKind.None)
+    {
+        public string ToDisplayString() => Name;
+    }
+
     private Storage CreateLocalStorage(
         ILocalSymbol symbol, 
+        Compilation compilation, 
+        Stage stage) =>
+        CreateStorageFor(new StorageSource(symbol.Type, symbol.Name, symbol.RefKind), compilation, stage);
+
+    /// <summary>Variable temporal con nombre único, del tipo C# indicado (escalar, vector o struct).</summary>
+    private Storage CreateTemporary(ITypeSymbol type, string prefix, Compilation compilation, Stage stage)
+    {
+        Storage storage = CreateStorageFor(new StorageSource(type, UniqueLocalName(prefix)), compilation, stage);
+
+        if (storage is IRTypes.Array)
+        {
+            throw new NotSupportedException(
+                $"An expression of array type '{type.ToDisplayString()}' cannot be used here.");
+        }
+
+        return storage;
+    }
+
+    private Storage CreateStorageFor(
+        StorageSource symbol, 
         Compilation compilation, 
         Stage stage)
     {
@@ -501,10 +599,15 @@ public partial class StatementOperationProcessor
                     $"Multi-dimensional array '{symbol.Name}' is not supported.");
             }
 
+            if (arrayType.ElementType is IArrayTypeSymbol)
+            {
+                throw new NotSupportedException(
+                    $"Array of arrays '{symbol.Name}' is not supported; use a flat array.");
+            }
+
+            // Escalares directamente; vectores y structs con el mismo camino que cualquier local.
             Storage element = CreateScalarStorage(arrayType.ElementType, "element", storageKind)
-                              ?? throw new NotSupportedException(
-                                  $"Arrays of '{arrayType.ElementType.ToDisplayString()}' are not supported yet " +
-                                  "(only int, uint, float, double and bool elements).");
+                ?? CreateStorageFor(new StorageSource(arrayType.ElementType, "element"), compilation, stage);
 
             return new IRTypes.Array(symbol.Name, storageKind, null)
             {
@@ -645,7 +748,7 @@ public partial class StatementOperationProcessor
                 typeName = $"{typeName}_{genericArgs}";
             }
 
-
+            typeName = ShaderProcessor.UniqueStructTypeName(structType, typeName);
 
             storage = new IRTypes.CustomStruct(symbol.Name, storageKind, null)
             {
@@ -660,10 +763,17 @@ public partial class StatementOperationProcessor
 
         
     private static BinaryOperator GetBinaryOperator(
-        BinaryOperatorKind operatorKind)
+        BinaryOperatorKind operatorKind,
+        bool booleanOperands = false)
     {
         return operatorKind switch
         {
+            // En bool, & | ^ son lógicos y evalúan ambos lados (igual que OpLogicalAnd/Or).
+            BinaryOperatorKind.And => booleanOperands ? BinaryOperator.LogicalAnd : BinaryOperator.BitwiseAnd,
+            BinaryOperatorKind.Or => booleanOperands ? BinaryOperator.LogicalOr : BinaryOperator.BitwiseOr,
+            BinaryOperatorKind.ExclusiveOr => booleanOperands ? BinaryOperator.NotEqual : BinaryOperator.BitwiseXor,
+            BinaryOperatorKind.LeftShift => BinaryOperator.ShiftLeft,
+            BinaryOperatorKind.RightShift => BinaryOperator.ShiftRight,
             BinaryOperatorKind.Add => BinaryOperator.Add,
             BinaryOperatorKind.Subtract => BinaryOperator.Subtract,
             BinaryOperatorKind.Multiply => BinaryOperator.Multiply,
@@ -682,6 +792,216 @@ public partial class StatementOperationProcessor
         };
     }
     
+    /// <summary>
+    /// Procesa el destino de una asignación evaluando una sola vez los índices con efectos secundarios:
+    /// `arr[F()] += 1` llama a F una vez, no dos.
+    /// </summary>
+    private Expression ProcessAssignableTarget(
+        IOperation target,
+        List<Statement> prelude,
+        Dictionary<ISymbol, Storage> inputs,
+        Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage)
+    {
+        switch (target)
+        {
+            case IParenthesizedOperation parenthesized:
+                return ProcessAssignableTarget(parenthesized.Operand, prelude, inputs, outputs, compilation, stage);
+
+            case IFieldReferenceOperation { Instance: not null } field:
+                return new StorageStructPropertyReference(
+                    ProcessAssignableTarget(field.Instance, prelude, inputs, outputs, compilation, stage),
+                    field.Field.Name);
+
+            case IPropertyReferenceOperation { Instance: not null } property:
+                return new StorageStructPropertyReference(
+                    ProcessAssignableTarget(property.Instance, prelude, inputs, outputs, compilation, stage),
+                    property.Property.Name);
+
+            case IArrayElementReferenceOperation { Indices.Length: 1 } element:
+            {
+                Expression array = ProcessAssignableTarget(
+                    element.ArrayReference, prelude, inputs, outputs, compilation, stage);
+
+                Expression index = ProcessExpression(element.Indices[0], inputs, outputs, compilation, stage)
+                    ?? throw new NotSupportedException("The array index did not produce an expression.");
+
+                if (HasSideEffects(index))
+                {
+                    bool signed = element.Indices[0].Type?.SpecialType switch
+                    {
+                        SpecialType.System_Int32 => true,
+                        SpecialType.System_UInt32 => false,
+                        _ => throw new NotSupportedException("Array indices must be int or uint.")
+                    };
+
+                    Storage temporary = new IRTypes.Int(UniqueLocalName("__index"), StorageKind.Local, null)
+                    {
+                        Bits = 32,
+                        Signed = signed
+                    };
+
+                    prelude.Add(new VariableDeclaration(temporary, index));
+                    index = new StorageReference(temporary);
+                }
+
+                return new StorageArrayElementReference(array, index);
+            }
+
+            default:
+                return ProcessExpression(target, inputs, outputs, compilation, stage)
+                    ?? throw new NotSupportedException("The assignment target did not produce an expression.");
+        }
+    }
+
+    /// <summary>¿Contiene la expresión sentencias con efectos reales (++, --, ?:)? Las llamadas no cuentan: son puras.</summary>
+    private static bool ContainsSequence(Expression expression) => expression switch
+    {
+        SequenceExpression => true,
+        BinaryExpression binary => ContainsSequence(binary.Left) || ContainsSequence(binary.Right),
+        UnaryExpression unary => ContainsSequence(unary.Operand),
+        NumericConversion conversion => ContainsSequence(conversion.Operand),
+        StorageArrayElementReference element => ContainsSequence(element.ArrayReference) || ContainsSequence(element.Index),
+        StorageStructPropertyReference property => ContainsSequence(property.Reference),
+        FunctionCallExpression call => call.Arguments.Any(ContainsSequence),
+        VectorExpression vector => vector.Values.Any(ContainsSequence),
+        _ => false
+    };
+
+    private Expression ProcessConditionalExpression(
+        IConditionalOperation operation,
+        Dictionary<ISymbol, Storage> inputs,
+        Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage)
+    {
+        Expression condition = ProcessExpression(operation.Condition, inputs, outputs, compilation, stage)
+            ?? throw new NotSupportedException("The condition did not produce an expression.");
+        Expression whenTrue = ProcessExpression(operation.WhenTrue, inputs, outputs, compilation, stage)
+            ?? throw new NotSupportedException("The true branch did not produce an expression.");
+        Expression whenFalse = ProcessExpression(operation.WhenFalse!, inputs, outputs, compilation, stage)
+            ?? throw new NotSupportedException("The false branch did not produce an expression.");
+
+        Storage result = CreateTemporary(
+            operation.Type ?? throw new NotSupportedException("The conditional expression has no type."),
+            "__select", compilation, stage);
+        var resultReference = new StorageReference(result);
+
+        // Solo se evalúa la rama elegida, como en C#.
+        return new SequenceExpression(
+            [
+                new VariableDeclaration(result, null),
+                new If(
+                    condition,
+                    new Assignment(resultReference, whenTrue),
+                    new Assignment(resultReference, whenFalse))
+            ],
+            resultReference);
+    }
+
+    private Expression BuildIncrementedValue(
+        IIncrementOrDecrementOperation operation,
+        Expression current,
+        Dictionary<ISymbol, Storage> inputs,
+        Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage)
+    {
+        // `operator ++` / `operator --` del usuario: se llama a la función que Roslyn resolvió.
+        if (operation.OperatorMethod is { MethodKind: MethodKind.UserDefinedOperator } userOperator)
+        {
+            var (functionId, arguments) = ProcessMethodCall(
+                userOperator, [], inputs, outputs, compilation, stage,
+                preparedArguments: [current]);
+
+            return new FunctionCallExpression(functionId, arguments);
+        }
+
+        Expression one = operation.Target.Type?.SpecialType switch
+        {
+            SpecialType.System_Int32 => new IntLiteral("1", true),
+            SpecialType.System_UInt32 => new IntLiteral("1", false),
+            SpecialType.System_Single => new FloatLiteral(1f),
+            SpecialType.System_Double => new DoubleLiteral(1d),
+            _ => throw new NotSupportedException(
+                $"Increment of '{operation.Target.Type}' is not supported.")
+        };
+
+        return new BinaryExpression(
+            operation.Kind == OperationKind.Increment ? BinaryOperator.Add : BinaryOperator.Subtract,
+            current,
+            one);
+    }
+
+    /// <summary>
+    /// `i++` / `++i` usados como valor. El prefijo produce el valor nuevo, el sufijo el anterior;
+    /// el destino se evalúa una sola vez.
+    /// </summary>
+    private Expression ProcessIncrementExpression(
+        IIncrementOrDecrementOperation operation,
+        Dictionary<ISymbol, Storage> inputs,
+        Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage)
+    {
+        var prelude = new List<Statement>();
+        Expression target = ProcessAssignableTarget(operation.Target, prelude, inputs, outputs, compilation, stage);
+
+        if (operation.IsPostfix)
+        {
+            Storage previous = CreateTemporary(
+                operation.Target.Type ?? throw new NotSupportedException("The increment target has no type."),
+                "__old", compilation, stage);
+            var previousReference = new StorageReference(previous);
+
+            prelude.Add(new VariableDeclaration(previous, target));
+            prelude.Add(new Assignment(
+                target,
+                BuildIncrementedValue(operation, previousReference, inputs, outputs, compilation, stage)));
+
+            return new SequenceExpression(prelude, previousReference);
+        }
+
+        prelude.Add(new Assignment(
+            target,
+            BuildIncrementedValue(operation, target, inputs, outputs, compilation, stage)));
+
+        return new SequenceExpression(prelude, target);
+    }
+
+    private static bool HasSideEffects(Expression expression) => expression switch
+    {
+        FunctionCallExpression => true,
+        SequenceExpression => true,
+        BinaryExpression binary => HasSideEffects(binary.Left) || HasSideEffects(binary.Right),
+        UnaryExpression unary => HasSideEffects(unary.Operand),
+        NumericConversion conversion => HasSideEffects(conversion.Operand),
+        StorageArrayElementReference element => HasSideEffects(element.ArrayReference) || HasSideEffects(element.Index),
+        StorageStructPropertyReference property => HasSideEffects(property.Reference),
+        _ => false
+    };
+
+    private static ScalarType? TryGetScalarType(ITypeSymbol? type) => type?.SpecialType switch
+    {
+        SpecialType.System_Int32 => ScalarType.Int32,
+        SpecialType.System_UInt32 => ScalarType.UInt32,
+        SpecialType.System_Single => ScalarType.Float32,
+        SpecialType.System_Double => ScalarType.Float64,
+        _ => null
+    };
+
+    /// <summary>Convierte entre escalares numéricos distintos; devuelve la misma expresión si no hace falta.</summary>
+    private static Expression ConvertScalar(Expression operand, ITypeSymbol? from, ITypeSymbol? to)
+    {
+        ScalarType? source = TryGetScalarType(from);
+        ScalarType? target = TryGetScalarType(to);
+
+        return source is not null && target is not null && source != target
+            ? new NumericConversion(operand, target.Value)
+            : operand;
+    }
+
     private static Storage? CreateScalarStorage(ITypeSymbol type, string name, StorageKind kind)
 {
     return type.SpecialType switch

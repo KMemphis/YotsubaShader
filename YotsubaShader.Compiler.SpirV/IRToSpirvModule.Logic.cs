@@ -134,7 +134,7 @@ public partial class IRToSpirvModule
             
             foreach (var statement in shaderFunction.Body)
             {
-                CheckStatementCapabilities(module, statement, emittedCapabilities);
+                CheckStatementCapabilities(statement, emittedCapabilities);
             }
         }
         
@@ -148,7 +148,7 @@ public partial class IRToSpirvModule
         }
     }
 
-    private void CheckStatementCapabilities(SpirVModule module, 
+    private static void CheckStatementCapabilities(
         Statement childStatement, 
         HashSet<SpirVCapability> emittedCapabilities)
     {
@@ -157,7 +157,7 @@ public partial class IRToSpirvModule
             case Block block:
                 foreach (var blockStatement in block.Statements)
                 {
-                    CheckStatementCapabilities(module, blockStatement, emittedCapabilities);
+                    CheckStatementCapabilities(blockStatement, emittedCapabilities);
                 }
                 break;
             case VariableDeclaration declaration:
@@ -173,17 +173,17 @@ public partial class IRToSpirvModule
                 break;
             case If ifStatement:
                 AddCapabilityForExpression(ifStatement.Condition, emittedCapabilities);
-                CheckStatementCapabilities(module, ifStatement.Then, emittedCapabilities);
+                CheckStatementCapabilities(ifStatement.Then, emittedCapabilities);
                 if (ifStatement.Else is not null)
                 {
-                    CheckStatementCapabilities(module, ifStatement.Else, emittedCapabilities);
+                    CheckStatementCapabilities(ifStatement.Else, emittedCapabilities);
                 }
                 break;
             case Loop loop:
                 AddCapabilityForExpression(loop.Condition, emittedCapabilities);
                 AddCapabilityForExpression(loop.BottomCondition, emittedCapabilities);
-                CheckStatementCapabilities(module, loop.Body, emittedCapabilities);
-                CheckStatementCapabilities(module, loop.Continuing, emittedCapabilities);
+                CheckStatementCapabilities(loop.Body, emittedCapabilities);
+                CheckStatementCapabilities(loop.Continuing, emittedCapabilities);
                 break;
         }
     }
@@ -214,6 +214,14 @@ public partial class IRToSpirvModule
                 break;
             case UnaryExpression unary:
                 AddCapabilityForExpression(unary.Operand, emittedCapabilities);
+                break;
+            case SequenceExpression sequence:
+                foreach (Statement statement in sequence.Prelude)
+                {
+                    CheckStatementCapabilities(statement, emittedCapabilities);
+                }
+
+                AddCapabilityForExpression(sequence.Value, emittedCapabilities);
                 break;
             case VectorExpression vector:
                 foreach (Expression value in vector.Values)
@@ -541,6 +549,14 @@ public partial class IRToSpirvModule
             case StorageArrayElementReference arrayElement:
                 DeclareExpressionConstants(module, arrayElement.ArrayReference, stage);
                 DeclareExpressionConstants(module, arrayElement.Index, stage);
+                break;
+            case SequenceExpression sequence:
+                foreach (Statement statement in sequence.Prelude)
+                {
+                    DeclareStatementConstants(module, statement, stage);
+                }
+
+                DeclareExpressionConstants(module, sequence.Value, stage);
                 break;
             case UnaryExpression unary:
                 DeclareExpressionConstants(module, unary.Operand, stage);

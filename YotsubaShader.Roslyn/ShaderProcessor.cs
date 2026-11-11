@@ -103,6 +103,30 @@ public class ShaderProcessor
 
     internal static List<FunctionsInfo> PendingFunctionsInfos;
 
+    // Cada tipo struct recibe un nombre único dentro del shader: dos `Data` de espacios de nombres
+    // distintos no pueden compartir el mismo ID de SPIR-V.
+    private static Dictionary<ITypeSymbol, string> structTypeNames =
+        new(SymbolEqualityComparer.Default);
+
+    internal static string UniqueStructTypeName(ITypeSymbol type, string preferredName)
+    {
+        if (structTypeNames.TryGetValue(type, out string? existing))
+        {
+            return existing;
+        }
+
+        string name = preferredName;
+
+        for (int suffix = 1; structTypeNames.ContainsValue(name); suffix++)
+        {
+            name = $"{preferredName}_{suffix}";
+        }
+
+        structTypeNames[type] = name;
+
+        return name;
+    }
+
     
     public (string, Shader)[] Process(Compilation compilation, CancellationToken token)
     {
@@ -112,7 +136,9 @@ public class ShaderProcessor
         
         foreach (ShaderInfo shaderInfo in csharpShaderMetadata)
         {
+            
             functionIds = new Dictionary<IMethodSymbol, FunctionId>(SymbolEqualityComparer.Default);
+            structTypeNames = new Dictionary<ITypeSymbol, string>(SymbolEqualityComparer.Default);
             
             var globals = new Dictionary<ISymbol, Storage>(SymbolEqualityComparer.Default);
             
@@ -590,6 +616,7 @@ public class ShaderProcessor
             typeName = $"{typeName}_{genericArgs}";
         }
 
+        typeName = UniqueStructTypeName(structType, typeName);
 
         storage = new CustomStruct(symbol.Name, storageKind, slot)
         {
@@ -882,6 +909,8 @@ public class ShaderProcessor
 
                 typeName = $"{typeName}_{genericArgs}";
             }
+
+            typeName = UniqueStructTypeName(structType, typeName);
             
             storage = new CustomStruct(symbolName, storageKind, slot)
             {

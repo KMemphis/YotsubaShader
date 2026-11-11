@@ -75,6 +75,7 @@ using YotsubaShader.IR.Intermediate.FunctionBody;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.AssignmentTargets;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.FunctionCalls;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.Literals;
 using YotsubaShader.IR.Intermediate.FunctionBody.Statements;
 using IRTypes = YotsubaShader.IR.Intermediate.Types;
@@ -296,8 +297,10 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
     public void ProcessCompoundAssignmentOperation(ICompoundAssignmentOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
         Compilation compilation, Stage stage, out Statement? statement)
     {
-        var target = ProcessExpression(operation.Target, inputs, outputs, compilation, stage) ?? throw new NotSupportedException(
-            "The compound-assignment target did not produce an expression.");
+        var prelude = new List<Statement>();
+
+        // El destino se evalúa una sola vez aunque se lea y se escriba.
+        var target = ProcessAssignableTarget(operation.Target, prelude, inputs, outputs, compilation, stage);
 
         if (target is not StorageReference && target is not StorageStructPropertyReference &&
             target is not StorageArrayElementReference)
@@ -309,9 +312,43 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
         var value = ProcessExpression(operation.Value, inputs, outputs, compilation, stage)  ?? throw new NotSupportedException(
             "The compound-assignment value did not produce an expression.");
 
-        BinaryOperator binaryOperator = GetBinaryOperator(operation.OperatorKind);
+        Expression result;
 
-        statement = new Assignment(target, new BinaryExpression(binaryOperator, target, value));
+        if (operation.OperatorMethod is { MethodKind: MethodKind.UserDefinedOperator } userOperator)
+        {
+            // x op= y  =>  x = op(x, y), con el operador que Roslyn resolvió.
+            if (userOperator.Parameters.Length != 2)
+            {
+                throw new NotSupportedException(
+                    $"The operator '{userOperator.Name}' is not supported as a compound assignment.");
+            }
+
+            var (functionId, arguments) = ProcessMethodCall(
+                userOperator, [], inputs, outputs, compilation, stage,
+                preparedArguments: [target, value]);
+
+            result = new FunctionCallExpression(functionId, arguments);
+        }
+        else
+        {
+            BinaryOperator binaryOperator = GetBinaryOperator(
+                operation.OperatorKind,
+                operation.Target.Type?.SpecialType == SpecialType.System_Boolean);
+
+            bool isShift = binaryOperator is BinaryOperator.ShiftLeft or BinaryOperator.ShiftRight;
+
+            // `int x; x += 1.5f;`: el destino se convierte al tipo del operador y el resultado vuelve al del destino.
+            Expression left = isShift ? target : ConvertScalar(target, operation.Target.Type, operation.Value.Type);
+            Expression computed = new BinaryExpression(binaryOperator, left, value);
+
+            result = isShift ? computed : ConvertScalar(computed, operation.Value.Type, operation.Target.Type);
+        }
+
+        var assignment = new Assignment(target, result);
+
+        statement = prelude.Count == 0
+            ? assignment
+            : new Block([.. prelude, assignment]);
     }
 
     public void ProcessCoalesceAssignmentOperation(ICoalesceAssignmentOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
@@ -326,28 +363,19 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
         throw new NotImplementedException();
     }
 
-    public void ProcessIncrementOrDecrementOperation(IIncrementOrDecrementOperation operation,
-        Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        Compilation compilation, Stage stage, out Statement? statement)
+    public void ProcessIncrementOrDecrementOperation(IIncrementOrDecrementOperation operation, Dictionary<ISymbol, Storage> inputs,
+        Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage, out Statement? statement)
     {
-        var target = ProcessExpression(operation.Target, inputs, outputs, compilation, stage)
-                     ?? throw new NotSupportedException("The increment target did not produce an expression.");
+        var prelude = new List<Statement>();
+        var target = ProcessAssignableTarget(operation.Target, prelude, inputs, outputs, compilation, stage);
 
-        Expression one = operation.Target.Type?.SpecialType switch
-        {
-            SpecialType.System_Int32  => new IntLiteral("1", true),
-            SpecialType.System_UInt32 => new IntLiteral("1", false),
-            SpecialType.System_Single => new FloatLiteral(1f),
-            SpecialType.System_Double => new DoubleLiteral(1d),
-            _ => throw new NotSupportedException(
-                $"Increment of '{operation.Target.Type}' is not supported.")
-        };
+        var assignment = new Assignment(
+            target,
+            BuildIncrementedValue(operation, target, inputs, outputs, compilation, stage));
 
-        var op = operation.Kind == OperationKind.Increment
-            ? BinaryOperator.Add
-            : BinaryOperator.Subtract;
-
-        statement = new Assignment(target, new BinaryExpression(op, target, one));
+        statement = prelude.Count == 0
+            ? assignment
+            : new Block([.. prelude, assignment]);
     }
 
     public void ProcessInvocationOperation(

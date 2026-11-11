@@ -83,7 +83,7 @@ public static class BuildIrTypes
     internal static string InterfaceVariableId(
         Function function,
         Storage storage) =>
-        $"%{function.HumanName}_{storage.Kind}_{storage.HumanName}";
+        $"%{function.HumanName}_{function.Id.Value}_{storage.Kind}_{storage.HumanName}";
     
     
     internal static bool IsInterfaceStruct(Function function, Storage storage) =>

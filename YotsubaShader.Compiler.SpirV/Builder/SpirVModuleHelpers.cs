@@ -320,12 +320,7 @@ public static class SpirVModuleHelpers
 
         if (isNew)
         {
-            string debugName =
-                customStruct.Kind == StorageKind.Local
-                    ? $"{customStruct.TypeName}_Local"
-                    : customStruct.TypeName;
-
-            module.Name(result, debugName);
+            module.Name(result, customStruct.TypeName);
 
             for (int index = 0;
                  index < customStruct.Properties.Count;
@@ -425,7 +420,13 @@ public static class SpirVModuleHelpers
     private static string Define(SpirVModule module, string id, SpirVOperation op,
         params SpirVInstructionParameter[] parameters)
     {
-        return module.IsDefined(id) ? id : module.AddResultLine(id, op, parameters);
+        if (module.IsDefined(id))
+        {
+            module.EnsureSameDefinition(id, op, parameters);
+            return id;
+        }
+
+        return module.AddResultLine(id, op, parameters);
     }
 
     private static bool IsCollection(Type type) =>

@@ -125,7 +125,14 @@ public class SpirVTableTypesIds
     public const string PtrTypeIDLastConcatenation = "_ptr";
     
     
+    /// <summary>
+    /// Un struct de C# es un único tipo SPIR-V sin importar la etapa ni dónde viva (local, parámetro o retorno),
+    /// para que sea compatible consigo mismo. Los recursos (uniform/buffer) conservan su propio tipo porque
+    /// necesitarán decoraciones de layout.
+    /// </summary>
     public static string StructID(CustomStruct structure, Stage stage) =>
-        $"%struct_{structure.TypeName}_{stage}_{structure.Kind}";
+        structure.Kind is StorageKind.Uniform or StorageKind.StorageBuffer or StorageKind.PushConstant
+            ? $"%struct_{structure.TypeName}_{structure.Kind}"
+            : $"%struct_{structure.TypeName}";
 
 }
