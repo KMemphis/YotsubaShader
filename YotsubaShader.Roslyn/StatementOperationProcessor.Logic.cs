@@ -661,9 +661,10 @@ public partial class StatementOperationProcessor
                     }
 
                     string value = ShaderProcessor.GetComponentInitialValue(memberInfo, compilation);
-                    components.Add((int)memberAttributes.ConstructorArguments[0].Value!, value);
+                    ShaderProcessor.AddVectorComponent(components, type, memberInfo, (int)memberAttributes.ConstructorArguments[0].Value!, value);
                 }
 
+                ShaderProcessor.ValidateVectorComponents(components, type);
                 components = components.OrderBy(x => x.Key).ToDictionary();
                 
                 IRTypes.VectorComponentsType vectorComponentsType = componentsType?.SpecialType switch
