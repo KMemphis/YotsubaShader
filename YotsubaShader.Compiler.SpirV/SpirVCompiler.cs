@@ -66,6 +66,7 @@
 */
 #endregion
 
+using System.Buffers.Binary;
 using System.Globalization;
 using System.Text;
 using YotsubaShader.Compiler.SpirV.Builder;
@@ -90,6 +91,7 @@ public class SpirVCompiler
     private byte[] ParseModuleToSpirV(SpirVModule module)
     {
         List<byte> spirV = new List<byte>();
+        Span<byte> headerBytes = stackalloc byte[4];
         
         foreach (var instruction in module.Instructions)
         {
@@ -123,7 +125,7 @@ public class SpirVCompiler
             // Word count = palabras escritas (cabecera, resultado y operandos; una cadena ocupa varias).
             int totalWords = (spirV.Count - instructionStart) / 4;
             uint header = instruction.Operation.Header(totalWords);
-            byte[] headerBytes = BitConverter.GetBytes(header);
+            BinaryPrimitives.WriteUInt32LittleEndian(headerBytes, header);
             for (int i = 0; i < headerBytes.Length; i++)
             {
                 spirV[instructionStart + i] = headerBytes[i];
@@ -131,11 +133,11 @@ public class SpirVCompiler
         }
         
         var moduleHeader = new List<byte>();
-        moduleHeader.AddRange(BitConverter.GetBytes(0x07230203u));   // número mágico
-        moduleHeader.AddRange(BitConverter.GetBytes(0x00010600u));   // versión 1.6
-        moduleHeader.AddRange(BitConverter.GetBytes(0u));            // generador
-        moduleHeader.AddRange(BitConverter.GetBytes((uint)nextID));  // bound
-        moduleHeader.AddRange(BitConverter.GetBytes(0u));            // esquema
+        WriteWord(moduleHeader, 0x07230203u);   // número mágico
+        WriteWord(moduleHeader, 0x00010600u);   // versión 1.6
+        WriteWord(moduleHeader, 0u);            // generador
+        WriteWord(moduleHeader, (uint)nextID);  // bound
+        WriteWord(moduleHeader, 0u);            // esquema
         spirV.InsertRange(0, moduleHeader);
         
         return [.. spirV];
@@ -147,30 +149,30 @@ public class SpirVCompiler
         {
             case SpirVInstructionType.FloatValue:
                 float floatValue = float.Parse(parameter.Instruction, CultureInfo.InvariantCulture);
-                spirV.AddRange(BitConverter.GetBytes(floatValue));
+                WriteWord(spirV, BitConverter.SingleToUInt32Bits(floatValue));
                 break;
             case SpirVInstructionType.DoubleValue:
                 double value = double.Parse(parameter.Instruction, CultureInfo.InvariantCulture);
-                spirV.AddRange(BitConverter.GetBytes(value));
+                WriteWords64(spirV, BitConverter.DoubleToUInt64Bits(value));
                 break;
             case SpirVInstructionType.IntValue:
-                int intValue = int.Parse(parameter.Instruction);
-                spirV.AddRange(BitConverter.GetBytes(intValue));
+                int intValue = int.Parse(parameter.Instruction, CultureInfo.InvariantCulture);
+                WriteWord(spirV, unchecked((uint)intValue));
                 break;
             case SpirVInstructionType.Enumerant:
-                spirV.AddRange(BitConverter.GetBytes(parameter.Value));
+                WriteWord(spirV, parameter.Value);
                 break;
             case SpirVInstructionType.UIntValue:
-                uint uintValue = uint.Parse(parameter.Instruction);
-                spirV.AddRange(BitConverter.GetBytes(uintValue));
+                uint uintValue = uint.Parse(parameter.Instruction, CultureInfo.InvariantCulture);
+                WriteWord(spirV, uintValue);
                 break;
             case SpirVInstructionType.LongValue:
-                long longValue = long.Parse(parameter.Instruction);
-                spirV.AddRange(BitConverter.GetBytes(longValue));
+                long longValue = long.Parse(parameter.Instruction, CultureInfo.InvariantCulture);
+                WriteWords64(spirV, unchecked((ulong)longValue));
                 break;
             case SpirVInstructionType.UlongValue:
-                ulong ulongValue = ulong.Parse(parameter.Instruction);
-                spirV.AddRange(BitConverter.GetBytes(ulongValue));
+                ulong ulongValue = ulong.Parse(parameter.Instruction, CultureInfo.InvariantCulture);
+                WriteWords64(spirV, ulongValue);
                 break;
             case SpirVInstructionType.StringLiteral:
                 byte[] utf8 = Encoding.UTF8.GetBytes(parameter.Instruction);
@@ -203,6 +205,21 @@ public class SpirVCompiler
     private void WriteId(List<byte> spirV, string symbolicId)
     {
         int numericId = GetOrCreateId(symbolicId);
-        spirV.AddRange(BitConverter.GetBytes(numericId));
+        WriteWord(spirV, (uint)numericId);
+    }
+
+    /// <summary>Una palabra de 32 bits, siempre en little-endian, sea cual sea el equipo que compila.</summary>
+    private static void WriteWord(List<byte> spirV, uint word)
+    {
+        Span<byte> bytes = stackalloc byte[4];
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes, word);
+        spirV.AddRange(bytes);
+    }
+
+    /// <summary>Un literal de 64 bits son dos palabras: primero la baja y después la alta.</summary>
+    private static void WriteWords64(List<byte> spirV, ulong value)
+    {
+        WriteWord(spirV, (uint)value);
+        WriteWord(spirV, (uint)(value >> 32));
     }
 }
