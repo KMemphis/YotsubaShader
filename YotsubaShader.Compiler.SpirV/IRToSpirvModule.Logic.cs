@@ -731,7 +731,8 @@ public partial class IRToSpirvModule
                         // Un fragment shader que devuelve un valor sin anotar escribe en el render target 0.
                         if (shaderFunction.Stage == Stage.Fragment &&
                             storage.Kind == StorageKind.Output &&
-                            storage is not CustomStruct)
+                            storage is not 
+                                CustomStruct)
                         {
                             DecorateVariable(module, variableId, new LocationSlot(0));
                         }
@@ -775,17 +776,18 @@ public partial class IRToSpirvModule
                     SpirVInstructionParameter.Enumerant(SpirVDecoration.BuiltIn),
                     SpirVInstructionParameter.Enumerant(ToSpirVBuiltIn(builtInSlot.BuiltIn)));
                 break;
-            case LocationSlot locationSlot:
+            case LocationSlot locationSlot:        
                 module.AddLine(SpirVOpTable.OpDecorate,
                     SpirVModuleHelpers.Id(variableId),
                     SpirVInstructionParameter.Enumerant(SpirVDecoration.Location),
                     new(locationSlot.Location.ToString(), SpirVInstructionType.UIntValue));
                 break;
-            case VertexSlot vertexSlot:
+
+            case VertexSlot vertexSlot:          
                 module.AddLine(SpirVOpTable.OpDecorate,
                     SpirVModuleHelpers.Id(variableId),
                     SpirVInstructionParameter.Enumerant(SpirVDecoration.Location),
-                    new(ResolveVertexLocation(vertexSlot.Semantic).ToString(), SpirVInstructionType.UIntValue));
+                    new(_interfaceLocations[variableId].ToString(), SpirVInstructionType.UIntValue));
 
                 module.AddLine(SpirVOpTable.OpDecorateString,
                     SpirVModuleHelpers.Id(variableId),
@@ -794,85 +796,7 @@ public partial class IRToSpirvModule
                 break;
         }
     }
-
-    private void DecorateMember(SpirVModule module, string structId, int memberIndex, InterfaceSlot? slot)
-    {
-
-        if (slot is null) return;
-        switch (slot)
-        {
-            case BuiltInSlot builtInSlot:
-                module.AddLine(SpirVOpTable.OpMemberDecorate,
-                    SpirVModuleHelpers.Id(structId),
-                    new(memberIndex.ToString(),SpirVInstructionType.UIntValue),
-                    SpirVInstructionParameter.Enumerant(SpirVDecoration.BuiltIn),
-                    SpirVInstructionParameter.Enumerant(ToSpirVBuiltIn(builtInSlot.BuiltIn)));
-                break;
-            case LocationSlot locationSlot:
-                module.AddLine(SpirVOpTable.OpMemberDecorate,
-                    SpirVModuleHelpers.Id(structId),
-                    new(memberIndex.ToString(), SpirVInstructionType.UIntValue),
-                    SpirVInstructionParameter.Enumerant(SpirVDecoration.Location),
-                    new(locationSlot.Location.ToString(), SpirVInstructionType.UIntValue));
-                break;
-            case VertexSlot vertexSlot:
-            {
-                int location = ResolveVertexLocation(vertexSlot.Semantic);
-                string semantic = ToHlslSemantic(vertexSlot.Semantic);
-
-                module.AddLine(
-                    SpirVOpTable.OpMemberDecorate,
-                    SpirVModuleHelpers.Id(structId),
-                    new(
-                        memberIndex.ToString(),
-                        SpirVInstructionType.UIntValue),
-                    SpirVInstructionParameter.Enumerant(
-                        SpirVDecoration.Location),
-                    new(
-                        location.ToString(),
-                        SpirVInstructionType.UIntValue));
-
-                module.AddLine(
-                    SpirVOpTable.OpMemberDecorateString,
-                    SpirVModuleHelpers.Id(structId),
-                    new(
-                        memberIndex.ToString(),
-                        SpirVInstructionType.UIntValue),
-                    SpirVInstructionParameter.Enumerant(
-                        SpirVDecoration.UserSemantic),
-                    new(
-                        semantic,
-                        SpirVInstructionType.StringLiteral));
-
-                break;
-            }
-        }
-    }
-
-    private int ResolveVertexLocation(VertexSemantic vertexSemantic)
-    {
-        switch (vertexSemantic.Usage)
-        {
-            case VertexUsage.TextureCoordinate:
-                return vertexSemantic.Index;
-            case VertexUsage.Color:
-                return 8 + vertexSemantic.Index;
-            case VertexUsage.Normal:
-                return 16 + vertexSemantic.Index;
-            case VertexUsage.Tangent:
-                return 16 + vertexSemantic.Index;
-            case VertexUsage.Binormal:
-                return 32 + vertexSemantic.Index;
-            case VertexUsage.Position:
-                return vertexSemantic.Index;
-            default:
-                throw new NotSupportedException(
-                    $"El semántico '{vertexSemantic.Usage}{vertexSemantic.Index}' aún no tiene una Location SPIR-V.");
-        }
-    }
     
-    
-
     private static SpirVBuiltIn ToSpirVBuiltIn(BuiltIn builtIn) =>
         builtIn switch
         {

@@ -1168,7 +1168,8 @@ public class ShaderProcessor
                     "NORMAL" => VertexUsage.Normal,
                     "TANGENT" => VertexUsage.Tangent,
                     "BINORMAL" => VertexUsage.Binormal,
-                     _ => VertexUsage.Position
+                    _ => throw new NotSupportedException(
+                        $"Semántica '{attributeData.AttributeClass?.Name}' no soportada.")
                 };
 
                 slot = new VertexSlot(new VertexSemantic(usage, index));
