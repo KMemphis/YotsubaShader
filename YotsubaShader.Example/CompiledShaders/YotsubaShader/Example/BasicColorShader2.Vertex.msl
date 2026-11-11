@@ -49,7 +49,7 @@ struct VS_Output
     float4 Color;
 };
 
-constant spvUnsafeArray<int, 5> _42 = spvUnsafeArray<int, 5>({ 0, 0, 0, 0, 0 });
+constant spvUnsafeArray<int, 5> _45 = spvUnsafeArray<int, 5>({ 0, 0, 0, 0, 0 });
 
 struct VS_out
 {
@@ -63,11 +63,22 @@ struct VS_in
     float4 vertex_Color [[attribute(8)]];
 };
 
+static inline __attribute__((always_inline))
+float4 NewVector4(float x, float y, float z)
+{
+    float4 _this;
+    _this.x = x;
+    _this.y = y;
+    _this.z = z;
+    _this.w = float(1);
+    return _this;
+}
+
 vertex VS_out VS(VS_in in [[stage_in]])
 {
     VS_out out = {};
     VS_Output vertexOutput = VS_Output{ float4(0.0) };
-    float4 vec = float4(float(0), float(0), float(0), float(0));
+    float4 vec = NewVector4(float(0), float(0), float(3));
     spvUnsafeArray<int, 5> arr = spvUnsafeArray<int, 5>({ 0, 0, 0, 0, 0 });
     arr[0] = 1;
     arr[1] = 3;
@@ -77,12 +88,12 @@ vertex VS_out VS(VS_in in [[stage_in]])
     for (int _foreach_index_0 = 0; _foreach_index_0 < 5; _foreach_index_0++)
     {
         int VARIABLE = arr[_foreach_index_0];
-        vec = float4(in.vertex_Position.x, float(1), 0.0, 1.0);
+        vec = NewVector4(in.vertex_Position.x, float(1), float(3));
     }
     for (int _foreach_index_1 = 0; _foreach_index_1 < 5; _foreach_index_1++)
     {
         int VARIABLE_1 = arr[_foreach_index_1];
-        vec = float4(in.vertex_Position.x, float(1), 0.0, 1.0);
+        vec = NewVector4(in.vertex_Position.x, float(1), float(3));
     }
     out.gl_Position = vec;
     vertexOutput.Color = in.vertex_Color;

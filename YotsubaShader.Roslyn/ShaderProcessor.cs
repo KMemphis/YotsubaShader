@@ -78,7 +78,9 @@ using YotsubaShader.Concepts.Fragment;
 using YotsubaShader.Concepts.Vertex;
 using YotsubaShader.IR.Intermediate;
 using YotsubaShader.IR.Intermediate.FunctionBody;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.AssignmentTargets;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.Literals;
+using YotsubaShader.IR.Intermediate.FunctionBody.Statements;
 using YotsubaShader.IR.Intermediate.Slot;
 using YotsubaShader.IR.Intermediate.Slot.Types;
 using YotsubaShader.IR.Intermediate.Types;
@@ -172,7 +174,7 @@ public class ShaderProcessor
         return shaders;
     }
 
-    internal static void ProcessShaderFunction(Compilation compilation, FunctionsInfo shaderInfoEntryPoint, List<Function> shaderFunction, List<FunctionsInfo> extraMethods)
+    private static void ProcessShaderFunction(Compilation compilation, FunctionsInfo shaderInfoEntryPoint, List<Function> shaderFunction, List<FunctionsInfo> extraMethods)
     {
         
         if (!functionIds.TryGetValue(shaderInfoEntryPoint.Method, out var functionId))
@@ -214,19 +216,35 @@ public class ShaderProcessor
         }
                 
 
-        if (shaderInfoEntryPoint.Method.ReturnType.SpecialType != SpecialType.System_Void)
+        bool isConstructor = shaderInfoEntryPoint.Method.MethodKind == MethodKind.Constructor;
+        Storage? self = null;
+        
+        if (shaderInfoEntryPoint.ReturnType.SpecialType != SpecialType.System_Void)
         {
             Storage? returnType = ProcessReturn(shaderInfoEntryPoint, compilation, stage);
-            if(returnType is not null) outputs.Add(shaderInfoEntryPoint.ReturnType, returnType);
+            if (returnType is not null) outputs.Add(shaderInfoEntryPoint.ReturnType, returnType);
         }
+        
+        if (isConstructor)
+        {
+            self = GetStorage(shaderInfoEntryPoint.ReturnType, "this", null, StorageKind.Local, compilation, stage);
+            processor.ThisStorage = self;
+            Expression? zero = self is CustomStruct cs ? new CustomStructExpression(cs, []) : null;
+            bodyFunc.Add(new VariableDeclaration(self, zero));        }
                 
         var syntax = shaderInfoEntryPoint.Method.DeclaringSyntaxReferences[0].GetSyntax();
         var semanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
 
         var operations = semanticModel.GetOperation(syntax);
 
-        if (operations is IMethodBodyOperation body)
+        
+        if (operations is IMethodBodyBaseOperation body)
         {
+            
+            if (body is IConstructorBodyOperation { Initializer: not null })
+                throw new NotSupportedException(
+                    $"El constructor '{shaderInfoEntryPoint.Method.ToDisplayString()}' usa ': this(...)' o ': base(...)', que aún no se soporta.");
+            
             var blockOperations = body.BlockBody ?? body.ExpressionBody ?? throw new NotImplementedException();
             var span = blockOperations.Operations.AsSpan();
             foreach (var op in span)
@@ -235,6 +253,9 @@ public class ShaderProcessor
                 if (statement is null) continue;
                 bodyFunc.Add(statement);
             }
+            
+            if (isConstructor)
+                bodyFunc.Add(new Return(new StorageReference(self!)));
         }
 
         FunctionExtraParams? extraParams = GetStageExtraParams(shaderInfoEntryPoint.Method, stage);
@@ -665,15 +686,15 @@ public class ShaderProcessor
         IRStage stage)
     {
         IMethodSymbol method = functions.Method;
-
-        if (method.ReturnType.SpecialType == SpecialType.System_Void)
+        
+        if (functions.ReturnType.SpecialType == SpecialType.System_Void)
             return null;
 
         InterfaceSlot? returnSlot =
             GetAttributeData(method.GetReturnTypeAttributes(), stage);
 
         return GetStorage(
-            method.ReturnType,
+            functions.ReturnType,
             "__return",
             returnSlot,
             StorageKind.Output,

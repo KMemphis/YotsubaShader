@@ -92,7 +92,9 @@ public sealed record FunctionsInfo(
     ImmutableArray<ParameterInfo> Parameters,
     ITypeSymbol ReturnType)
 {
-    public string Name => Method.Name;
+    public string Name => Method.MethodKind == MethodKind.Constructor ?
+        $"New{Method.ContainingType.Name}"
+        : Method.Name;
 }
 
 /// <summary>La "ficha" de un shader: la clase y las etapas que declara.</summary>

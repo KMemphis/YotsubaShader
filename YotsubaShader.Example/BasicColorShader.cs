@@ -107,8 +107,7 @@ public class BasicColorShader
         output.Position = new Vector4(
             input.Position.X,
             input.Position.Y,
-            0.0f,
-            1.0f
+            2f
         );
 
         output.Color = input.Color;
@@ -159,5 +158,5 @@ public struct Vector4
     [VectorComponent(2)] public float Z;
     [VectorComponent(3)] public float W;
 
-    public Vector4(float x, float y, float z, float w) { X = x; Y = y; Z = z; W = w; }
+    public Vector4(float x, float y, float z ) { X = x; Y = y; Z = z; W = 1; }
 }

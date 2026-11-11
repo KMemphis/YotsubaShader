@@ -1,3 +1,5 @@
+#pragma clang diagnostic ignored "-Wmissing-prototypes"
+
 #include <metal_stdlib>
 #include <simd/simd.h>
 
@@ -21,11 +23,22 @@ struct VS_in
     float4 input_Color [[attribute(8)]];
 };
 
+static inline __attribute__((always_inline))
+float4 NewVector4(float x, float y, float z)
+{
+    float4 _this;
+    _this.x = x;
+    _this.y = y;
+    _this.z = z;
+    _this.w = float(1);
+    return _this;
+}
+
 vertex VS_out VS(VS_in in [[stage_in]])
 {
     VS_out out = {};
     VS_Output _output;
-    _output.Position = float4(in.input_Position.x, in.input_Position.y, 0.0, 1.0);
+    _output.Position = NewVector4(in.input_Position.x, in.input_Position.y, 2.0);
     _output.Color = in.input_Color;
     out.gl_Position = _output.Position;
     out._return_Color = _output.Color;

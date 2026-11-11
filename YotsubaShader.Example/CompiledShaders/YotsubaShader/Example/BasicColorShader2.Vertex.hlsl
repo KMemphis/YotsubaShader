@@ -3,8 +3,8 @@ struct VS_Output
     float4 Color;
 };
 
-static const VS_Output _24 = { 0.0f.xxxx };
-static const int _42[5] = { 0, 0, 0, 0, 0 };
+static const VS_Output _29 = { 0.0f.xxxx };
+static const int _45[5] = { 0, 0, 0, 0, 0 };
 
 static float4 gl_Position;
 static float2 vertex_Position;
@@ -23,11 +23,21 @@ struct SPIRV_Cross_Output
     float4 gl_Position : SV_Position;
 };
 
+float4 NewVector4(float x, float y, float z)
+{
+    float4 _this;
+    _this.x = x;
+    _this.y = y;
+    _this.z = z;
+    _this.w = float(1);
+    return _this;
+}
+
 void VS_inner()
 {
-    VS_Output vertexOutput = _24;
-    float4 vec = float4(float(0), float(0), float(0), float(0));
-    int arr[5] = _42;
+    VS_Output vertexOutput = _29;
+    float4 vec = NewVector4(float(0), float(0), float(3));
+    int arr[5] = _45;
     arr[0] = 1;
     arr[1] = 3;
     arr[2] = 4;
@@ -36,12 +46,12 @@ void VS_inner()
     for (int _foreach_index_0 = 0; _foreach_index_0 < 5; _foreach_index_0++)
     {
         int VARIABLE = arr[_foreach_index_0];
-        vec = float4(vertex_Position.x, float(1), 0.0f, 1.0f);
+        vec = NewVector4(vertex_Position.x, float(1), float(3));
     }
     for (int _foreach_index_1 = 0; _foreach_index_1 < 5; _foreach_index_1++)
     {
         int VARIABLE_1 = arr[_foreach_index_1];
-        vec = float4(vertex_Position.x, float(1), 0.0f, 1.0f);
+        vec = NewVector4(vertex_Position.x, float(1), float(3));
     }
     gl_Position = vec;
     vertexOutput.Color = vertex_Color;

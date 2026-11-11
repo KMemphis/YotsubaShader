@@ -362,16 +362,40 @@ internal sealed partial class FunctionBodyEmitter
             $"Storage '{storage.HumanName}' of kind '{storage.Kind}' " +
             "does not have a SPIR-V pointer.");
     }
-    
+        
     private string EmitStructPropertyAddress(
         StorageStructPropertyReference property,
         ref Function function)
     {
-        if (TryGetExpressionStorage(property.Reference) is not CustomStruct structure)
+        Storage? ownerStorage = TryGetExpressionStorage(property.Reference);
+
+// v.X = ...: la dirección de un componente es un AccessChain sobre el puntero del vector.
+        if (ownerStorage is IRTypes.Vector vector &&
+            TryGetVectorComponentIndex(property.PropertyName, out uint componentIndex))
+        {
+            string vectorPointerId = EmitAddress(property.Reference, ref function);
+            SpirVStorageClass vectorStorageClass = ToSpirVStorageClass(GetRootStorage(property.Reference).Kind);
+
+            string componentTypeId = ComponentTypeIdOf(vector);
+            string componentPointerTypeId = _module.DeclarePointer(vectorStorageClass, componentTypeId);
+            string componentIndexId = _module.DeclareUIntConstant((int)componentIndex);
+
+            string componentAddressId = $"%address_{function.HumanName}_{function.Id.Value}_{_nextTemporaryValue++}";
+
+            _module.AddResultLine(
+                componentAddressId,
+                SpirVOpTable.OpAccessChain,
+                SpirVModuleHelpers.Id(componentPointerTypeId),
+                SpirVModuleHelpers.Id(vectorPointerId),
+                SpirVModuleHelpers.Id(componentIndexId));
+
+            return componentAddressId;
+        }
+
+        if (ownerStorage is not CustomStruct structure)
         {
             throw new NotSupportedException(
-                $"'{property.PropertyName}' has no address: its owner is not a struct " +
-                "(writing to a vector component is not supported yet).");
+                $"'{property.PropertyName}' has no address: its owner is neither a struct nor a vector.");
         }
 
         int memberIndex = IndexOfMember(structure, property.PropertyName);
@@ -404,6 +428,16 @@ internal sealed partial class FunctionBodyEmitter
         return resultId;
     }
 
+    private static string ComponentTypeIdOf(IRTypes.Vector vector) => vector.ComponentsType switch
+    {
+        VectorComponentsType.Float => SpirVTableTypesIds.FloatID,
+        VectorComponentsType.Int => SpirVTableTypesIds.IntID,
+        VectorComponentsType.Uint => SpirVTableTypesIds.UIntID,
+        VectorComponentsType.Double => SpirVTableTypesIds.FloatDinamicId(64),
+        _ => throw new NotSupportedException(
+            $"Vector component type '{vector.ComponentsType}' is not supported.")
+    };
+    
     private static int IndexOfMember(CustomStruct structure, string name)
     {
         for (int index = 0; index < structure.Properties.Count; index++)

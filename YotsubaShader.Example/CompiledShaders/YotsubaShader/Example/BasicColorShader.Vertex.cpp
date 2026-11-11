@@ -39,10 +39,20 @@ namespace Impl
         
         Resources* __res;
         
+        inline vec4 NewVector4(const float &x, const float &y, const float &z)
+        {
+            vec4 this;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.w = float(1);
+            return this;
+        }
+        
         inline void main()
         {
             struct VS_Output output;
-            output.Position = vec4(input_Position.x, input_Position.y, 0.0f, 1.0f);
+            output.Position = NewVector4(input_Position.x, input_Position.y, 2.0f);
             output.Color = input_Color;
             gl_Position = output.Position;
             _return_Color = output.Color;

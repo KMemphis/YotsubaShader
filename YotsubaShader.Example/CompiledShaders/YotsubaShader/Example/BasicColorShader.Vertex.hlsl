@@ -21,10 +21,20 @@ struct SPIRV_Cross_Output
     float4 gl_Position : SV_Position;
 };
 
+float4 NewVector4(float x, float y, float z)
+{
+    float4 _this;
+    _this.x = x;
+    _this.y = y;
+    _this.z = z;
+    _this.w = float(1);
+    return _this;
+}
+
 void VS_inner()
 {
     VS_Output _output;
-    _output.Position = float4(input_Position.x, input_Position.y, 0.0f, 1.0f);
+    _output.Position = NewVector4(input_Position.x, input_Position.y, 2.0f);
     _output.Color = input_Color;
     gl_Position = _output.Position;
     _return_Color = _output.Color;

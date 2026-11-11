@@ -26,15 +26,14 @@ public class BasicColorShader2
     {
         VS_Output vertexOutput = new VS_Output();
 
-        Vector4 vec = new Vector4(0,0,0,0);
+        Vector4 vec = new Vector4(0,0,3);
         var arr = new int[] { 1, 3, 4, 5, 6 };
         foreach (var VARIABLE in arr)
         {
             vec = new Vector4(
                 vertex.Position.X,
                 1,
-                0.0f,
-                1.0f);
+                3);
         }
         
         foreach (var VARIABLE in arr)
@@ -42,8 +41,7 @@ public class BasicColorShader2
             vec = new Vector4(
                 vertex.Position.X,
                 1,
-                0.0f,
-                1.0f);
+                3);
         }
 
         Position = vec;
