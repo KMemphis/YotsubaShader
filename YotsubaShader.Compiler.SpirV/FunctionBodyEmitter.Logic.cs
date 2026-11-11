@@ -107,6 +107,8 @@ internal sealed partial class FunctionBodyEmitter
             if (!_module.IsDefined(nullId))
             {
                 _module.AddResultLine(nullId, SpirVOpTable.OpConstantNull, SpirVModuleHelpers.Id(typeId));
+
+                _module.Name(nullId, $"{typeId.TrimStart('%')}_Null");
             }
 
             _module.AddLine(

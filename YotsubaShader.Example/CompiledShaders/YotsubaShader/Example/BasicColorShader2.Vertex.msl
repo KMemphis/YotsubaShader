@@ -49,7 +49,7 @@ struct VS_Output
     float4 Color;
 };
 
-constant spvUnsafeArray<int, 5> _45 = spvUnsafeArray<int, 5>({ 0, 0, 0, 0, 0 });
+constant spvUnsafeArray<int, 5> arr_int_5_Null = spvUnsafeArray<int, 5>({ 0, 0, 0, 0, 0 });
 
 struct VS_out
 {
