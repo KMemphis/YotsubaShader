@@ -82,6 +82,7 @@ using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.Literals;
 using YotsubaShader.IR.Intermediate.Slot;
 using YotsubaShader.IR.Intermediate.Slot.Types;
 using YotsubaShader.IR.Intermediate.Types;
+using YotsubaShader.Language.Exceptions;
 using YotsubaShader.Language.Native.Types;
 using YotsubaShader.Language.Native.Types.Texture;
 using YotsubaShader.Language.Native.Types.Vector;
@@ -406,8 +407,12 @@ public class ShaderProcessor
                     }
 
                     string value = GetComponentInitialValue(memberInfo, compilation);
-                    components.Add((int)memberAttributes.ConstructorArguments[0].Value!, value);
+
+
+                    AddVectorComponent(components, type, memberInfo, (int)memberAttributes.ConstructorArguments[0].Value!, value);
                 }
+
+                ValidateVectorComponents(components, type);
 
                 VectorComponentsType vectorComponentsType = componentsType?.SpecialType switch
                 {
@@ -626,6 +631,34 @@ public class ShaderProcessor
         return storage;
     }
 
+    /// <summary>Registra un componente de vector; el índice no puede ser negativo ni repetirse.</summary>
+    internal static void AddVectorComponent(
+        Dictionary<int, string> components, ITypeSymbol vectorType, ISymbol member, int index, string value)
+    {
+        if (index < 0)
+            throw new InvalidVectorComponentIndexException(vectorType.Name, member.Name, index,
+                "el índice no puede ser negativo");
+
+        if (!components.TryAdd(index, value))
+            throw new InvalidVectorComponentIndexException(vectorType.Name, member.Name, index,
+                "el índice ya lo usa otro componente");
+    }
+
+    /// <summary>Un vector tiene entre 2 y 4 componentes con índices contiguos desde 0.</summary>
+    internal static void ValidateVectorComponents(Dictionary<int, string> components, ITypeSymbol vectorType)
+    {
+        if (components.Count is < 2 or > 4)
+            throw new InvalidVectorComponentIndexException(vectorType.Name, null, null,
+                $"un vector necesita entre 2 y 4 componentes y tiene {components.Count}");
+
+        for (int i = 0; i < components.Count; i++)
+        {
+            if (!components.ContainsKey(i))
+                throw new InvalidVectorComponentIndexException(vectorType.Name, null, i,
+                    $"falta el componente {i}: los índices deben ser contiguos desde 0");
+        }
+    }
+    
     private static Storage? ProcessReturn(
         FunctionsInfo functions,
         Compilation compilation,
@@ -741,8 +774,10 @@ public class ShaderProcessor
                     }
 
                     string value = GetComponentInitialValue(memberInfo, compilation);
-                    components.Add((int)memberAttributes.ConstructorArguments[0].Value!, value);
+                    AddVectorComponent(components, symbol, memberInfo, (int)memberAttributes.ConstructorArguments[0].Value!, value);
                 }
+
+                ValidateVectorComponents(components, symbol);
 
                 components = components.OrderBy(x => x.Key).ToDictionary();
                 
