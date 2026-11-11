@@ -83,6 +83,7 @@ namespace YotsubaShader.Roslyn;
 public partial class StatementOperationProcessor : IStatementOperationProcessor
 {
     internal Storage? ThisStorage { get; set; }
+    public Dictionary<ISymbol, Storage> Globals = new Dictionary<ISymbol, Storage>();
     private int _loopDepth;
     private int _foreachCounter;
     public void ProcessStatement(

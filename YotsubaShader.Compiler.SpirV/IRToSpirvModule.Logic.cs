@@ -349,6 +349,11 @@ public partial class IRToSpirvModule
                         BuildIrTypes.InterfaceVariables(shaderFunction, storage))
                     .Select(leaf => SpirVModuleHelpers.Id(leaf.VariableId)));
             
+            // Desde SPIR-V 1.4 el interface lista todas las variables globales que usa el entry point.
+            parameters.AddRange(
+                shader.GlobalResources
+                    .Select(resource => SpirVModuleHelpers.Id(BuildIrTypes.GlobalVariableId(resource))));
+            
             module.AddLine(SpirVOpTable.OpEntryPoint, [.. parameters]);
 
         }
