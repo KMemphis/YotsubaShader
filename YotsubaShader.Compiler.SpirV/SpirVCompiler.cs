@@ -85,6 +85,10 @@ public class SpirVCompiler
         nextID = 1;
         StringToID.Clear();
 
+        // Un error interno de referencias se detecta aquí, con la instrucción y el ID responsables,
+        // y no como un binario mal formado que solo spirv-val rechazaría.
+        module.Validate();
+
         return ParseModuleToSpirV(module);
     }
 

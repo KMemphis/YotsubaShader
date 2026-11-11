@@ -153,7 +153,8 @@ public class SpirVSerializationTests
     public void String_literal_packs_its_characters_in_order_and_pads_to_whole_words()
     {
         var module = new SpirVModule();
-        module.Name("%id", "main"); // "main" + NUL = 5 bytes = 2 palabras
+        module.DeclareType(typeof(void));
+        module.Name("%void", "main"); // "main" + NUL = 5 bytes = 2 palabras
 
         Assert.True(ContainsBytes(Serialize(module), 0x6D, 0x61, 0x69, 0x6E, 0x00, 0x00, 0x00, 0x00));
     }

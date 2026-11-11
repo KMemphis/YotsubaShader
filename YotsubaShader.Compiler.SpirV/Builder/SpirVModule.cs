@@ -370,31 +370,168 @@ public class SpirVModule
           var sb = new StringBuilder();
           foreach (SpirVInstruction ins in Instructions)
           {
-               if (ins.Result is not null)
-               {
-                    sb.Append(ins.Result.PadLeft(14)).Append(" = ");
-               }
-               else
-               {
-                    sb.Append(' ', 17);
-               }
-
-               sb.Append(ins.Operation.Name);
-               if (ins.ResultType is not null)
-               {
-                    sb.Append(' ').Append(ins.ResultType);
-               }
-
-               foreach (SpirVInstructionParameter p in ins.Parameters)
-               {
-                    sb.Append(' ');
-                    sb.Append(p.Type == SpirVInstructionType.StringLiteral ? $"\"{p.Instruction}\"" : p.Instruction);
-               }
-
-               sb.Append('\n');
+               sb.Append(FormatInstruction(ins)).Append('\n');
           }
 
           return sb.ToString();
+     }
+
+     /// <summary>Una instrucción como una línea de texto spirv-as: <c>%result = OpX %type operandos</c>.</summary>
+     internal static string FormatInstruction(SpirVInstruction ins)
+     {
+          var sb = new StringBuilder();
+
+          if (ins.Result is not null)
+          {
+               sb.Append(ins.Result.PadLeft(14)).Append(" = ");
+          }
+          else
+          {
+               sb.Append(' ', 17);
+          }
+
+          sb.Append(ins.Operation.Name);
+          if (ins.ResultType is not null)
+          {
+               sb.Append(' ').Append(ins.ResultType);
+          }
+
+          foreach (SpirVInstructionParameter p in ins.Parameters)
+          {
+               sb.Append(' ');
+               sb.Append(p.Type == SpirVInstructionType.StringLiteral ? $"\"{p.Instruction}\"" : p.Instruction);
+          }
+
+          return sb.ToString();
+     }
+
+     private static readonly HashSet<string> Terminators =
+     [
+          "OpBranch", "OpBranchConditional", "OpSwitch", "OpKill", "OpReturn",
+          "OpReturnValue", "OpUnreachable", "OpTerminateInvocation"
+     ];
+
+     /// <summary>
+     /// Comprueba el módulo antes de serializarlo: cada ID usado está definido, ningún ID se define dos veces
+     /// y cada función es una secuencia válida de bloques. Un error aquí es un fallo del compilador de Yotsuba,
+     /// y el mensaje nombra la instrucción y el ID responsables.
+     /// </summary>
+     internal void Validate()
+     {
+          List<SpirVInstruction> instructions = [.. Instructions];
+
+          var defined = new Dictionary<string, SpirVInstruction>();
+          foreach (SpirVInstruction instruction in instructions)
+          {
+               if (instruction.Result is null) continue;
+
+               if (!defined.TryAdd(instruction.Result, instruction))
+               {
+                    throw new InvalidOperationException(
+                         $"Invalid SPIR-V module: the result ID {instruction.Result} is defined twice.\n" +
+                         $"  first:  {FormatInstruction(defined[instruction.Result]).Trim()}\n" +
+                         $"  second: {FormatInstruction(instruction).Trim()}");
+               }
+          }
+
+          foreach (SpirVInstruction instruction in instructions)
+          {
+               if (instruction.ResultType is not null && !defined.ContainsKey(instruction.ResultType))
+               {
+                    throw UndefinedId(instruction, instruction.ResultType, "result type");
+               }
+
+               foreach (SpirVInstructionParameter parameter in instruction.Parameters)
+               {
+                    if (parameter.Type == SpirVInstructionType.IdRef && !defined.ContainsKey(parameter.Instruction))
+                    {
+                         throw UndefinedId(instruction, parameter.Instruction, "operand");
+                    }
+               }
+          }
+
+          foreach (FunctionSection function in _functions)
+          {
+               ValidateFunction(function);
+          }
+     }
+
+     private static InvalidOperationException UndefinedId(SpirVInstruction instruction, string id, string role) =>
+          new($"Invalid SPIR-V module: {id} is used as the {role} of an instruction but is never defined.\n" +
+              $"  instruction: {FormatInstruction(instruction).Trim()}");
+
+     private static void ValidateFunction(FunctionSection function)
+     {
+          List<SpirVInstruction> instructions = [.. function.Header, .. function.Variables, .. function.Body];
+
+          string name = instructions.FirstOrDefault().Result ?? "<unnamed>";
+
+          if (instructions.Count == 0 || instructions[0].Operation.Name != "OpFunction")
+          {
+               throw new InvalidOperationException(
+                    $"Invalid SPIR-V module: function {name} does not start with OpFunction.");
+          }
+
+          bool inBlock = false;
+          bool sawBlock = false;
+          bool ended = false;
+
+          foreach (SpirVInstruction instruction in instructions.Skip(1))
+          {
+               string operation = instruction.Operation.Name;
+
+               if (ended)
+               {
+                    throw new InvalidOperationException(
+                         $"Invalid SPIR-V module: function {name} has instructions after OpFunctionEnd.\n" +
+                         $"  instruction: {FormatInstruction(instruction).Trim()}");
+               }
+
+               switch (operation)
+               {
+                    case "OpFunctionParameter" when !sawBlock:
+                         break;
+
+                    case "OpLabel":
+                         if (inBlock)
+                         {
+                              throw new InvalidOperationException(
+                                   $"Invalid SPIR-V module: in function {name}, the block before " +
+                                   $"{instruction.Result} does not end with a terminator.");
+                         }
+
+                         inBlock = sawBlock = true;
+                         break;
+
+                    case "OpFunctionEnd":
+                         if (inBlock)
+                         {
+                              throw new InvalidOperationException(
+                                   $"Invalid SPIR-V module: the last block of function {name} " +
+                                   "does not end with a terminator.");
+                         }
+
+                         ended = true;
+                         break;
+
+                    default:
+                         if (!inBlock)
+                         {
+                              throw new InvalidOperationException(
+                                   $"Invalid SPIR-V module: in function {name}, an instruction is outside any block.\n" +
+                                   $"  instruction: {FormatInstruction(instruction).Trim()}");
+                         }
+
+                         if (Terminators.Contains(operation)) inBlock = false;
+                         break;
+               }
+          }
+
+          if (!ended)
+          {
+               throw new InvalidOperationException(
+                    $"Invalid SPIR-V module: function {name} does not end with OpFunctionEnd.");
+          }
      }
 }
 
