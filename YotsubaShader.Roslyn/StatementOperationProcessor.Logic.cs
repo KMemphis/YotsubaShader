@@ -117,6 +117,9 @@ public partial class StatementOperationProcessor
                 return new StorageReference(GetStorage(localReferenceOperation.Local, inputs, outputs));
             case IParameterReferenceOperation parameterReferenceOperation:
                 return new StorageReference(GetStorage(parameterReferenceOperation.Parameter, inputs, outputs));
+            case IFieldReferenceOperation { Instance: IInstanceReferenceOperation } resourceField
+                when Globals is not null && Globals.TryGetValue(resourceField.Field, out Storage? resource):
+                return new StorageReference(resource);
             case IFieldReferenceOperation fieldReferenceOperation:
                 return ProcessMemberReference(fieldReferenceOperation.Instance,
                     fieldReferenceOperation.Field.Name,

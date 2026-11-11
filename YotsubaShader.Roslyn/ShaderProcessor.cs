@@ -151,7 +151,7 @@ public class ShaderProcessor
             PendingFunctionsInfos = new List<FunctionsInfo>();
             foreach (var shaderInfoEntryPoint in shaderInfo.Functions)
             {
-                ProcessShaderFunction(compilation, shaderInfoEntryPoint, functions, PendingFunctionsInfos);
+                ProcessShaderFunction(compilation, shaderInfoEntryPoint, functions, PendingFunctionsInfos, globals);
             }
 
             for (int index = 0;
@@ -159,12 +159,12 @@ public class ShaderProcessor
                  index++)
             {
                 var functionInfo = PendingFunctionsInfos[index];
-
                 ProcessShaderFunction(
                     compilation,
                     functionInfo,
                     functions,
-                    PendingFunctionsInfos);
+                    PendingFunctionsInfos,
+                    globals);
             }
 
             var shader = new Shader(functions, globals.Values.ToArray());
@@ -174,16 +174,15 @@ public class ShaderProcessor
         return shaders;
     }
 
-    private static void ProcessShaderFunction(Compilation compilation, FunctionsInfo shaderInfoEntryPoint, List<Function> shaderFunction, List<FunctionsInfo> extraMethods)
+    private static void ProcessShaderFunction(Compilation compilation, FunctionsInfo shaderInfoEntryPoint, List<Function> shaderFunction, List<FunctionsInfo> extraMethods, Dictionary<ISymbol, Storage> globals)
     {
-        
         if (!functionIds.TryGetValue(shaderInfoEntryPoint.Method, out var functionId))
         {
             functionId = new FunctionId((uint)functionIds.Count);
             functionIds[shaderInfoEntryPoint.Method] = functionId;
         }
         
-        var processor = new StatementOperationProcessor();
+        var processor = new StatementOperationProcessor(){ Globals = globals};
         IRStage stage = shaderInfoEntryPoint.Stage switch
         {
             LanguageStage.Compute  => IRStage.Compute,
@@ -1324,21 +1323,50 @@ public class ShaderProcessor
         Dictionary<ISymbol, Storage> inputs,
         Compilation compilation)
     {
-        foreach (var member in shaderType.GetMembers()
-                     .OfType<IFieldSymbol>())
+        foreach (ISymbol member in shaderType.GetMembers())
         {
-            if(member.IsStatic || member.IsImplicitlyDeclared) continue;
+            if (member.IsStatic || member.IsImplicitlyDeclared) continue;
+            if (member is not (IFieldSymbol or IPropertySymbol)) continue;
 
             StorageKind kind = GetStorageKind(member, compilation);
-            
-            if(kind is not (StorageKind.Texture or StorageKind.Sampler)) continue;
+
+            bool isBuffer = kind is StorageKind.Uniform or StorageKind.StorageBuffer;
+
+            if (member is IPropertySymbol)
+            {
+                if (isBuffer)
+                {
+                    throw new NotSupportedException(
+                        $"The {kind} resource '{member.Name}' is declared as a property. " +
+                        "Declare it as a field.");
+                }
+
+                continue;
+            }
+
+            if (kind is not (StorageKind.Texture or StorageKind.Sampler or
+                StorageKind.Uniform or StorageKind.StorageBuffer)) continue;
 
             InterfaceSlot? slot = GetAttributeData(member.GetAttributes(), Stage.None);
+
+            if (isBuffer && slot is not DescriptorSlot)
+            {
+                throw new NotSupportedException(
+                    $"The {kind} resource '{member.Name}' has no descriptor binding. " +
+                    "Give it a set and a binding, for example [DescriptorSet(0)] [Binding(0)].");
+            }
+
+            if (isBuffer && ((IFieldSymbol)member).Type.TypeKind != TypeKind.Struct)
+            {
+                throw new NotSupportedException(
+                    $"The {kind} resource '{member.Name}' has type " +
+                    $"'{((IFieldSymbol)member).Type.ToDisplayString()}'. Only scalars, vectors and structs are supported.");
+            }
+
             Storage resource = GetStorage(member, null, slot, compilation, Stage.None);
-            inputs.TryAdd(member,resource);
+            inputs.TryAdd(member, resource);
         }
     }
-    
     private static bool TryGetConceptArgument(
         AttributeData attribute,
         string conceptKey,
