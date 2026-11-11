@@ -39,9 +39,11 @@ public record CompiledCode(
         var compiler = new CompilerHLSL(ByteArrToCppVector());
 
         compiler.set_entry_point(entryPoint, executionModel);
-
+        
         CompilerHLSL.Options options = compiler.get_hlsl_options();
         options.use_entry_point_name = true;
+        options.user_semantic = true;
+        options.shader_model = 50;
         compiler.set_hlsl_options(options);
 
         return compiler.compile().str();

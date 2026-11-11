@@ -71,6 +71,7 @@ using YotsubaShader.Compiler.SpirV.YS_Types;
 using YotsubaShader.IR.Intermediate;
 using YotsubaShader.IR.Intermediate.FunctionBody;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.AssignmentTargets;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.FunctionCalls;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.Literals;
 using YotsubaShader.IR.Intermediate.FunctionBody.Statements;
@@ -89,6 +90,19 @@ public partial class IRToSpirvModule
     private void BuildHeader(SpirVModule module, Shader shader)
     {
         CheckCapabilities(module, shader);
+        
+        module.AddLine(
+            SpirVOpTable.OpExtension,
+            new SpirVInstructionParameter(
+                "SPV_GOOGLE_decorate_string",
+                SpirVInstructionType.StringLiteral));
+
+        module.AddLine(
+            SpirVOpTable.OpExtension,
+            new SpirVInstructionParameter(
+                "SPV_GOOGLE_hlsl_functionality1",
+                SpirVInstructionType.StringLiteral));
+        
         module.AddLine(SpirVOpTable.OpMemoryModel, new []
         {
             SpirVInstructionParameter.Enumerant(SpirVAddressingModel.Logical),
@@ -117,36 +131,10 @@ public partial class IRToSpirvModule
                 AddCapabilityForStorage(shaderFunctionOutput, emittedCapabilities);
             }
             
+            
             foreach (var statement in shaderFunction.Body)
             {
-                switch (statement)
-                {
-                    case Block block:
-                        foreach (var childStatement in block.Statements)
-                        {
-                            CheckStatementCapabilities(module, childStatement, emittedCapabilities);
-                        }
-                        break;
-
-                    case VariableDeclaration declaration:
-                        AddCapabilityForStorage(declaration.Storage, emittedCapabilities);
-
-                        if (declaration.Initializer is not null)
-                        {
-                            AddCapabilityForExpression(
-                                declaration.Initializer, emittedCapabilities);
-                        }
-                        break;
-
-                    case Assignment assignment:
-                        AddCapabilityForExpression(assignment.Target, emittedCapabilities);
-                        AddCapabilityForExpression(assignment.Value, emittedCapabilities);
-                        break;
-
-                    case Return { Value: not null } @return:
-                        AddCapabilityForExpression(@return.Value, emittedCapabilities);
-                        break;
-                }
+                CheckStatementCapabilities(module, statement, emittedCapabilities);
             }
         }
         
@@ -183,6 +171,20 @@ public partial class IRToSpirvModule
                 AddCapabilityForExpression(assignment.Target, emittedCapabilities);
                 AddCapabilityForExpression(assignment.Value, emittedCapabilities);
                 break;
+            case If ifStatement:
+                AddCapabilityForExpression(ifStatement.Condition, emittedCapabilities);
+                CheckStatementCapabilities(module, ifStatement.Then, emittedCapabilities);
+                if (ifStatement.Else is not null)
+                {
+                    CheckStatementCapabilities(module, ifStatement.Else, emittedCapabilities);
+                }
+                break;
+            case Loop loop:
+                AddCapabilityForExpression(loop.Condition, emittedCapabilities);
+                AddCapabilityForExpression(loop.BottomCondition, emittedCapabilities);
+                CheckStatementCapabilities(module, loop.Body, emittedCapabilities);
+                CheckStatementCapabilities(module, loop.Continuing, emittedCapabilities);
+                break;
         }
     }
 
@@ -210,7 +212,9 @@ public partial class IRToSpirvModule
                 AddCapabilityForExpression(binary.Left, emittedCapabilities);
                 AddCapabilityForExpression(binary.Right, emittedCapabilities);
                 break;
-
+            case UnaryExpression unary:
+                AddCapabilityForExpression(unary.Operand, emittedCapabilities);
+                break;
             case VectorExpression vector:
                 foreach (Expression value in vector.Values)
                 {
@@ -333,10 +337,10 @@ public partial class IRToSpirvModule
                     .Concat(shaderFunction.Outputs)
                     .Where(storage =>
                         storage.Kind is StorageKind.Input or StorageKind.Output)
-                    .Select(storage =>
-                        SpirVModuleHelpers.Id(
-                            $"%{shaderFunction.HumanName}_{storage.Kind}_{storage.HumanName}")));
-
+                    .SelectMany(storage =>
+                        BuildIrTypes.InterfaceVariables(shaderFunction, storage))
+                    .Select(leaf => SpirVModuleHelpers.Id(leaf.VariableId)));
+            
             module.AddLine(SpirVOpTable.OpEntryPoint, [.. parameters]);
 
         }
@@ -376,14 +380,7 @@ public partial class IRToSpirvModule
 
     private void BuildFunctionTypes(SpirVModule module)
     {
-        string voidTypeId = module.DeclareType(typeof(void));
-
-        module.AddResultLine(
-            SpirVTableTypesIds.VoidFunctionID,
-            SpirVOpTable.OpTypeFunction,
-            new SpirVInstructionParameter(voidTypeId, SpirVInstructionType.IdRef)
-        );
-        
+       module.DeclareType(typeof(void));
     }
 
     private static void BuildDebugNames(
@@ -408,27 +405,13 @@ public partial class IRToSpirvModule
             
             foreach (Storage storage in function.Inputs.Concat(function.Outputs))
             {
-                string variableId = BuildIrTypes.InterfaceVariableId(
-                    function,
-                    storage);
+                bool flattened = BuildIrTypes.IsInterfaceStruct(function, storage);
 
-                module.Name(variableId, storage.HumanName);
-
-                if (storage is not CustomStruct structure)
-                    continue;
-
-                string structId = SpirVTableTypesIds.StructID(
-                    structure,
-                    function.Stage);
-
-                module.Name(structId, structure.TypeName);
-
-                for (int index = 0; index < structure.Properties.Count; index++)
+                foreach (var (leaf, variableId) in BuildIrTypes.InterfaceVariables(function, storage))
                 {
-                    module.MemberName(
-                        structId,
-                        index,
-                        structure.Properties[index].HumanName);
+                    module.Name(
+                        variableId,
+                        flattened ? $"{storage.HumanName}_{leaf.HumanName}" : storage.HumanName);
                 }
             }
         }
@@ -465,6 +448,27 @@ public partial class IRToSpirvModule
             case Return { Value:not null} @return:
                 DeclareExpressionConstants(module, @return.Value, stage);
                 break;
+            case If ifStatement:
+                DeclareExpressionConstants(module, ifStatement.Condition, stage);
+                DeclareStatementConstants(module, ifStatement.Then, stage);
+                if (ifStatement.Else is not null)
+                {
+                    DeclareStatementConstants(module, ifStatement.Else, stage);
+                }
+                break;
+            case Loop loop:
+                if (loop.Condition is not null)
+                {
+                    DeclareExpressionConstants(module, loop.Condition, stage);
+                }
+                if (loop.BottomCondition is not null)
+                {
+                    DeclareExpressionConstants(module, loop.BottomCondition, stage);
+                }
+                DeclareStatementConstants(module, loop.Body, stage);
+                DeclareStatementConstants(module, loop.Continuing, stage);
+                break;
+            
         }
     }
 
@@ -534,6 +538,13 @@ public partial class IRToSpirvModule
                     DeclareExpressionConstants(module, argument, stage);
                 }
                 break;
+            case StorageArrayElementReference arrayElement:
+                DeclareExpressionConstants(module, arrayElement.ArrayReference, stage);
+                DeclareExpressionConstants(module, arrayElement.Index, stage);
+                break;
+            case UnaryExpression unary:
+                DeclareExpressionConstants(module, unary.Operand, stage);
+                break;
         }
     }
 
@@ -552,19 +563,9 @@ public partial class IRToSpirvModule
             ? SpirVTableTypesIds.VoidID
             : module.DeclareType(returnStorage, Stage.None);
     }
-
-    private static string DeclareFunctionType(
-        SpirVModule module,
-        Function function)
+    private static string DeclareFunctionType(SpirVModule module, Function function)
     {
-        string functionTypeId =
-            $"%fn_type_{function.Id.Value}";
-
-        if (module.IsDefined(functionTypeId))
-            return functionTypeId;
-
-        string returnTypeId =
-            GetFunctionReturnType(module, function);
+        string returnTypeId = GetFunctionReturnType(module, function);
 
         var parameters = new List<SpirVInstructionParameter>
         {
@@ -576,23 +577,24 @@ public partial class IRToSpirvModule
         {
             foreach (Storage input in function.Inputs)
             {
-                string inputTypeId =
-                    module.DeclareType(input, Stage.None);
+                string inputTypeId = module.DeclareType(input, Stage.None);
 
-                parameters.Add(
-                    new SpirVInstructionParameter(
-                        inputTypeId,
-                        SpirVInstructionType.IdRef));
+                parameters.Add(new SpirVInstructionParameter(inputTypeId, SpirVInstructionType.IdRef));
             }
         }
 
-        module.AddResultLine(
-            functionTypeId,
-            SpirVOpTable.OpTypeFunction,
-            parameters.ToArray());
+        // El ID depende de la firma: dos funciones void() comparten el mismo tipo.
+        string functionTypeId = "%fn_type_" +
+                                string.Join("_", parameters.Select(p => p.Instruction.TrimStart('%')));
+
+        if (module.IsDefined(functionTypeId))
+            return functionTypeId;
+
+        module.AddResultLine(functionTypeId, SpirVOpTable.OpTypeFunction, parameters.ToArray());
 
         return functionTypeId;
     }
+    
     private static void BuildFunctionSkeletons(
         SpirVModule module,
         Shader shader)
@@ -650,10 +652,7 @@ public partial class IRToSpirvModule
             FunctionBodyEmitter emitter = new FunctionBodyEmitter(module, pointers, values);
             emitter.EmitStatements(shaderFunction.Body, shaderFunction, shader.Functions);
             
-            if (!EndsInReturn(shaderFunction.Body))
-            {
-                module.AddLine(SpirVOpTable.OpReturn);
-            }
+            emitter.FinishFunction(shaderFunction);
 
             module.AddLine(SpirVOpTable.OpFunctionEnd);
             
@@ -688,7 +687,6 @@ public partial class IRToSpirvModule
     {
         return $"%fn_{function.HumanName}_{function.Id.Value}";
     }
-
     private void BuildDecorations(SpirVModule module, Shader shader)
     {
         foreach (var shaderGlobalResource in shader.GlobalResources)
@@ -704,35 +702,33 @@ public partial class IRToSpirvModule
 
             foreach (var storage in shaderFunction.Inputs.Concat(shaderFunction.Outputs))
             {
-                string variableId = BuildIrTypes.InterfaceVariableId(shaderFunction, storage);
-                
-                if (storage.Kind is not (
-                    StorageKind.Input or StorageKind.Output))
+                if (storage.Kind is not (StorageKind.Input or StorageKind.Output))
                 {
                     continue;
                 }
-                
-                if (storage is CustomStruct structure)
-                {
-                    string structId = SpirVTableTypesIds.StructID(structure, shaderFunction.Stage);
 
-                    module.AddLine(
-                        SpirVOpTable.OpDecorate,
-                        SpirVModuleHelpers.Id(structId),
-                        SpirVInstructionParameter.Enumerant(SpirVDecoration.Block));
-                    
-                    for (int memberIndex = 0; memberIndex < structure.Properties.Count; memberIndex++)
+                // Cada miembro de un struct de interfaz es su propia variable, con su propia decoración.
+                foreach (var (leaf, variableId) in BuildIrTypes.InterfaceVariables(shaderFunction, storage))
+                {
+                    if (leaf.Slot is null)
                     {
-                        DecorateMember(module, structId, memberIndex, structure.Properties[memberIndex].Slot);
-                    }
-                    continue;
-                }
+                        // Un fragment shader que devuelve un valor sin anotar escribe en el render target 0.
+                        if (shaderFunction.Stage == Stage.Fragment &&
+                            storage.Kind == StorageKind.Output &&
+                            storage is not CustomStruct)
+                        {
+                            DecorateVariable(module, variableId, new LocationSlot(0));
+                        }
 
-                DecorateVariable(module, variableId, storage.Slot);
+                        continue;
+                    }
+
+                    DecorateVariable(module, variableId, leaf.Slot);
+                }
             }
         }
     }
-
+    
     private void DecorateDescriptor(SpirVModule module, string globalVariableId, DescriptorSlot descriptor)
     {
         module.AddLine(
@@ -769,6 +765,17 @@ public partial class IRToSpirvModule
                     SpirVInstructionParameter.Enumerant(SpirVDecoration.Location),
                     new(locationSlot.Location.ToString(), SpirVInstructionType.UIntValue));
                 break;
+            case VertexSlot vertexSlot:
+                module.AddLine(SpirVOpTable.OpDecorate,
+                    SpirVModuleHelpers.Id(variableId),
+                    SpirVInstructionParameter.Enumerant(SpirVDecoration.Location),
+                    new(ResolveVertexLocation(vertexSlot.Semantic).ToString(), SpirVInstructionType.UIntValue));
+
+                module.AddLine(SpirVOpTable.OpDecorateString,
+                    SpirVModuleHelpers.Id(variableId),
+                    SpirVInstructionParameter.Enumerant(SpirVDecoration.UserSemantic),
+                    new(ToHlslSemantic(vertexSlot.Semantic), SpirVInstructionType.StringLiteral));
+                break;
         }
     }
 
@@ -792,15 +799,37 @@ public partial class IRToSpirvModule
                     SpirVInstructionParameter.Enumerant(SpirVDecoration.Location),
                     new(locationSlot.Location.ToString(), SpirVInstructionType.UIntValue));
                 break;
-            case VertexSlot vertex:
-                int location = ResolveVertexLocation(vertex.Semantic);
+            case VertexSlot vertexSlot:
+            {
+                int location = ResolveVertexLocation(vertexSlot.Semantic);
+                string semantic = ToHlslSemantic(vertexSlot.Semantic);
+
                 module.AddLine(
                     SpirVOpTable.OpMemberDecorate,
                     SpirVModuleHelpers.Id(structId),
-                    new SpirVInstructionParameter(memberIndex.ToString(), SpirVInstructionType.UIntValue),
-                    SpirVInstructionParameter.Enumerant(SpirVDecoration.Location),
-                    new(location.ToString(), SpirVInstructionType.UIntValue));
+                    new(
+                        memberIndex.ToString(),
+                        SpirVInstructionType.UIntValue),
+                    SpirVInstructionParameter.Enumerant(
+                        SpirVDecoration.Location),
+                    new(
+                        location.ToString(),
+                        SpirVInstructionType.UIntValue));
+
+                module.AddLine(
+                    SpirVOpTable.OpMemberDecorateString,
+                    SpirVModuleHelpers.Id(structId),
+                    new(
+                        memberIndex.ToString(),
+                        SpirVInstructionType.UIntValue),
+                    SpirVInstructionParameter.Enumerant(
+                        SpirVDecoration.UserSemantic),
+                    new(
+                        semantic,
+                        SpirVInstructionType.StringLiteral));
+
                 break;
+            }
         }
     }
 

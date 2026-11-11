@@ -79,6 +79,7 @@ using YotsubaShader.IR.Intermediate.ValueConvertions;
 using YotsubaShader.Language.Native.Types.Vector;
 using YotsubaShader.Language.Native.Types.Vector.Exceptions;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.FunctionCalls;
+using YotsubaShader.IR.Intermediate.FunctionBody.Statements;
 using YotsubaShader.Roslyn.Model;
 using IRTypes = YotsubaShader.IR.Intermediate.Types;
 namespace YotsubaShader.Roslyn;
@@ -88,6 +89,20 @@ public partial class StatementOperationProcessor
     private readonly Dictionary<ISymbol, Storage> _locals =
         new(SymbolEqualityComparer.Default);
 
+    private readonly Dictionary<string, int> _localNameCounts = new();
+
+    private string UniqueLocalName(string name)
+    {
+        if (!_localNameCounts.TryGetValue(name, out int count))
+        {
+            _localNameCounts[name] = 1;
+            return name;
+        }
+
+        _localNameCounts[name] = count + 1;
+        return $"{name}_{count}";
+    }
+    
     private Expression? ProcessExpression(
         IOperation initializerOperationValue, 
         Dictionary<ISymbol, Storage> inputs, 
@@ -122,12 +137,45 @@ public partial class StatementOperationProcessor
                     objectCreationOperation, inputs, outputs, compilation, stage);
             case IInvocationOperation invocationOperation:
                 return ProcessInvocationExpression(invocationOperation, inputs, outputs, compilation, stage);
+            case IUnaryOperation unaryOperation:
+                return ProcessUnaryExpression(unaryOperation, inputs, outputs, compilation, stage);
+            case IArrayElementReferenceOperation arrayElement:
+            {
+                if (arrayElement.Indices.Length != 1)
+                {
+                    throw new NotSupportedException("Only single-index array access is supported.");
+                }
+
+                var array = ProcessExpression(arrayElement.ArrayReference, inputs, outputs, compilation, stage)
+                            ?? throw new NotSupportedException("The array reference did not produce an expression.");
+                var index = ProcessExpression(arrayElement.Indices[0], inputs, outputs, compilation, stage)
+                            ?? throw new NotSupportedException("The array index did not produce an expression.");
+
+                return new StorageArrayElementReference(array, index);
+            }
         }
 
         throw new NotSupportedException(
             $"Expression operation '{initializerOperationValue.Kind}' is not supported yet.");
     }
 
+    private Expression? ProcessUnaryExpression(IUnaryOperation operation,
+        Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation, Stage stage)
+    {
+        var operand = ProcessExpression(operation.Operand, inputs, outputs, compilation, stage)
+                      ?? throw new NotSupportedException("The unary operand did not produce an expression.");
+
+        return operation.OperatorKind switch
+        {
+            UnaryOperatorKind.Minus => new UnaryExpression(UnaryOperator.Negate, operand),
+            UnaryOperatorKind.Not   => new UnaryExpression(UnaryOperator.LogicalNot, operand),
+            UnaryOperatorKind.Plus  => operand,
+            _ => throw new NotSupportedException(
+                $"The unary operator '{operation.OperatorKind}' is not supported.")
+        };
+    }
+    
     private (
     FunctionId FunctionId,
     IReadOnlyList<Expression> Arguments)
@@ -445,6 +493,26 @@ public partial class StatementOperationProcessor
         if(storage is not null)
             return storage;
 
+        if (symbol.Type is IArrayTypeSymbol arrayType)
+        {
+            if (arrayType.Rank != 1)
+            {
+                throw new NotSupportedException(
+                    $"Multi-dimensional array '{symbol.Name}' is not supported.");
+            }
+
+            Storage element = CreateScalarStorage(arrayType.ElementType, "element", storageKind)
+                              ?? throw new NotSupportedException(
+                                  $"Arrays of '{arrayType.ElementType.ToDisplayString()}' are not supported yet " +
+                                  "(only int, uint, float, double and bool elements).");
+
+            return new IRTypes.Array(symbol.Name, storageKind, null)
+            {
+                ElementType = element,
+                Length = null
+            };
+        }
+        
         var type = symbol.Type;
 
        
@@ -601,8 +669,78 @@ public partial class StatementOperationProcessor
             BinaryOperatorKind.Multiply => BinaryOperator.Multiply,
             BinaryOperatorKind.Divide => BinaryOperator.Divide,
             BinaryOperatorKind.Remainder => BinaryOperator.Remainder,
+            BinaryOperatorKind.ConditionalAnd => BinaryOperator.LogicalAnd,
+            BinaryOperatorKind.ConditionalOr  => BinaryOperator.LogicalOr,
+            BinaryOperatorKind.Equals             => BinaryOperator.Equal,
+            BinaryOperatorKind.NotEquals          => BinaryOperator.NotEqual,
+            BinaryOperatorKind.LessThan           => BinaryOperator.Less,
+            BinaryOperatorKind.LessThanOrEqual    => BinaryOperator.LessEqual,
+            BinaryOperatorKind.GreaterThan        => BinaryOperator.Greater,
+            BinaryOperatorKind.GreaterThanOrEqual => BinaryOperator.GreaterEqual,
             _ => throw new NotSupportedException(
                 $"The binary operator '{operatorKind}' is not supported.")
         };
     }
+    
+    private static Storage? CreateScalarStorage(ITypeSymbol type, string name, StorageKind kind)
+{
+    return type.SpecialType switch
+    {
+        SpecialType.System_Int32 => new IRTypes.Int(name, kind, null) { Bits = 32, Signed = true },
+        SpecialType.System_UInt32 => new IRTypes.Int(name, kind, null) { Bits = 32, Signed = false },
+        SpecialType.System_Single => new IRTypes.Float(name, kind, null),
+        SpecialType.System_Double => new IRTypes.Double(name, kind, null),
+        SpecialType.System_Boolean => new IRTypes.Bool(name, kind, null),
+        _ => null
+    };
+}
+
+private void ProcessLocalArrayDeclaration(
+    ILocalSymbol symbol,
+    IRTypes.Array arrayStorage,
+    IVariableInitializerOperation? initializerOperation,
+    Dictionary<ISymbol, Storage> inputs,
+    Dictionary<ISymbol, Storage> outputs,
+    Compilation compilation,
+    Stage stage,
+    List<Statement> statements)
+{
+    if (initializerOperation?.Value is not IArrayCreationOperation creation)
+    {
+        throw new NotSupportedException(
+            $"Array '{symbol.Name}' must be initialized with 'new T[N]' or 'new T[] {{ ... }}'.");
+    }
+
+    if (creation.DimensionSizes.Length != 1 ||
+        creation.DimensionSizes[0].ConstantValue is not { HasValue: true, Value: int size } ||
+        size <= 0)
+    {
+        throw new NotSupportedException(
+            $"The length of array '{symbol.Name}' must be a positive compile-time constant.");
+    }
+
+    Storage storage = arrayStorage with { Length = (uint)size };
+    _locals.Add(symbol, storage);
+
+    // Sin inicializador explícito, el emisor la deja a cero (como C#).
+    statements.Add(new VariableDeclaration(storage, null));
+
+    if (creation.Initializer is null)
+    {
+        return;
+    }
+
+    for (int index = 0; index < creation.Initializer.ElementValues.Length; index++)
+    {
+        Expression value = ProcessExpression(
+                creation.Initializer.ElementValues[index], inputs, outputs, compilation, stage)
+            ?? throw new NotSupportedException("An array element did not produce an expression.");
+
+        statements.Add(new Assignment(
+            new StorageArrayElementReference(
+                new StorageReference(storage),
+                new IntLiteral(index.ToString(CultureInfo.InvariantCulture), true)),
+            value));
+    }
+}
 }

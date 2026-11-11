@@ -278,24 +278,69 @@ public static class SpirVModuleHelpers
                     Int((int)texture.Usage),
                     Enumerant(texture.Format.ToString(), (uint)texture.Format));
             }
+            case IR.Intermediate.Types.Array array:
+            {
+                if (array.Length is not uint length)
+                {
+                    throw new NotSupportedException(
+                        "Arrays of runtime-defined length are not supported yet.");
+                }
+
+                string elementTypeId = module.DeclareType(array.ElementType, stage);
+                string lengthId = module.DeclareUIntConstant(checked((int)length));
+
+                return Define(module,
+                    $"%arr_{elementTypeId.TrimStart('%')}_{length}",
+                    SpirVOpTable.OpTypeArray,
+                    Id(elementTypeId),
+                    Id(lengthId));
+            }
             default:
                 throw new Exception();
         }
     }
-
-    private static string DefineStruct(SpirVModule module, CustomStruct customStruct, Stage stage)
+    private static string DefineStruct(
+        SpirVModule module,
+        CustomStruct customStruct,
+        Stage stage)
     {
-        var memberTypes = customStruct.Properties
-            .Select(property => module.DeclareType(property, stage))
-            .Select(Id)
-            .ToArray();
+        string structId =
+            SpirVTableTypesIds.StructID(customStruct, stage);
 
-        return Define(module, 
-            SpirVTableTypesIds.StructID(customStruct, stage), 
+        bool isNew = !module.IsDefined(structId);
+
+        string result = Define(
+            module,
+            structId,
             SpirVOpTable.OpTypeStruct,
-            memberTypes);
-    }
+            customStruct.Properties
+                .Select(property => module.DeclareType(property, stage))
+                .Select(SpirVModuleHelpers.Id)
+                .ToArray());
 
+        if (isNew)
+        {
+            string debugName =
+                customStruct.Kind == StorageKind.Local
+                    ? $"{customStruct.TypeName}_Local"
+                    : customStruct.TypeName;
+
+            module.Name(result, debugName);
+
+            for (int index = 0;
+                 index < customStruct.Properties.Count;
+                 index++)
+            {
+                module.MemberName(
+                    result,
+                    index,
+                    customStruct.Properties[index].HumanName);
+            }
+        }
+
+        return result;
+    }
+    
     private static string EmitType(SpirVModule module, Type type)
     {
         if (type == typeof(void))

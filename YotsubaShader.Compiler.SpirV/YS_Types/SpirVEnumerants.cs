@@ -123,6 +123,7 @@ public enum SpirVDecoration : uint
     Binding = 33,
     DescriptorSet = 34,
     Offset = 35,
+    UserSemantic = 5635
 }
 
 /// <summary>Máscara de bits en la especificación: None = 0 y el resto se pueden combinar.</summary>

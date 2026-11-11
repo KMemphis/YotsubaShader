@@ -85,6 +85,46 @@ public static class BuildIrTypes
         Storage storage) =>
         $"%{function.HumanName}_{storage.Kind}_{storage.HumanName}";
     
+    
+    internal static bool IsInterfaceStruct(Function function, Storage storage) =>
+        function.Stage != Stage.None &&
+        storage is IRTypes.CustomStruct &&
+        storage.Kind is StorageKind.Input or StorageKind.Output;
+
+    internal static string InterfaceMemberVariableId(
+        Function function,
+        Storage structure,
+        Storage member) =>
+        $"{InterfaceVariableId(function, structure)}_{member.HumanName}";
+
+    /// Las variables de interfaz reales: una por miembro si es un struct, o la propia variable.
+    internal static IEnumerable<(Storage Storage, string VariableId)> InterfaceVariables(
+        Function function,
+        Storage storage)
+    {
+        if (!IsInterfaceStruct(function, storage))
+        {
+            yield return (storage, InterfaceVariableId(function, storage));
+            yield break;
+        }
+
+        var structure = (IRTypes.CustomStruct)storage;
+
+        foreach (Storage member in structure.Properties)
+        {
+            if (member is IRTypes.CustomStruct)
+            {
+                throw new NotSupportedException(
+                    $"Nested struct '{member.HumanName}' inside the stage interface struct " +
+                    $"'{structure.TypeName}' is not supported yet.");
+            }
+
+            yield return (
+                member with { Kind = structure.Kind },
+                InterfaceMemberVariableId(function, structure, member));
+        }
+    }
+    
     public static void BuildRequiredTypes(SpirVModule module, Shader shader)
     {
         foreach (var shaderGlobalResource in shader.GlobalResources)
@@ -98,14 +138,12 @@ public static class BuildIrTypes
             if (shaderFunction.Stage == Stage.None)
                 continue;
             
-            foreach (var shaderFunctionInput in shaderFunction.Inputs)
+            foreach (var shaderFunctionInterface in shaderFunction.Inputs.Concat(shaderFunction.Outputs))
             {
-                BuildStorageTypes(module, shaderFunctionInput,  InterfaceVariableId(shaderFunction, shaderFunctionInput), shaderFunction.Stage);
-            }
-
-            foreach (var shaderFunctionOutput in shaderFunction.Outputs)
-            {
-                BuildStorageTypes(module, shaderFunctionOutput, InterfaceVariableId(shaderFunction, shaderFunctionOutput), shaderFunction.Stage);
+                foreach (var (leaf, variableId) in InterfaceVariables(shaderFunction, shaderFunctionInterface))
+                {
+                    BuildStorageTypes(module, leaf, variableId, shaderFunction.Stage);
+                }
             }
         }
     }

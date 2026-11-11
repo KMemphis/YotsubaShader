@@ -69,6 +69,7 @@
 using YotsubaShader.Compiler.SpirV.Builder;
 using YotsubaShader.Compiler.SpirV.YS_Types;
 using YotsubaShader.IR.Intermediate;
+using YotsubaShader.IR.Intermediate.Slot.Types;
 
 namespace YotsubaShader.Compiler.SpirV;
 
@@ -92,5 +93,34 @@ public partial class IRToSpirvModule
         BuildFunctionSkeletons(module, shader);
         // 4. Funciones y sus cuerpos.
         return module;
+    }
+    
+    private static string ToHlslSemantic(VertexSemantic semantic)
+    {
+        return semantic.Usage switch
+        {
+            VertexUsage.Position =>
+                semantic.Index == 0
+                    ? "POSITION"
+                    : $"POSITION{semantic.Index}",
+
+            VertexUsage.Color =>
+                $"COLOR{semantic.Index}",
+
+            VertexUsage.TextureCoordinate =>
+                $"TEXCOORD{semantic.Index}",
+
+            VertexUsage.Normal =>
+                $"NORMAL{semantic.Index}",
+
+            VertexUsage.Tangent =>
+                $"TANGENT{semantic.Index}",
+
+            VertexUsage.Binormal =>
+                $"BINORMAL{semantic.Index}",
+
+            _ => throw new NotSupportedException(
+                $"Semantic no soportado: {semantic.Usage}")
+        };
     }
 }

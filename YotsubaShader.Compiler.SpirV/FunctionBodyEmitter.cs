@@ -82,8 +82,15 @@ internal sealed partial class FunctionBodyEmitter
     private readonly Dictionary<Storage, string> _pointers;
     private readonly Dictionary<Storage, string> _values;
     private IReadOnlyDictionary<FunctionId, Function> _functionsById = new Dictionary<FunctionId, Function>();
-    
     private int _nextTemporaryValue;
+    
+    private readonly Stack<(string Merge, string Continue)> _loops = new();
+    private bool _terminated;   // el bloque actual ya terminó (OpBranch/OpReturn/...)
+    private int _nextLabel;
+
+    private static readonly SpirVInstructionParameter NoneControl =
+        new("None", SpirVInstructionType.Enumerant, 0);
+    
     
 
     public FunctionBodyEmitter(
@@ -107,6 +114,12 @@ internal sealed partial class FunctionBodyEmitter
 
     private void EmitStatement(Statement statement, Function function,  IReadOnlyList<Function> otherFuncs)
     {
+        
+        if (_terminated)
+        {
+            return;
+        }
+        
         switch (statement)
         {
             case VariableDeclaration declaration:
@@ -119,6 +132,7 @@ internal sealed partial class FunctionBodyEmitter
 
             case Return returnStatement:
                 EmitReturn(returnStatement,ref function);
+                _terminated = true;
                 break;
             
             case Block block:
@@ -134,9 +148,41 @@ internal sealed partial class FunctionBodyEmitter
                     function,
                     requiresValue: false);
                 break;
+            case If ifStatement:
+                EmitIf(ifStatement, function, otherFuncs);
+                break;
+
+            case Loop loop:
+                EmitLoop(loop, function, otherFuncs);
+                break;
+
+            case Break:
+                if (_loops.Count == 0) throw new InvalidOperationException("'break' outside of a loop.");
+                Branch(_loops.Peek().Merge);
+                break;
+
+            case Continue:
+                if (_loops.Count == 0) throw new InvalidOperationException("'continue' outside of a loop.");
+                Branch(_loops.Peek().Continue);
+                break;
             default:
                 throw new NotSupportedException(
                     $"IR statement '{statement.GetType().Name}' is not supported.");
         }
+    }
+    
+    public void FinishFunction(Function function)
+    {
+        if (_terminated)
+        {
+            return;
+        }
+
+        // Un bloque final sin terminar es un `merge` inalcanzable (p. ej. if/else donde ambas ramas retornan).
+        bool returnsValue = function.Stage == Stage.None &&
+                            function.Outputs.Any(storage => storage.HumanName == "__return");
+
+        _module.AddLine(returnsValue ? SpirVOpTable.OpUnreachable : SpirVOpTable.OpReturn);
+        _terminated = true;
     }
 }

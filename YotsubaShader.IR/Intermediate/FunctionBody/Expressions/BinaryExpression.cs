@@ -72,10 +72,8 @@ public record BinaryExpression(BinaryOperator Operator,
     Expression Left, Expression Right) : Expression;
 
 public enum BinaryOperator
-{ 
-    Add, 
-    Subtract,
-    Multiply,
-    Divide,
-    Remainder
+{
+    Add, Subtract, Multiply, Divide, Remainder,
+    LogicalAnd, LogicalOr,
+    Equal, NotEqual, Less, LessEqual, Greater, GreaterEqual
 }

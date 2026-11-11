@@ -67,6 +67,7 @@
 #endregion
 
 using System.Collections.Immutable;
+using System.Globalization;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Operations;
 using YotsubaShader.IR.Intermediate;
@@ -74,14 +75,15 @@ using YotsubaShader.IR.Intermediate.FunctionBody;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.AssignmentTargets;
-using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.FunctionCalls;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.Literals;
 using YotsubaShader.IR.Intermediate.FunctionBody.Statements;
-using YotsubaShader.Roslyn.Model;
-
+using IRTypes = YotsubaShader.IR.Intermediate.Types;
 namespace YotsubaShader.Roslyn;
 public partial class StatementOperationProcessor : IStatementOperationProcessor
 {
     
+    private int _loopDepth;
+    private int _foreachCounter;
     public void ProcessStatement(
         IOperation op,
         Dictionary<ISymbol, Storage> inputs,
@@ -121,10 +123,9 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
                  ProcessSimpleAssignmentOperation(simpleAssignmentOperation, inputs, outputs, compilation, stage,
                     out statement);
                  break;
-            case IIncrementOrDecrementOperation:
-                throw new NotImplementedException(
-                    nameof(ProcessIncrementOrDecrementOperation));
-
+            case IIncrementOrDecrementOperation incrementOperation:
+                ProcessIncrementOrDecrementOperation(incrementOperation, inputs, outputs, compilation, stage, out statement);
+                break;
             case IInvocationOperation invocationOperation:
                 ProcessInvocationOperation(invocationOperation, inputs, outputs, compilation, stage, out statement);
             break;
@@ -154,30 +155,26 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
             case IReturnOperation returnOperation:
                 ProcessReturnOperation(returnOperation, inputs, outputs, compilation, stage, out statement);
                 break;
-            case IConditionalOperation:
-                throw new NotImplementedException(
-                    nameof(ProcessConditionalOperation));
-
-            case IForLoopOperation:
-                throw new NotImplementedException(
-                    nameof(ProcessForLoopOperation));
-
-            case IForEachLoopOperation:
-                throw new NotImplementedException(
-                    nameof(ProcessForEachLoopOperation));
-
-            case IWhileLoopOperation:
-                throw new NotImplementedException(
-                    nameof(ProcessWhileLoopOperation));
-
+            case IConditionalOperation conditionalOperation:
+                ProcessConditionalOperation(conditionalOperation, inputs, outputs, compilation, stage, out statement);
+                break;
+            case IForLoopOperation forLoopOperation:
+                ProcessForLoopOperation(forLoopOperation, inputs, outputs, compilation, stage, out statement);
+                break;
+            case IForEachLoopOperation forEachLoopOperation:
+                ProcessForEachLoopOperation(forEachLoopOperation, inputs, outputs, compilation, stage, out statement);
+                break;
+            case IWhileLoopOperation whileLoopOperation:
+                ProcessWhileLoopOperation(whileLoopOperation, inputs, outputs, compilation, stage, out statement);
+                break;
             case ISwitchOperation:
                 throw new NotImplementedException(
                     nameof(ProcessSwitchOperation));
 
-            case IBranchOperation:
-                throw new NotImplementedException(
-                    nameof(ProcessBranchOperation));
-
+            case IBranchOperation branchOperation:
+                ProcessBranchOperation(branchOperation, inputs, outputs, compilation, stage, out statement);
+                break;
+            
             case ILabeledOperation:
                 throw new NotImplementedException(
                     nameof(ProcessLabeledOperation));
@@ -256,12 +253,21 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
             {
                 var symbol = variableDeclaratorOperation.Symbol;
                 var storage = CreateLocalStorage(symbol, compilation, stage);
+                storage = storage with { HumanName = UniqueLocalName(symbol.Name) };
                 
-                _locals.Add(symbol, storage);
-
                 var initializerOperation =
                     variableDeclaratorOperation.Initializer ?? variableDeclarationOperation.Initializer;
 
+                if (storage is IRTypes.Array arrayStorage)
+                {
+                    ProcessLocalArrayDeclaration(symbol, arrayStorage, initializerOperation,
+                        inputs, outputs, compilation, stage, statements);
+                    continue;
+                }
+                
+                _locals.Add(symbol, storage);
+
+               
                 Expression? initializer = null;
                 if (initializerOperation is not null)
                 {
@@ -305,8 +311,7 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
 
         BinaryOperator binaryOperator = GetBinaryOperator(operation.OperatorKind);
 
-        statement = new Assignment(
-            target, value);
+        statement = new Assignment(target, new BinaryExpression(binaryOperator, target, value));
     }
 
     public void ProcessCoalesceAssignmentOperation(ICoalesceAssignmentOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
@@ -321,10 +326,28 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
         throw new NotImplementedException();
     }
 
-    public void ProcessIncrementOrDecrementOperation(IIncrementOrDecrementOperation operation, Dictionary<ISymbol, Storage> inputs,
-        Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage, out Statement? statement)
+    public void ProcessIncrementOrDecrementOperation(IIncrementOrDecrementOperation operation,
+        Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation, Stage stage, out Statement? statement)
     {
-        throw new NotImplementedException();
+        var target = ProcessExpression(operation.Target, inputs, outputs, compilation, stage)
+                     ?? throw new NotSupportedException("The increment target did not produce an expression.");
+
+        Expression one = operation.Target.Type?.SpecialType switch
+        {
+            SpecialType.System_Int32  => new IntLiteral("1", true),
+            SpecialType.System_UInt32 => new IntLiteral("1", false),
+            SpecialType.System_Single => new FloatLiteral(1f),
+            SpecialType.System_Double => new DoubleLiteral(1d),
+            _ => throw new NotSupportedException(
+                $"Increment of '{operation.Target.Type}' is not supported.")
+        };
+
+        var op = operation.Kind == OperationKind.Increment
+            ? BinaryOperator.Add
+            : BinaryOperator.Subtract;
+
+        statement = new Assignment(target, new BinaryExpression(op, target, one));
     }
 
     public void ProcessInvocationOperation(
@@ -394,28 +417,199 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
         statement = new Return(value);
     }
 
-    public void ProcessConditionalOperation(IConditionalOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
+    public void ProcessConditionalOperation(IConditionalOperation operation,
+        Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
         Compilation compilation, Stage stage, out Statement? statement)
     {
-        throw new NotImplementedException();
+        if (operation.IsRef)
+        {
+            throw new NotSupportedException("Ref conditionals are not supported.");
+        }
+
+        var condition = ProcessExpression(operation.Condition, inputs, outputs, compilation, stage)
+                        ?? throw new NotSupportedException("The if condition did not produce an expression.");
+
+        // `if (x) ;` o cuerpo vacío: ProcessStatement devuelve null.
+        ProcessStatement(operation.WhenTrue, inputs, outputs, compilation, stage, out var whenTrue);
+
+        Statement? whenFalse = null;
+        if (operation.WhenFalse is not null)
+        {
+            // `else if` llega como otro IConditionalOperation y se procesa recursivamente.
+            ProcessStatement(operation.WhenFalse, inputs, outputs, compilation, stage, out whenFalse);
+        }
+
+        statement = new If(condition, whenTrue ?? new Block([]), whenFalse);
     }
 
     public void ProcessForLoopOperation(IForLoopOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
         Compilation compilation, Stage stage, out Statement? statement)
     {
-        throw new NotImplementedException();
+        if (!operation.ConditionLocals.IsDefaultOrEmpty)
+        {
+            throw new NotSupportedException(
+                "Variables declared inside a for condition are not supported.");
+        }
+        
+        var statements = new List<Statement>();
+        
+        foreach (var before in operation.Before)
+        {
+            ProcessStatement(before, inputs, outputs, compilation, stage, out var beforeStatement);
+            if (beforeStatement is not null) statements.Add(beforeStatement!);
+        }
+
+        Expression? condition = null;
+
+        if (operation.Condition is not null)
+        {
+            condition = ProcessExpression(operation.Condition, inputs, outputs, compilation, stage)
+                        ?? throw new NotSupportedException("The for condition did not produce an expression.");
+        }
+        
+        Statement? body;
+        _loopDepth++;
+        try
+        {
+            ProcessStatement(operation.Body, inputs, outputs, compilation, stage, out body);
+        }
+        finally
+        {
+            _loopDepth--;
+        }
+        var continuing = new List<Statement>();
+        
+        foreach (var after in operation.AtLoopBottom)
+        {
+            ProcessStatement(after, inputs, outputs, compilation, stage, out var afterStatement);
+            if (afterStatement is not null) continuing.Add(afterStatement);
+        }
+        
+        statements.Add(new Loop(condition, body ?? new Block([]), new Block(continuing)));
+        statement = new Block(statements);
     }
 
-    public void ProcessForEachLoopOperation(IForEachLoopOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
-        Compilation compilation, Stage stage, out Statement? statement)
+    public void ProcessForEachLoopOperation(IForEachLoopOperation operation,
+    Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
+    Compilation compilation, Stage stage, out Statement? statement)
+{
+    if (operation.IsAsynchronous)
     {
-        throw new NotImplementedException();
+        throw new NotSupportedException("await foreach is not supported.");
     }
+
+    if (operation.LoopControlVariable is not IVariableDeclaratorOperation declarator)
+    {
+        throw new NotSupportedException(
+            "Only 'foreach (T x in collection)' with a simple variable is supported.");
+    }
+
+    IOperation collectionOperation = operation.Collection;
+    while (collectionOperation is IConversionOperation { IsImplicit: true } implicitConversion)
+    {
+        collectionOperation = implicitConversion.Operand;
+    }
+
+    var collection = ProcessExpression(collectionOperation, inputs, outputs, compilation, stage)
+                     ?? throw new NotSupportedException("The foreach collection did not produce an expression.");
+    
+    if (collection is not StorageReference { Storage: IRTypes.Array array })
+    {
+        throw new NotSupportedException(
+            "foreach is only supported over arrays referenced by a variable or parameter.");
+    }
+
+    if (array.Length is not uint length)
+    {
+        throw new NotSupportedException(
+            "foreach over a runtime-sized array is not supported; use a for loop with an explicit length.");
+    }
+
+    // 2. Índice oculto (nombre único, igual que cualquier otro local).
+    var indexStorage = new IRTypes.Int(
+        UniqueLocalName($"__foreach_index_{_foreachCounter++}"), StorageKind.Local, null)
+    {
+        Bits = 32,
+        Signed = true
+    };
+    var indexRef = new StorageReference(indexStorage);
+
+    // 3. Variable del foreach (`x`), registrada igual que en una declaración normal.
+    var elementStorage = CreateLocalStorage(declarator.Symbol, compilation, stage);
+    elementStorage = elementStorage with { HumanName = UniqueLocalName(declarator.Symbol.Name) };
+    _locals.Add(declarator.Symbol, elementStorage);
+
+    // 4. Cuerpo.
+    Statement? body;
+    _loopDepth++;
+    try
+    {
+        ProcessStatement(operation.Body, inputs, outputs, compilation, stage, out body);
+    }
+    finally
+    {
+        _loopDepth--;
+    }
+
+    var bodyStatements = new List<Statement>
+    {
+        new VariableDeclaration(
+            elementStorage,
+            new StorageArrayElementReference(collection, indexRef))
+    };
+    if (body is not null) bodyStatements.Add(body);
+
+    // 5. Condición e incremento.
+    var condition = new BinaryExpression(
+        BinaryOperator.Less,
+        indexRef,
+        new IntLiteral(length.ToString(CultureInfo.InvariantCulture), true));
+
+    var increment = new Assignment(
+        indexRef,
+        new BinaryExpression(BinaryOperator.Add, indexRef, new IntLiteral("1", true)));
+
+    statement = new Block(
+    [
+        new VariableDeclaration(indexStorage, new IntLiteral("0", true)),
+        new Loop(condition, new Block(bodyStatements), new Block([increment]))
+    ]);
+}
 
     public void ProcessWhileLoopOperation(IWhileLoopOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
         Compilation compilation, Stage stage, out Statement? statement)
     {
-        throw new NotImplementedException();
+        if (!operation.Locals.IsDefaultOrEmpty)
+        {
+            throw new NotSupportedException(
+                "Variables declared inside a while condition are not supported.");
+        }
+
+        var condition = ProcessExpression(operation.Condition!, inputs, outputs, compilation, stage)
+                        ?? throw new NotSupportedException("The while condition did not produce an expression.");
+        
+
+        Statement? body;
+        _loopDepth++;
+        try
+        {
+            ProcessStatement(operation.Body, inputs, outputs, compilation, stage, out body);
+        }
+        finally
+        {
+            _loopDepth--;
+        }
+
+        body ??= new Block([]);
+
+        if (operation.ConditionIsTop)
+        {
+            statement = new Loop(condition, body, new Block([]));
+        }
+        else
+        {
+            statement = new Loop(null, body, new Block([]), condition);
+        }
     }
 
     public void ProcessSwitchOperation(ISwitchOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation,
@@ -424,10 +618,22 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
         throw new NotImplementedException();
     }
 
-    public void ProcessBranchOperation(IBranchOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation,
-        Stage stage, out Statement? statement)
+    public void ProcessBranchOperation(IBranchOperation operation,
+        Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation, Stage stage, out Statement? statement)
     {
-        throw new NotImplementedException();
+        if (_loopDepth == 0)
+        {
+            throw new NotSupportedException("break/continue outside of a loop is not supported.");
+        }
+
+        statement = operation.BranchKind switch
+        {
+            BranchKind.Break => new Break(),
+            BranchKind.Continue => new Continue(),
+            _ => throw new NotSupportedException(
+                $"Branch kind '{operation.BranchKind}' is not supported.")
+        };
     }
 
     public void ProcessLabeledOperation(ILabeledOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,

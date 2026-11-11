@@ -137,6 +137,8 @@ public class SpirVModule
           public List<SpirVInstruction> Header { get; } = [];
           public List<SpirVInstruction> Variables { get; } = [];
           public List<SpirVInstruction> Body { get; } = [];
+          
+          public bool HasEntryLabel { get; set; }
      }
      
      private readonly HashSet<string> _definedIds = [];
@@ -180,7 +182,7 @@ public class SpirVModule
               operation.Name.StartsWith("OpSpecConstant", StringComparison.Ordinal) ||
               operation.Name == "OpUndef")
           {
-               _constants.Add(instruction);
+               _types.Add(instruction);
                return;
           }
            
@@ -196,9 +198,22 @@ public class SpirVModule
                {
                     _currentFunction.Variables.Add(instruction);
                }
-               else if (operation.Name is "OpFunction" or "OpFunctionParameter" or "OpLabel")
+               else if (operation.Name is "OpFunction" or "OpFunctionParameter")
                {
                     _currentFunction.Header.Add(instruction);
+               }
+               else if (operation.Name == "OpLabel")
+               {
+                    // Solo el label de entrada va antes de las variables; el resto son bloques del cuerpo.
+                    if (!_currentFunction.HasEntryLabel)
+                    {
+                         _currentFunction.Header.Add(instruction);
+                         _currentFunction.HasEntryLabel = true;
+                    }
+                    else
+                    {
+                         _currentFunction.Body.Add(instruction);
+                    }
                }
                else
                {
@@ -224,6 +239,8 @@ public class SpirVModule
 
                case "OpDecorate":
                case "OpMemberDecorate":
+               case "OpDecorateString":
+               case "OpMemberDecorateString":
                     _annotations.Add(instruction);
                     break;
 
@@ -231,6 +248,7 @@ public class SpirVModule
                     _globals.Add(instruction);
                     break;
 
+               
                default:
                     throw new InvalidOperationException(
                          $"No sé en qué sección colocar '{operation.Name}'.");
