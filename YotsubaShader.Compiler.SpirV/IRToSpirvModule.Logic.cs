@@ -525,6 +525,8 @@ public partial class IRToSpirvModule
                             nullId,
                             SpirVOpTable.OpConstantNull,
                             SpirVModuleHelpers.Id(structTypeId));
+
+                        module.Name(nullId, $"{structure.StructType.TypeName}_Null");
                     }
 
                     break;

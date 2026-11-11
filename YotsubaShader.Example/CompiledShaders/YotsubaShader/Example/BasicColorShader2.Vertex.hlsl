@@ -3,8 +3,8 @@ struct VS_Output
     float4 Color;
 };
 
-static const VS_Output _29 = { 0.0f.xxxx };
-static const int _45[5] = { 0, 0, 0, 0, 0 };
+static const VS_Output VS_Output_Null = { 0.0f.xxxx };
+static const int arr_int_5_Null[5] = { 0, 0, 0, 0, 0 };
 
 static float4 gl_Position;
 static float2 vertex_Position;
@@ -35,9 +35,9 @@ float4 NewVector4(float x, float y, float z)
 
 void VS_inner()
 {
-    VS_Output vertexOutput = _29;
+    VS_Output vertexOutput = VS_Output_Null;
     float4 vec = NewVector4(float(0), float(0), float(3));
-    int arr[5] = _45;
+    int arr[5] = arr_int_5_Null;
     arr[0] = 1;
     arr[1] = 3;
     arr[2] = 4;

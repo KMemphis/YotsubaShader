@@ -3,8 +3,8 @@ struct VS_Output
     float4 Color;
 };
 
-static const VS_Output _29 = { 0.0f.xxxx };
-static const int _45[5] = { 0, 0, 0, 0, 0 };
+static const VS_Output VS_Output_Null = { 0.0f.xxxx };
+static const int arr_int_5_Null[5] = { 0, 0, 0, 0, 0 };
 
 static float4 fragment_Color;
 static float4 _return;
