@@ -1,0 +1,34 @@
+
+<Project>
+
+    <PropertyGroup>
+        <YotsubaShaderEnabled
+                Condition="'$(YotsubaShaderEnabled)' == ''">true</YotsubaShaderEnabled>
+
+        <YotsubaShaderFormats
+                Condition="'$(YotsubaShaderFormats)' == ''">spirv;hlsl;glsl;gles;msl;cpp</YotsubaShaderFormats>
+
+        <YotsubaShaderOutput
+                Condition="'$(YotsubaShaderOutput)' == ''">$(MSBuildProjectDirectory)/Shaders</YotsubaShaderOutput>
+    </PropertyGroup>
+
+    <Target
+            Name="CompileYotsubaShaders"
+            AfterTargets="Build"
+            Condition="'$(YotsubaShaderEnabled)' == 'true'
+                   And '$(DesignTimeBuild)' != 'true'">
+
+        <ItemGroup>
+            <_YotsubaFormat Include="$(YotsubaShaderFormats)" />
+        </ItemGroup>
+
+        <Message
+                Text="YotsubaShader: Generating @(_YotsubaFormat, ', ')"
+                Importance="high" />
+
+        <Exec
+                Command="yotsubashader add &quot;$(MSBuildProjectFullPath)&quot; @(_YotsubaFormat->'--target %(Identity)', ' ') --output &quot;$(YotsubaShaderOutput)&quot;" />
+
+    </Target>
+
+</Project>

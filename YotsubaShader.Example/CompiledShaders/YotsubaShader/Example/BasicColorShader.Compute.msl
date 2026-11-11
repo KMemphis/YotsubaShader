@@ -3,21 +3,10 @@
 
 using namespace metal;
 
-struct VS_Input
+struct VS_Output
 {
-    float2 Position;
+    float4 Position;
     float4 Color;
-};
-
-struct FS_Input
-{
-    float4 Color;
-};
-
-struct _25
-{
-    float4 _m0;
-    float4 _m1;
 };
 
 kernel void Compute()

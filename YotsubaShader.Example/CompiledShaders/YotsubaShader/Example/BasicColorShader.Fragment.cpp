@@ -11,21 +11,16 @@ namespace Impl
 {
     struct Shader
     {
-        struct _25
+        struct VS_Output
         {
-            vec4 _m0;
-            vec4 _m1;
+            vec4 Position;
+            vec4 Color;
         };
         
         struct Resources : FragmentResources
         {
-            struct FS_Input
-            {
-                layout(location = 8) vec4 Color;
-            };
-            
-            internal::StageInput<FS_Input> input__;
-#define input __res->input__.get()
+            internal::StageInput<vec4> input_Color__;
+#define input_Color __res->input_Color__.get()
             
             internal::StageOutput<vec4> _return__;
 #define _return __res->_return__.get()
@@ -33,7 +28,7 @@ namespace Impl
             inline void init(spirv_cross_shader& s)
             {
                 FragmentResources::init(s);
-                s.register_stage_input(input__, 0);
+                s.register_stage_input(input_Color__, 8);
                 s.register_stage_output(_return__, 0);
             }
         };
@@ -42,7 +37,7 @@ namespace Impl
         
         inline void main()
         {
-            _return = input.Color;
+            _return = input_Color;
         }
         
     };

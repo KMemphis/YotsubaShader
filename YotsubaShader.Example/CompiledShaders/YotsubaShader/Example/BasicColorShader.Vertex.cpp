@@ -11,27 +11,29 @@ namespace Impl
 {
     struct Shader
     {
-        struct _25
+        struct VS_Output
         {
-            vec4 _m0;
-            vec4 _m1;
+            vec4 Position;
+            vec4 Color;
         };
         
         struct Resources : VertexResources
         {
-            struct VS_Input
-            {
-                layout(location = 0) vec2 Position;
-                layout(location = 8) vec4 Color;
-            };
+            internal::StageInput<vec2> input_Position__;
+#define input_Position __res->input_Position__.get()
             
-            internal::StageInput<VS_Input> input__;
-#define input __res->input__.get()
+            internal::StageInput<vec4> input_Color__;
+#define input_Color __res->input_Color__.get()
+            
+            internal::StageOutput<vec4> _return_Color__;
+#define _return_Color __res->_return_Color__.get()
             
             inline void init(spirv_cross_shader& s)
             {
                 VertexResources::init(s);
-                s.register_stage_input(input__, 0);
+                s.register_stage_input(input_Position__, 0);
+                s.register_stage_input(input_Color__, 8);
+                s.register_stage_output(_return_Color__, 8);
             }
         };
         
@@ -39,10 +41,11 @@ namespace Impl
         
         inline void main()
         {
-            struct _25 output;
-            output._m0 = vec4(input.Position.x, input.Position.y, 0.0f, 1.0f);
-            output._m1 = input.Color;
-            _return = { output._m0, output._m1 };
+            struct VS_Output output;
+            output.Position = vec4(input_Position.x, input_Position.y, 0.0f, 1.0f);
+            output.Color = input_Color;
+            gl_Position = output.Position;
+            _return_Color = output.Color;
         }
         
     };

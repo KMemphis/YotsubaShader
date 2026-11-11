@@ -3,39 +3,26 @@
 
 using namespace metal;
 
-struct VS_Input
+struct VS_Output
 {
-    float2 Position;
+    float4 Position;
     float4 Color;
-};
-
-struct FS_Input
-{
-    float4 Color;
-};
-
-struct _25
-{
-    float4 _m0;
-    float4 _m1;
 };
 
 struct FS_out
 {
-    float4 _return;
+    float4 _return [[color(0)]];
 };
 
 struct FS_in
 {
-    float4 _input_Color [[user(locn8)]];
+    float4 input_Color [[user(locn8)]];
 };
 
 fragment FS_out FS(FS_in in [[stage_in]])
 {
     FS_out out = {};
-    FS_Input _input = {};
-    _input.Color = in._input_Color;
-    out._return = _input.Color;
+    out._return = in.input_Color;
     return out;
 }
 

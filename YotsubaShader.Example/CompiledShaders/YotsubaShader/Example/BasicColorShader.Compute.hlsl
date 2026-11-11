@@ -1,7 +1,7 @@
-struct _25
+struct VS_Output
 {
-    float4 _m0;
-    float4 _m1;
+    float4 Position;
+    float4 Color;
 };
 
 void Compute_inner()
