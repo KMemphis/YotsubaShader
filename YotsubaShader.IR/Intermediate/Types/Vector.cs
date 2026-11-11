@@ -76,6 +76,9 @@ public record Vector(string HumanName, StorageKind Kind, InterfaceSlot? Slot) : 
     public required VectorComponentsType ComponentsType;
     public required int ComponentsLength;
     public IReadOnlyList<Expression>? ComponentsDefaultValues;
+
+    /// <summary>Nombre de cada componente en el orden de su índice declarado ([VectorComponent(n)]).</summary>
+    public IReadOnlyList<string>? ComponentNames;
 }
 
 public enum VectorComponentsType

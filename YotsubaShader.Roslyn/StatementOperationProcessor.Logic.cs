@@ -742,7 +742,8 @@ public partial class StatementOperationProcessor
                 {
                     ComponentsDefaultValues = [.. components.Select(x => ComponentValueToExpression(x.Value))],
                     ComponentsType = vectorComponentsType,
-                    ComponentsLength = components.Count
+                    ComponentsLength = components.Count,
+                    ComponentNames = ShaderProcessor.GetVectorComponentNames(type)
                 };
 
                 storage = vector;
