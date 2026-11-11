@@ -28,7 +28,7 @@ namespace Impl
             inline void init(spirv_cross_shader& s)
             {
                 FragmentResources::init(s);
-                s.register_stage_input(input_Color__, 8);
+                s.register_stage_input(input_Color__, 0);
                 s.register_stage_output(_return__, 0);
             }
         };

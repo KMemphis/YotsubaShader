@@ -7,13 +7,24 @@ struct VS_Output
 };
 
 layout(location = 0) in vec2 input_Position;
-layout(location = 8) in vec4 input_Color;
-layout(location = 8) out vec4 _return_Color;
+layout(location = 1) in vec4 input_Color;
+layout(location = 0) out vec4 _return_Color;
+
+vec4 NewVector4(float x, float y, float z)
+{
+    vec4 _this;
+    _this.x = x;
+    _this.y = y;
+    _this.z = z;
+    float _57 = float(1);
+    _this.w = _57;
+    return _this;
+}
 
 void main()
 {
     VS_Output _output;
-    _output.Position = vec4(input_Position.x, input_Position.y, 0.0, 1.0);
+    _output.Position = NewVector4(input_Position.x, input_Position.y, 2.0);
     _output.Color = input_Color;
     gl_Position = _output.Position;
     _return_Color = _output.Color;

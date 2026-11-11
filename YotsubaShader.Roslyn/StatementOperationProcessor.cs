@@ -82,7 +82,7 @@ using IRTypes = YotsubaShader.IR.Intermediate.Types;
 namespace YotsubaShader.Roslyn;
 public partial class StatementOperationProcessor : IStatementOperationProcessor
 {
-    
+    internal Storage? ThisStorage { get; set; }
     private int _loopDepth;
     private int _foreachCounter;
     public void ProcessStatement(
@@ -439,9 +439,9 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
         Stage stage, out Statement? statement)
     {
         Expression? value = operation.ReturnedValue is null
-            ? null
+            ? (ThisStorage is null ? null : new StorageReference(ThisStorage))
             : ProcessExpression(operation.ReturnedValue, inputs, outputs, compilation, stage);
-
+        
         statement = new Return(value);
     }
 

@@ -143,6 +143,9 @@ public partial class StatementOperationProcessor
                 return ProcessConditionalExpression(conditionalExpression, inputs, outputs, compilation, stage);
             case IIncrementOrDecrementOperation incrementExpression:
                 return ProcessIncrementExpression(incrementExpression, inputs, outputs, compilation, stage);
+            case IInstanceReferenceOperation:
+                return new StorageReference(ThisStorage 
+                                            ?? throw new NotSupportedException("'this' solo existe dentro de un constructor."));
             case IArrayElementReferenceOperation arrayElement:
             {
                 if (arrayElement.Indices.Length != 1)
@@ -229,12 +232,11 @@ public partial class StatementOperationProcessor
         Stage stage,
         IReadOnlyList<Expression>? preparedArguments = null)
 {
-    if (targetMethod.MethodKind is not (MethodKind.Ordinary or MethodKind.UserDefinedOperator) ||
+    if (targetMethod.MethodKind is not (MethodKind.Ordinary or MethodKind.UserDefinedOperator or MethodKind.Constructor) ||
         targetMethod.DeclaringSyntaxReferences.IsDefaultOrEmpty)
     {
         throw new NotSupportedException(
-            $"El método '{targetMethod.ToDisplayString()}' " +
-            "no tiene un cuerpo de shader compilable.");
+            $"El método '{targetMethod.ToDisplayString()}' no tiene un cuerpo de shader compilable.");
     }
 
     if (targetMethod.IsGenericMethod)
@@ -310,11 +312,15 @@ public partial class StatementOperationProcessor
                 IsField: false))
             .ToImmutableArray();
 
+        var returnType = targetMethod.MethodKind == MethodKind.Constructor
+            ? targetMethod.ContainingType
+            : targetMethod.ReturnType;
+        
         var functionInfo = new FunctionsInfo(
             targetMethod,
             Language.Stage.None,
             parameters,
-            targetMethod.ReturnType);
+            returnType);
 
         ShaderProcessor.PendingFunctionsInfos.Add(functionInfo);
     }
@@ -417,10 +423,6 @@ public partial class StatementOperationProcessor
 
     private Expression? ProcessObjectCreationExpression(IObjectCreationOperation objectCreationOperation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage)
     {
-        if(objectCreationOperation.Initializer is not null)
-            throw new NotSupportedException(
-                "The object initializer syntax is not supported yet");
-    
         if (objectCreationOperation.Type is null)
         {
             throw new NotSupportedException(
@@ -435,22 +437,51 @@ public partial class StatementOperationProcessor
         
         switch (storageType)
         {
-            case IRTypes.Vector vector:
-                if(objectCreationOperation.Arguments.Length != vector.ComponentsLength)
-                    throw new NotSupportedException(
-                        $"'{objectCreationOperation.Type}' require " +
-                        $"{vector.ComponentsLength} components.");
-                var values = objectCreationOperation.Arguments
-                    .Select(argument => ProcessExpression(argument.Value, inputs, outputs, compilation, stage))
-                    .Cast<Expression>()
-                    .ToArray();
-                return new VectorExpression(values, vector.ComponentsType);
-            case IRTypes.CustomStruct customStruct when objectCreationOperation.Arguments.Length == 0:
-                return new CustomStructExpression(customStruct, []);         
-            case IRTypes.CustomStruct:
-                throw new NotSupportedException(
-                    $"Constructor of '{objectCreationOperation.Type}' with arguments " +
-                    "is not supported yet.");
+            case IRTypes.CustomStruct or IRTypes.Vector: 
+            {
+                IMethodSymbol ctor = objectCreationOperation.Constructor
+                                     ?? throw new NotSupportedException($"No se resolvió un constructor para '{objectCreationOperation.Type}'.");
+
+                Expression created;
+                if (ctor.IsImplicitlyDeclared)
+                {
+                    created = storageType is IRTypes.CustomStruct customStruct
+                        ? new CustomStructExpression(customStruct, [])
+                        : throw new NotSupportedException(
+                            $"'new {objectCreationOperation.Type}()' sin constructor declarado no está soportado para vectores.");
+                }
+                else
+                {
+                    var ordered = objectCreationOperation.Arguments
+                        .OrderBy(a => a.Parameter!.Ordinal)
+                        .Select(a => a.Value)
+                        .ToArray();
+                    var (functionId, arguments) = ProcessMethodCall(ctor, ordered, inputs, outputs, compilation, stage);
+                    created = new FunctionCallExpression(functionId, arguments);
+                }
+
+                if (objectCreationOperation.Initializer is null) return created;
+
+                // new T(...) { A = 1 }: primero el constructor, luego las asignaciones en orden.
+                Storage temp = CreateTemporary(objectCreationOperation.Type, "init", compilation, stage);
+                var tempRef = new StorageReference(temp);
+                var prelude = new List<Statement> { new VariableDeclaration(temp, created) };
+
+                foreach (IOperation item in objectCreationOperation.Initializer.Initializers)
+                {
+                    if (item is not ISimpleAssignmentOperation { Target: IFieldReferenceOperation field } assignment)
+                        throw new NotSupportedException("El inicializador solo admite 'Campo = valor'.");
+
+                    Expression value = ProcessExpression(assignment.Value, inputs, outputs, compilation, stage)
+                                       ?? throw new NotSupportedException($"El inicializador de '{field.Field.Name}' no produjo una expresión.");
+
+                    prelude.Add(new Assignment(
+                        new StorageStructPropertyReference(tempRef, field.Field.Name),
+                        value));
+                }
+
+                return new SequenceExpression(prelude, tempRef);
+            }
             default:
                 throw new NotSupportedException(
                     $"The creation of '{objectCreationOperation.Type}' is not supported yet.");
@@ -807,6 +838,10 @@ public partial class StatementOperationProcessor
     {
         switch (target)
         {
+            case IInstanceReferenceOperation:
+                return new StorageReference(ThisStorage
+                                            ?? throw new NotSupportedException("'this' solo existe dentro de un constructor."));
+            
             case IParenthesizedOperation parenthesized:
                 return ProcessAssignableTarget(parenthesized.Operand, prelude, inputs, outputs, compilation, stage);
 

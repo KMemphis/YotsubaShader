@@ -31,17 +31,27 @@ namespace Impl
             {
                 VertexResources::init(s);
                 s.register_stage_input(vertex_Position__, 0);
-                s.register_stage_input(vertex_Color__, 8);
-                s.register_stage_output(_return_Color__, 8);
+                s.register_stage_input(vertex_Color__, 1);
+                s.register_stage_output(_return_Color__, 0);
             }
         };
         
         Resources* __res;
         
+        inline vec4 NewVector4(const float &x, const float &y, const float &z)
+        {
+            vec4 this;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.w = float(1);
+            return this;
+        }
+        
         inline void main()
         {
             struct VS_Output vertexOutput = { vec4(0.0f) };
-            vec4 vec = vec4(float(0), float(0), float(0), float(0));
+            vec4 vec = NewVector4(float(0), float(0), float(3));
             std::array<int32_t, 5> arr = { 0, 0, 0, 0, 0 };
             arr[0] = 1;
             arr[1] = 3;
@@ -51,12 +61,12 @@ namespace Impl
             for (int32_t _foreach_index_0 = 0; _foreach_index_0 < 5; _foreach_index_0++)
             {
                 int32_t VARIABLE = arr[_foreach_index_0];
-                vec = vec4(vertex_Position.x, float(1), 0.0f, 1.0f);
+                vec = NewVector4(vertex_Position.x, float(1), float(3));
             }
             for (int32_t _foreach_index_1 = 0; _foreach_index_1 < 5; _foreach_index_1++)
             {
                 int32_t VARIABLE_1 = arr[_foreach_index_1];
-                vec = vec4(vertex_Position.x, float(1), 0.0f, 1.0f);
+                vec = NewVector4(vertex_Position.x, float(1), float(3));
             }
             gl_Position = vec;
             vertexOutput.Color = vertex_Color;

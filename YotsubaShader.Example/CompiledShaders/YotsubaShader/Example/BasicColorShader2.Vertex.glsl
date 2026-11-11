@@ -6,17 +6,27 @@ struct VS_Output
 };
 
 layout(location = 0) in vec2 vertex_Position;
-layout(location = 8) in vec4 vertex_Color;
-layout(location = 8) out vec4 _return_Color;
+layout(location = 1) in vec4 vertex_Color;
+layout(location = 0) out vec4 _return_Color;
+
+vec4 NewVector4(float x, float y, float z)
+{
+    vec4 _this;
+    _this.x = x;
+    _this.y = y;
+    _this.z = z;
+    float _110 = float(1);
+    _this.w = _110;
+    return _this;
+}
 
 void main()
 {
     VS_Output vertexOutput = VS_Output(vec4(0.0));
-    float _47 = float(0);
-    float _48 = float(0);
-    float _49 = float(0);
-    float _50 = float(0);
-    vec4 vec = vec4(_47, _48, _49, _50);
+    float _55 = float(0);
+    float _56 = float(0);
+    float _57 = float(3);
+    vec4 vec = NewVector4(_55, _56, _57);
     int arr[5] = int[](0, 0, 0, 0, 0);
     arr[0] = 1;
     arr[1] = 3;
@@ -26,14 +36,16 @@ void main()
     for (int _foreach_index_0 = 0; _foreach_index_0 < 5; _foreach_index_0++)
     {
         int VARIABLE = arr[_foreach_index_0];
-        float _69 = float(1);
-        vec = vec4(vertex_Position.x, _69, 0.0, 1.0);
+        float _76 = float(1);
+        float _77 = float(3);
+        vec = NewVector4(vertex_Position.x, _76, _77);
     }
     for (int _foreach_index_1 = 0; _foreach_index_1 < 5; _foreach_index_1++)
     {
         int VARIABLE_1 = arr[_foreach_index_1];
-        float _85 = float(1);
-        vec = vec4(vertex_Position.x, _85, 0.0, 1.0);
+        float _93 = float(1);
+        float _94 = float(3);
+        vec = NewVector4(vertex_Position.x, _93, _94);
     }
     gl_Position = vec;
     vertexOutput.Color = vertex_Color;
