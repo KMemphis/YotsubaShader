@@ -75,9 +75,12 @@ namespace YotsubaShader.Compiler.SpirV;
 
 public partial class IRToSpirvModule
 {
+    private IReadOnlyDictionary<string, int> _interfaceLocations = new Dictionary<string, int>();
     public SpirVModule Compile(Shader shader)
     {
         ArgumentNullException.ThrowIfNull(shader);
+        _interfaceLocations = InterfaceLocationAllocator.Allocate(shader);
+        
         var module = new SpirVModule();
 
         // 1. Cabecera del módulo.

@@ -1,0 +1,17 @@
+#version 310 es
+precision mediump float;
+precision highp int;
+
+struct VS_Output
+{
+    highp vec4 Color;
+};
+
+layout(location = 8) in highp vec4 fragment_Color;
+layout(location = 0) out highp vec4 _return;
+
+void main()
+{
+    _return = fragment_Color;
+}
+

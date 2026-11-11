@@ -1,23 +1,21 @@
 #version 450
 
-struct _25
+struct VS_Output
 {
-    vec4 _m0;
-    vec4 _m1;
+    vec4 Position;
+    vec4 Color;
 };
 
-in VS_Input
-{
-    layout(location = 0) vec2 Position;
-    layout(location = 8) vec4 Color;
-} _input;
-
+layout(location = 0) in vec2 input_Position;
+layout(location = 8) in vec4 input_Color;
+layout(location = 8) out vec4 _return_Color;
 
 void main()
 {
-    _25 _output;
-    _output._m0 = vec4(_input.Position.x, _input.Position.y, 0.0, 1.0);
-    _output._m1 = _input.Color;
-    _return = VS_Output(_output._m0, _output._m1);
+    VS_Output _output;
+    _output.Position = vec4(input_Position.x, input_Position.y, 0.0, 1.0);
+    _output.Color = input_Color;
+    gl_Position = _output.Position;
+    _return_Color = _output.Color;
 }
 

@@ -3,21 +3,10 @@
 
 using namespace metal;
 
-struct VS_Input
+struct VS_Output
 {
-    float2 Position;
+    float4 Position;
     float4 Color;
-};
-
-struct FS_Input
-{
-    float4 Color;
-};
-
-struct _25
-{
-    float4 _m0;
-    float4 _m1;
 };
 
 struct VS_out
@@ -28,21 +17,18 @@ struct VS_out
 
 struct VS_in
 {
-    float2 _input_Position [[attribute(0)]];
-    float4 _input_Color [[attribute(1)]];
+    float2 input_Position [[attribute(0)]];
+    float4 input_Color [[attribute(8)]];
 };
 
 vertex VS_out VS(VS_in in [[stage_in]])
 {
     VS_out out = {};
-    VS_Input _input = {};
-    _input.Position = in._input_Position;
-    _input.Color = in._input_Color;
-    _25 _output;
-    _output._m0 = float4(_input.Position.x, _input.Position.y, 0.0, 1.0);
-    _output._m1 = _input.Color;
-    _return = VS_Output{ _output._m0, _output._m1 };
-    out._return_Color = _return.Color;
+    VS_Output _output;
+    _output.Position = float4(in.input_Position.x, in.input_Position.y, 0.0, 1.0);
+    _output.Color = in.input_Color;
+    out.gl_Position = _output.Position;
+    out._return_Color = _output.Color;
     return out;
 }
 

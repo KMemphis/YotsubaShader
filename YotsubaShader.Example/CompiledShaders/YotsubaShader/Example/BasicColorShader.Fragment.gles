@@ -1,23 +1,18 @@
 #version 310 es
-#extension GL_EXT_shader_io_blocks : require
 precision mediump float;
 precision highp int;
 
-struct _25
+struct VS_Output
 {
-    highp vec4 _m0;
-    highp vec4 _m1;
+    highp vec4 Position;
+    highp vec4 Color;
 };
 
-in FS_Input
-{
-    layout(location = 8) highp vec4 Color;
-} _input;
-
-out highp vec4 _return;
+layout(location = 8) in highp vec4 input_Color;
+layout(location = 0) out highp vec4 _return;
 
 void main()
 {
-    _return = _input.Color;
+    _return = input_Color;
 }
 

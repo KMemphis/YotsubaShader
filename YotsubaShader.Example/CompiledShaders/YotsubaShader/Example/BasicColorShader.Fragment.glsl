@@ -1,20 +1,16 @@
 #version 450
 
-struct _25
+struct VS_Output
 {
-    vec4 _m0;
-    vec4 _m1;
+    vec4 Position;
+    vec4 Color;
 };
 
-in FS_Input
-{
-    layout(location = 8) vec4 Color;
-} _input;
-
-out vec4 _return;
+layout(location = 8) in vec4 input_Color;
+layout(location = 0) out vec4 _return;
 
 void main()
 {
-    _return = _input.Color;
+    _return = input_Color;
 }
 

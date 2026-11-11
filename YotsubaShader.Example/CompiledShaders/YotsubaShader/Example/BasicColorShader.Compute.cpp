@@ -11,10 +11,10 @@ namespace Impl
 {
     struct Shader
     {
-        struct _25
+        struct VS_Output
         {
-            vec4 _m0;
-            vec4 _m1;
+            vec4 Position;
+            vec4 Color;
         };
         
         struct Resources : ComputeResources

@@ -1,35 +1,42 @@
-struct VS_Input
+struct VS_Output
 {
-    float2 Position;
+    float4 Position;
     float4 Color;
 };
 
-struct _25
-{
-    float4 _m0;
-    float4 _m1;
-};
-
-static VS_Input _input;
+static float4 gl_Position;
+static float2 input_Position;
+static float4 input_Color;
+static float4 _return_Color;
 
 struct SPIRV_Cross_Input
 {
-    float2 VS_Input_Position : TEXCOORD0;
-    float4 VS_Input_Color : TEXCOORD8;
+    float2 input_Position : POSITION;
+    float4 input_Color : COLOR0;
+};
+
+struct SPIRV_Cross_Output
+{
+    float4 _return_Color : COLOR0;
+    float4 gl_Position : SV_Position;
 };
 
 void VS_inner()
 {
-    _25 _output;
-    _output._m0 = float4(_input.Position.x, _input.Position.y, 0.0f, 1.0f);
-    _output._m1 = _input.Color;
-    VS_Output _49 = { _output._m0, _output._m1 };
-    _return = _49;
+    VS_Output _output;
+    _output.Position = float4(input_Position.x, input_Position.y, 0.0f, 1.0f);
+    _output.Color = input_Color;
+    gl_Position = _output.Position;
+    _return_Color = _output.Color;
 }
 
-void VS(SPIRV_Cross_Input stage_input)
+SPIRV_Cross_Output VS(SPIRV_Cross_Input stage_input)
 {
-    _input.Position = stage_input.VS_Input_Position;
-    _input.Color = stage_input.VS_Input_Color;
+    input_Position = stage_input.input_Position;
+    input_Color = stage_input.input_Color;
     VS_inner();
+    SPIRV_Cross_Output stage_output;
+    stage_output.gl_Position = gl_Position;
+    stage_output._return_Color = _return_Color;
+    return stage_output;
 }
