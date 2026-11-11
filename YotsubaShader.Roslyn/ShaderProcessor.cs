@@ -477,7 +477,8 @@ public class ShaderProcessor
                 {
                     ComponentsDefaultValues = [.. components.Select(x => ComponentValueToExpression(x.Value))],
                     ComponentsType = vectorComponentsType,
-                    ComponentsLength = components.Count
+                    ComponentsLength = components.Count,
+                    ComponentNames = GetVectorComponentNames(type)
                 };
 
                 storage = vector;
@@ -650,6 +651,28 @@ public class ShaderProcessor
             TypeName = typeName
         };
         return storage;
+    }
+
+    /// <summary>Los nombres de los componentes de un vector, ordenados por el índice de [VectorComponent].</summary>
+    internal static IReadOnlyList<string> GetVectorComponentNames(ITypeSymbol vectorType)
+    {
+        var names = new SortedDictionary<int, string>();
+
+        foreach (ISymbol member in vectorType.GetMembers())
+        {
+            if (member.IsStatic || member.IsImplicitlyDeclared) continue;
+            if (member is not (IFieldSymbol or IPropertySymbol { IsIndexer: false })) continue;
+
+            AttributeData? attribute = member.GetAttributes().FirstOrDefault(x =>
+                x.AttributeClass?.ToDisplayString() == typeof(VectorComponentAttribute).FullName);
+
+            if (attribute is not null)
+            {
+                names[(int)attribute.ConstructorArguments[0].Value!] = member.Name;
+            }
+        }
+
+        return [.. names.Values];
     }
 
     /// <summary>Registra un componente de vector; el índice no puede ser negativo ni repetirse.</summary>
@@ -842,7 +865,8 @@ public class ShaderProcessor
                 {
                     ComponentsDefaultValues = [.. components.Select(x => ComponentValueToExpression(x.Value))],
                     ComponentsType = vectorComponentsType,
-                    ComponentsLength = components.Count
+                    ComponentsLength = components.Count,
+                    ComponentNames = GetVectorComponentNames(symbol)
                 };
 
                 storage = vector;

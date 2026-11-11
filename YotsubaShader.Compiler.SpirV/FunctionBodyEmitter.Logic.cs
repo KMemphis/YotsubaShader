@@ -373,7 +373,7 @@ internal sealed partial class FunctionBodyEmitter
 
 // v.X = ...: la dirección de un componente es un AccessChain sobre el puntero del vector.
         if (ownerStorage is IRTypes.Vector vector &&
-            TryGetVectorComponentIndex(property.PropertyName, out uint componentIndex))
+            TryGetVectorComponentIndex(vector, property.PropertyName, out uint componentIndex))
         {
             string vectorPointerId = EmitAddress(property.Reference, ref function);
             SpirVStorageClass vectorStorageClass = ToSpirVStorageClass(GetRootStorage(property.Reference).Kind);
@@ -392,6 +392,11 @@ internal sealed partial class FunctionBodyEmitter
                 SpirVModuleHelpers.Id(componentIndexId));
 
             return componentAddressId;
+        }
+
+        if (ownerStorage is IRTypes.Vector notAComponentOwner)
+        {
+            throw NotAVectorComponent(notAComponentOwner, property.PropertyName);
         }
 
         if (ownerStorage is not CustomStruct structure)
@@ -806,7 +811,7 @@ private ValueKind KindOfProperty(StorageStructPropertyReference property)
 {
     // vertex.Uv.X o v.X: el tipo es el de los componentes del vector.
     if (TryGetExpressionStorage(property.Reference) is IRTypes.Vector vector &&
-        TryGetVectorComponentIndex(property.PropertyName, out _))
+        TryGetVectorComponentIndex(vector, property.PropertyName, out _))
     {
         return vector.ComponentsType switch
         {
@@ -956,7 +961,7 @@ private string EmitUnary(UnaryExpression unary, ref Function function)
 
         // v.X sobre cualquier valor vectorial: local, parámetro, miembro de struct, elemento de array...
         if (ownerStorage is IRTypes.Vector vector &&
-            TryGetVectorComponentIndex(property.PropertyName, out uint componentIndex))
+            TryGetVectorComponentIndex(vector, property.PropertyName, out uint componentIndex))
         {
             string vectorValueId = EmitValue(property.Reference, ref function);
 
@@ -981,6 +986,11 @@ private string EmitUnary(UnaryExpression unary, ref Function function)
                 new SpirVInstructionParameter(componentIndex.ToString(), SpirVInstructionType.UIntValue));
 
             return componentId;
+        }
+
+        if (ownerStorage is IRTypes.Vector notAComponentOwner)
+        {
+            throw NotAVectorComponent(notAComponentOwner, property.PropertyName);
         }
 
         if (ownerStorage is not CustomStruct structure)
@@ -1014,10 +1024,30 @@ private string EmitUnary(UnaryExpression unary, ref Function function)
         return extractedId;
     }
 
+    /// <summary>
+    /// El índice de un componente por su nombre. Se usa el índice declarado con [VectorComponent]
+    /// (no el orden X, Y, Z, W) y un componente que el vector no tiene nunca resuelve a un índice.
+    /// </summary>
     private static bool TryGetVectorComponentIndex(
+        IRTypes.Vector vector,
         string propertyName,
         out uint index)
     {
+        if (vector.ComponentNames is { } names)
+        {
+            for (int i = 0; i < names.Count; i++)
+            {
+                if (names[i] == propertyName)
+                {
+                    index = (uint)i;
+                    return true;
+                }
+            }
+
+            index = 0;
+            return false;
+        }
+
         index = propertyName switch
         {
             "X" or "x" => 0,
@@ -1027,9 +1057,13 @@ private string EmitUnary(UnaryExpression unary, ref Function function)
             _ => uint.MaxValue
         };
 
-        return index != uint.MaxValue;
+        return index < (uint)vector.ComponentsLength;
     }
-    
+
+    private static NotSupportedException NotAVectorComponent(IRTypes.Vector vector, string propertyName) =>
+        new($"'{propertyName}' is not a component of this {vector.ComponentsLength}-component vector" +
+            (vector.ComponentNames is { } names ? $" (its components are {string.Join(", ", names)})." : "."));
+
     private static Storage GetStructMember(
         StorageStructPropertyReference property)
     {
