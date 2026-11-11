@@ -122,6 +122,8 @@ public partial class StatementOperationProcessor
                     fieldReferenceOperation.Field.Name,
                     inputs,
                     outputs, compilation, stage);
+            case IPropertyReferenceOperation { Instance: not null, Property: { Name: "Length", ContainingType.SpecialType: SpecialType.System_Array } } arrayLength:
+                return ProcessArrayLength(arrayLength, inputs, outputs, compilation, stage);
             case IPropertyReferenceOperation propertyReferenceOperation:
                 return ProcessMemberReference(propertyReferenceOperation.Instance, propertyReferenceOperation.Property.Name,
                     inputs, outputs, compilation, stage);
@@ -157,6 +159,8 @@ public partial class StatementOperationProcessor
                             ?? throw new NotSupportedException("The array reference did not produce an expression.");
                 var index = ProcessExpression(arrayElement.Indices[0], inputs, outputs, compilation, stage)
                             ?? throw new NotSupportedException("The array index did not produce an expression.");
+
+                ValidateArrayIndex(arrayElement.Indices[0], array);
 
                 return new StorageArrayElementReference(array, index);
             }
@@ -860,6 +864,8 @@ public partial class StatementOperationProcessor
                 Expression array = ProcessAssignableTarget(
                     element.ArrayReference, prelude, inputs, outputs, compilation, stage);
 
+                ValidateArrayIndex(element.Indices[0], array);
+
                 Expression index = ProcessExpression(element.Indices[0], inputs, outputs, compilation, stage)
                     ?? throw new NotSupportedException("The array index did not produce an expression.");
 
@@ -1049,6 +1055,55 @@ public partial class StatementOperationProcessor
         SpecialType.System_Boolean => new IRTypes.Bool(name, kind, null),
         _ => null
     };
+}
+
+/// <summary>`array.Length` es la longitud fija del array local: se emite como constante entera.</summary>
+private Expression ProcessArrayLength(
+    IPropertyReferenceOperation operation,
+    Dictionary<ISymbol, Storage> inputs,
+    Dictionary<ISymbol, Storage> outputs,
+    Compilation compilation,
+    Stage stage)
+{
+    Expression array = ProcessExpression(operation.Instance!, inputs, outputs, compilation, stage)
+        ?? throw new NotSupportedException("The array reference did not produce an expression.");
+
+    if (array is StorageReference { Storage: IRTypes.Array { Length: { } length } })
+    {
+        return new IntLiteral(length.ToString(CultureInfo.InvariantCulture), true);
+    }
+
+    throw new NotSupportedException("'Length' is only supported on local arrays with a known length.");
+}
+
+/// <summary>
+/// El índice debe ser int o uint y, si es constante, caer dentro del array: así el error
+/// aparece con su nombre y no como un SPIR-V inválido más adelante.
+/// </summary>
+private static void ValidateArrayIndex(IOperation indexOperation, Expression array)
+{
+    if (indexOperation.Type?.SpecialType is not (SpecialType.System_Int32 or SpecialType.System_UInt32))
+    {
+        throw new NotSupportedException("Array indices must be int or uint.");
+    }
+
+    if (indexOperation.ConstantValue is not { HasValue: true, Value: { } constant })
+    {
+        return;
+    }
+
+    long value = Convert.ToInt64(constant, CultureInfo.InvariantCulture);
+
+    if (value < 0)
+    {
+        throw new NotSupportedException($"Array index {value} is negative.");
+    }
+
+    if (array is StorageReference { Storage: IRTypes.Array { Length: { } length } } && value >= length)
+    {
+        throw new NotSupportedException(
+            $"Array index {value} is out of range for an array of length {length}.");
+    }
 }
 
 private void ProcessLocalArrayDeclaration(

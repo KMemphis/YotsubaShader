@@ -552,6 +552,10 @@ public partial class IRToSpirvModule
                 DeclareExpressionConstants(module, arrayElement.ArrayReference, stage);
                 DeclareExpressionConstants(module, arrayElement.Index, stage);
                 break;
+            case StorageStructPropertyReference property:
+                // a[1].V: el índice de `a[1]` también necesita su constante.
+                DeclareExpressionConstants(module, property.Reference, stage);
+                break;
             case SequenceExpression sequence:
                 foreach (Statement statement in sequence.Prelude)
                 {
