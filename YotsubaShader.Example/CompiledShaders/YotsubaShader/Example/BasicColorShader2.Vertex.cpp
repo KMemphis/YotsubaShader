@@ -31,8 +31,8 @@ namespace Impl
             {
                 VertexResources::init(s);
                 s.register_stage_input(vertex_Position__, 0);
-                s.register_stage_input(vertex_Color__, 8);
-                s.register_stage_output(_return_Color__, 8);
+                s.register_stage_input(vertex_Color__, 1);
+                s.register_stage_output(_return_Color__, 0);
             }
         };
         

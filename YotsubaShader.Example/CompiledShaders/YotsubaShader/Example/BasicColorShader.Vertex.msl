@@ -13,14 +13,14 @@ struct VS_Output
 
 struct VS_out
 {
-    float4 _return_Color [[user(locn8)]];
+    float4 _return_Color [[user(locn0)]];
     float4 gl_Position [[position]];
 };
 
 struct VS_in
 {
     float2 input_Position [[attribute(0)]];
-    float4 input_Color [[attribute(8)]];
+    float4 input_Color [[attribute(1)]];
 };
 
 static inline __attribute__((always_inline))

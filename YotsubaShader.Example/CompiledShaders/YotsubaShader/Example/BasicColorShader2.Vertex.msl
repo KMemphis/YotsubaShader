@@ -53,14 +53,14 @@ constant spvUnsafeArray<int, 5> _45 = spvUnsafeArray<int, 5>({ 0, 0, 0, 0, 0 });
 
 struct VS_out
 {
-    float4 _return_Color [[user(locn8)]];
+    float4 _return_Color [[user(locn0)]];
     float4 gl_Position [[position]];
 };
 
 struct VS_in
 {
     float2 vertex_Position [[attribute(0)]];
-    float4 vertex_Color [[attribute(8)]];
+    float4 vertex_Color [[attribute(1)]];
 };
 
 static inline __attribute__((always_inline))

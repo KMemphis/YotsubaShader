@@ -7,8 +7,8 @@ struct VS_Output
 };
 
 layout(location = 0) in vec2 input_Position;
-layout(location = 8) in vec4 input_Color;
-layout(location = 8) out vec4 _return_Color;
+layout(location = 1) in vec4 input_Color;
+layout(location = 0) out vec4 _return_Color;
 
 vec4 NewVector4(float x, float y, float z)
 {

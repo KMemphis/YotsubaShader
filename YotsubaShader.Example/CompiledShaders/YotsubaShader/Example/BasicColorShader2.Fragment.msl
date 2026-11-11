@@ -58,7 +58,7 @@ struct FS_out
 
 struct FS_in
 {
-    float4 fragment_Color [[user(locn8)]];
+    float4 fragment_Color [[user(locn0)]];
 };
 
 fragment FS_out FS(FS_in in [[stage_in]])
