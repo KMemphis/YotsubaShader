@@ -122,6 +122,8 @@ public partial class StatementOperationProcessor
                     fieldReferenceOperation.Field.Name,
                     inputs,
                     outputs, compilation, stage);
+            case IPropertyReferenceOperation { Instance: not null, Property: { Name: "Length", ContainingType.SpecialType: SpecialType.System_Array } } arrayLength:
+                return ProcessArrayLength(arrayLength, inputs, outputs, compilation, stage);
             case IPropertyReferenceOperation propertyReferenceOperation:
                 return ProcessMemberReference(propertyReferenceOperation.Instance, propertyReferenceOperation.Property.Name,
                     inputs, outputs, compilation, stage);
@@ -1053,6 +1055,25 @@ public partial class StatementOperationProcessor
         SpecialType.System_Boolean => new IRTypes.Bool(name, kind, null),
         _ => null
     };
+}
+
+/// <summary>`array.Length` es la longitud fija del array local: se emite como constante entera.</summary>
+private Expression ProcessArrayLength(
+    IPropertyReferenceOperation operation,
+    Dictionary<ISymbol, Storage> inputs,
+    Dictionary<ISymbol, Storage> outputs,
+    Compilation compilation,
+    Stage stage)
+{
+    Expression array = ProcessExpression(operation.Instance!, inputs, outputs, compilation, stage)
+        ?? throw new NotSupportedException("The array reference did not produce an expression.");
+
+    if (array is StorageReference { Storage: IRTypes.Array { Length: { } length } })
+    {
+        return new IntLiteral(length.ToString(CultureInfo.InvariantCulture), true);
+    }
+
+    throw new NotSupportedException("'Length' is only supported on local arrays with a known length.");
 }
 
 /// <summary>

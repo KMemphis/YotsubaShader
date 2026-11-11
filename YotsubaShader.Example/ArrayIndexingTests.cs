@@ -188,6 +188,22 @@ public class ArrayIndexingTests
     }
 
     [Fact]
+    public void Length_of_a_local_array_is_its_declared_length()
+    {
+        Function fs = Compile("int[] a = new int[3]; int n = a.Length; return n;");
+
+        Assert.Equal("3", Assert.IsType<IntLiteral>(fs.InitializerOf("n")).Value);
+    }
+
+    [Fact]
+    public void Length_of_an_array_with_an_initializer_counts_its_elements()
+    {
+        Function fs = Compile("int[] a = new int[] { 4, 5, 6, 7 }; int n = a.Length; return n;");
+
+        Assert.Equal("4", Assert.IsType<IntLiteral>(fs.InitializerOf("n")).Value);
+    }
+
+    [Fact]
     public void Constant_index_past_the_end_is_rejected()
     {
         Assert.Contains("out of range", Rejects("int[] a = new int[3]; return a[3];").Message);
