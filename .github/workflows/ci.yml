@@ -48,11 +48,17 @@ jobs:
       - name: Build CLI
         run: dotnet build YotsubaShader.CLI/YotsubaShader.CLI.csproj --configuration Release
 
+      # ShadowDusk's native DXC / vkd3d-shader libraries are not in the repository;
+      # the mgfx / kni / fna targets need them.
+      - name: Restore ShadowDusk natives
+        run: bash ShadowDusk/tools/restore.sh
+
       - name: Run CLI against the example (compile)
         run: >
           dotnet run --project YotsubaShader.CLI/YotsubaShader.CLI.csproj --configuration Release --no-build --
           compile YotsubaShader.Example/YotsubaShader.Example.csproj
           --target spirv --target hlsl --target glsl --target gles --target msl --target cpp
+          --target mgfx --target kni --target fna
           --output "$RUNNER_TEMP/compiled-shaders"
 
       - name: Verify CLI produced output
@@ -66,10 +72,26 @@ jobs:
           dotnet run --project YotsubaShader.CLI/YotsubaShader.CLI.csproj --configuration Release --no-build --
           add YotsubaShader.Example/YotsubaShader.Example.csproj
           --target spirv --target hlsl --target glsl --target gles --target msl --target cpp
+          --target mgfx --target kni --target fna
           --output "$RUNNER_TEMP/compiled-shaders-add"
 
       - name: Test
         run: dotnet test YotsubaShader.Example/YotsubaShader.Example.csproj --configuration Release --no-restore -p:CompileYotsubaShaders=false --logger "trx;LogFileName=test-results.trx" --results-directory test-results
+
+      # MonoGame DesktopGL load test: compiles an HLSL shader to MGFX, loads it as a
+      # real Effect and renders a triangle (software OpenGL under Xvfb). Verified on
+      # linux-x64. The KNI and FNA examples are intentionally not run in CI: KNI
+      # crashes (SIGSEGV) under Xvfb/Mesa and FNA needs the fnalibs native bundle.
+      - name: Install Xvfb and Mesa
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth libgl1 libgl1-mesa-dri libglx-mesa0 libegl1 libopenal1
+
+      - name: Build MonoGame example
+        run: dotnet build examples/MonoGame.LoadTest/MonoGame.LoadTest.csproj --configuration Release
+
+      - name: Run MonoGame example (load MGFX)
+        run: xvfb-run -a -s "-screen 0 1280x720x24" dotnet run --no-build --configuration Release --project examples/MonoGame.LoadTest/MonoGame.LoadTest.csproj
 
       - name: Upload compiled shaders
         if: always()

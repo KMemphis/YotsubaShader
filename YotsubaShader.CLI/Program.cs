@@ -72,6 +72,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.MSBuild;
 using YotsubaShader.CLI;
 using YotsubaShader.Compiler;
+using YotsubaShader.Compiler.CompileToGameEngines;
 using YotsubaShader.IR.Intermediate;
 
 using Microsoft.CodeAnalysis;
@@ -137,20 +138,29 @@ switch (parameters.Command)
         {
             foreach (ShaderTarget target in parameters.Targets)
             {
-                if (target == ShaderTarget.SpirV)
+                if (IsBinaryTarget(target))
                 {
-                    string spirvPath = GetShaderPath(
-                        compiledCode,
-                        target,
-                        parameters,
-                        stage: null);
+                    foreach ((string extension, Func<byte[]> build) in GetBinaries(target, compiledCode))
+                    {
+                        string binaryPath = GetShaderPath(
+                            compiledCode,
+                            parameters,
+                            extension,
+                            stage: null);
 
-                    CreateParentDirectory(spirvPath);
+                        CreateParentDirectory(binaryPath);
 
-                    await File.WriteAllBytesAsync(
-                        spirvPath,
-                        compiledCode.SpirV,
-                        token);
+                        try
+                        {
+                            await File.WriteAllBytesAsync(binaryPath, build(), token);
+                        }
+                        catch (Exception exception) when (target != ShaderTarget.SpirV)
+                        {
+                            Console.Error.WriteLine(
+                                $"{compiledCode.CSharpFullClassName}{extension}: {exception.Message}");
+                            Environment.ExitCode = 1;
+                        }
+                    }
 
                     continue;
                 }
@@ -159,8 +169,8 @@ switch (parameters.Command)
                 {
                     string shaderPath = GetShaderPath(
                         compiledCode,
-                        target,
                         parameters,
+                        GetExtension(target),
                         stage);
 
                     CreateParentDirectory(shaderPath);
@@ -189,6 +199,13 @@ switch (parameters.Command)
             .AppendLine("#nullable enable")
             .AppendLine()
             .AppendLine("namespace YotsubaShader;")
+            .AppendLine()
+            .AppendLine("public enum MonoGamePlatform")
+            .AppendLine("{")
+            .AppendLine(string.Join(
+                ",\n",
+                Enum.GetNames<MonoGamePlatform>().Select(name => "    " + name)))
+            .AppendLine("}")
             .AppendLine()
             .AppendLine("[global::System.Runtime.CompilerServices.CompilerGenerated]")
             .AppendLine("[global::System.ComponentModel.EditorBrowsable(")
@@ -234,6 +251,22 @@ switch (parameters.Command)
                 compiledCode,
                 "ToMSL",
                 stage => compiledCode.ToMsl(stage));
+
+            AppendToMgfxMethod(stringBuilder, shaderType, compiledCode);
+
+            AppendEngineMethod(
+                stringBuilder,
+                shaderType,
+                compiledCode,
+                "ToKNIWebGL_FX",
+                () => compiledCode.ToKNIWebGL_FX());
+
+            AppendEngineMethod(
+                stringBuilder,
+                shaderType,
+                compiledCode,
+                "ToFNA_FX",
+                () => compiledCode.ToFNA_FX());
         }
 
         stringBuilder.AppendLine("}");
@@ -273,8 +306,8 @@ static IEnumerable<Stage> GetStages(CompiledCode compiledCode)
 
 static string GetShaderPath(
     CompiledCode compiledCode,
-    ShaderTarget target,
     Args parameters,
+    string extension,
     Stage? stage)
 {
     string relativePath = compiledCode.CSharpFullClassName.Replace(
@@ -287,7 +320,7 @@ static string GetShaderPath(
 
     return Path.Combine(
         parameters.OutputDirectory,
-        relativePath + stageSuffix + GetExtension(target));
+        relativePath + stageSuffix + extension);
 }
 
 static void CreateParentDirectory(string filePath)
@@ -297,6 +330,53 @@ static void CreateParentDirectory(string filePath)
     if (directory is not null)
     {
         Directory.CreateDirectory(directory);
+    }
+}
+
+static bool IsBinaryTarget(ShaderTarget target)
+{
+    return target is ShaderTarget.SpirV
+        or ShaderTarget.MonoGame
+        or ShaderTarget.Kni
+        or ShaderTarget.Fna;
+}
+
+// Cada binario se construye de forma diferida para poder reportar el error de un
+// solo archivo sin abortar el resto.
+static IEnumerable<(string Extension, Func<byte[]> Build)> GetBinaries(
+    ShaderTarget target,
+    CompiledCode compiledCode)
+{
+    switch (target)
+    {
+        case ShaderTarget.SpirV:
+            yield return (".spv", () => compiledCode.SpirV);
+            break;
+
+        case ShaderTarget.MonoGame:
+            foreach (MonoGamePlatform platform in Enum.GetValues<MonoGamePlatform>())
+            {
+                MonoGamePlatform current = platform;
+                yield return (
+                    $".{current.ToString().ToLowerInvariant()}.mgfx",
+                    () => compiledCode.ToMGFX(current));
+            }
+
+            break;
+
+        case ShaderTarget.Kni:
+            yield return (".knifx", () => compiledCode.ToKNIWebGL_FX());
+            break;
+
+        case ShaderTarget.Fna:
+            yield return (".fxb", () => compiledCode.ToFNA_FX());
+            break;
+
+        default:
+            throw new ArgumentOutOfRangeException(
+                nameof(target),
+                target,
+                "Target binario no soportado.");
     }
 }
 
@@ -339,6 +419,104 @@ static string GetExtension(ShaderTarget target)
             target,
             "Target no soportado.")
     };
+}
+
+// Si ShadowDusk no puede compilar un target, el método generado lanza con el motivo
+// en lugar de abortar todo el comando "add".
+static string BuildEngineBody(string description, Func<byte[]> build, string indentation, string returnPrefix)
+{
+    try
+    {
+        string base64 = Convert.ToBase64String(build());
+        return $"{indentation}{returnPrefix}global::System.Convert.FromBase64String(\"{base64}\");";
+    }
+    catch (Exception exception)
+    {
+        Console.Error.WriteLine($"{description}: {exception.Message}");
+
+        string message = Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(
+            $"{description}: {exception.Message}",
+            quote: true);
+
+        return $"{indentation}throw new global::System.NotSupportedException({message});";
+    }
+}
+
+static void AppendEngineMethod(
+    StringBuilder builder,
+    string shaderType,
+    CompiledCode compiledCode,
+    string methodName,
+    Func<byte[]> build)
+{
+    builder
+        .AppendLine($"    public static byte[] {methodName}(this {shaderType} _shader)")
+        .AppendLine("    {")
+        .AppendLine(BuildEngineBody(
+            $"{compiledCode.CSharpFullClassName}.{methodName}",
+            build,
+            "        ",
+            "return "))
+        .AppendLine("    }")
+        .AppendLine();
+}
+
+static void AppendToMgfxMethod(
+    StringBuilder builder,
+    string shaderType,
+    CompiledCode compiledCode)
+{
+    builder
+        .AppendLine($"    public static byte[] ToMGFX(")
+        .AppendLine($"        this {shaderType} _shader,")
+        .AppendLine("        global::YotsubaShader.MonoGamePlatform platform)")
+        .AppendLine("    {")
+        .AppendLine("        switch (platform)")
+        .AppendLine("        {");
+
+    // Las plataformas que producen exactamente los mismos bytes comparten un solo literal.
+    var bodies = new List<(string Body, List<MonoGamePlatform> Platforms)>();
+
+    foreach (MonoGamePlatform platform in Enum.GetValues<MonoGamePlatform>())
+    {
+        string body = BuildEngineBody(
+            $"{compiledCode.CSharpFullClassName}.ToMGFX({platform})",
+            () => compiledCode.ToMGFX(platform),
+            "                ",
+            "return ");
+
+        int existing = bodies.FindIndex(entry => entry.Body == body);
+
+        if (existing >= 0)
+        {
+            bodies[existing].Platforms.Add(platform);
+        }
+        else
+        {
+            bodies.Add((body, [platform]));
+        }
+    }
+
+    foreach ((string body, List<MonoGamePlatform> platforms) in bodies)
+    {
+        foreach (MonoGamePlatform platform in platforms)
+        {
+            builder.AppendLine(
+                $"            case global::YotsubaShader.MonoGamePlatform.{platform}:");
+        }
+
+        builder.AppendLine(body);
+    }
+
+    builder
+        .AppendLine("            default:")
+        .AppendLine("                throw new global::System.ArgumentOutOfRangeException(")
+        .AppendLine("                    nameof(platform),")
+        .AppendLine("                    platform,")
+        .AppendLine("                    \"Plataforma de MonoGame no soportada.\");")
+        .AppendLine("        }")
+        .AppendLine("    }")
+        .AppendLine();
 }
 
 static void AppendToSpirVMethod(

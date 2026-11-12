@@ -95,6 +95,8 @@ public sealed record FunctionsInfo(
     public string Name => Method.MethodKind == MethodKind.Constructor ?
         $"New{Method.ContainingType.Name}"
         : Method.Name;
+    
+    public FunctionsInfo? CalledFrom { get; init; }
 }
 
 /// <summary>La "ficha" de un shader: la clase y las etapas que declara.</summary>
@@ -103,6 +105,6 @@ public sealed record ShaderInfo(
     ImmutableArray<FunctionsInfo> Functions)
 {
     public string Name => Type.Name;
-
+    
     public string FullName => Type.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat);
 }

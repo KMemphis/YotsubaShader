@@ -261,7 +261,17 @@ dotnet run --project YotsubaShader.CLI/YotsubaShader.CLI.csproj -- \
   --output artifacts/
 ```
 
-The CLI supports SPIR-V, HLSL, GLSL, GLSL ES, Metal, and C++ output. Repeat `--target` to generate several targets in one invocation. `--target` selects the backend independently of the attributes used to write the shader. The current compiler path covers the `Vertex`, `Fragment`, and `Compute` stages and the supported subset of shader-body operations.
+The CLI supports SPIR-V, HLSL, GLSL, GLSL ES, Metal, and C++ output, plus compiled effects for game engines through [ShadowDusk](ShadowDusk/): `mgfx` (MonoGame), `kni` (KNI WebGL), and `fna` (FNA). Repeat `--target` to generate several targets in one invocation. `--target` selects the backend independently of the attributes used to write the shader.
+
+The engine targets write one binary per shader instead of one file per stage:
+
+| `--target` | Output | Produced by |
+|---|---|---|
+| `mgfx` | `Shader.<platform>.mgfx`, one file per `MonoGamePlatform` (`desktopgl`, `windowsdx11`, `windowsdirectx12`, `desktopvulkan`, `ios`, `android`, `gl4`) | `ToMGFX(platform)` |
+| `kni` | `Shader.knifx` | `ToKNIWebGL_FX()` |
+| `fna` | `Shader.fxb` | `ToFNA_FX()` |
+
+These targets compile the vertex and fragment stages through ShadowDusk, which needs its native DXC and vkd3d-shader libraries. They are not in the repository: run `ShadowDusk/tools/restore.sh` once (it downloads them and verifies their SHA-256) before using them. If one binary fails to compile, the CLI reports the reason, keeps going with the others, and exits with code 1. Compilation is verified for the example shaders; rendering them on each engine is not covered yet. The current compiler path covers the `Vertex`, `Fragment`, and `Compute` stages and the supported subset of shader-body operations.
 
 ### Generated project accessors
 
@@ -277,6 +287,7 @@ The command discovers and compiles the shader classes, then writes `YotsubaShade
 
 - `ToSpirV(this ShaderType shader)`, returning the embedded SPIR-V `byte[]`.
 - `ToHlsl(Stage stage)`, `ToGlsl(Stage stage)`, `ToGlslEs(Stage stage)`, and `ToMSL(Stage stage)`, returning the generated source text for that stage.
+- `ToMGFX(this ShaderType shader, MonoGamePlatform platform)`, `ToKNIWebGL_FX(this ShaderType shader)`, and `ToFNA_FX(this ShaderType shader)`, returning the embedded engine effect `byte[]`. `MonoGamePlatform` is an enum declared inside the generated file. If ShadowDusk cannot compile a target while the file is generated, that method throws `NotSupportedException` with the reason instead of failing the whole command.
 
 The generated source uses raw string literals so the emitted shader text remains readable. `CompilerGenerated` and `EditorBrowsable(Never)` keep the helper out of normal IntelliSense lists while leaving the generated file and its methods available to the project. The `add` command currently requires at least one `--target` for CLI argument compatibility; its generated helper set is not filtered by that value. Use `compile` when you need target-specific files in an output directory.
 
