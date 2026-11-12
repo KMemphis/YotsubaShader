@@ -215,6 +215,27 @@ public partial class IRToSpirvModule
             case UnaryExpression unary:
                 AddCapabilityForExpression(unary.Operand, emittedCapabilities);
                 break;
+            case NumericConversion conversion:
+                // El operando puede pedir una capacidad por sí mismo, y el tipo de destino también.
+                AddCapabilityForExpression(conversion.Operand, emittedCapabilities);
+                if (conversion.TargetType == ScalarType.Float64)
+                {
+                    AddCapability(SpirVCapability.Float64, emittedCapabilities);
+                }
+                break;
+            case FunctionCallExpression call:
+                foreach (Expression argument in call.Arguments)
+                {
+                    AddCapabilityForExpression(argument, emittedCapabilities);
+                }
+                break;
+            case StorageArrayElementReference arrayElement:
+                AddCapabilityForExpression(arrayElement.ArrayReference, emittedCapabilities);
+                AddCapabilityForExpression(arrayElement.Index, emittedCapabilities);
+                break;
+            case StorageStructPropertyReference property:
+                AddCapabilityForExpression(property.Reference, emittedCapabilities);
+                break;
             case SequenceExpression sequence:
                 foreach (Statement statement in sequence.Prelude)
                 {
@@ -509,6 +530,17 @@ public partial class IRToSpirvModule
                 break;
             case NumericConversion conversion:
                 DeclareExpressionConstants(module, conversion.Operand, stage);
+
+                // El tipo del resultado se usa en la instrucción de conversión aunque nada más lo declare.
+                module.DeclareType(conversion.TargetType switch
+                {
+                    ScalarType.Int32 => typeof(int),
+                    ScalarType.UInt32 => typeof(uint),
+                    ScalarType.Float32 => typeof(float),
+                    ScalarType.Float64 => typeof(double),
+                    _ => throw new NotSupportedException(
+                        $"Target type '{conversion.TargetType}' is not supported.")
+                });
                 break;
             case VectorExpression vectorExpression:
                 foreach (var vectorExpressionValue in vectorExpression.Values)
