@@ -79,6 +79,7 @@ public partial class IRToSpirvModule
     public SpirVModule Compile(Shader shader)
     {
         ArgumentNullException.ThrowIfNull(shader);
+        InterfaceValidator.Validate(shader);
         _interfaceLocations = InterfaceLocationAllocator.Allocate(shader);
         
         var module = new SpirVModule();

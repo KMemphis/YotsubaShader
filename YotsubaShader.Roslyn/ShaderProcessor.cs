@@ -1229,11 +1229,13 @@ public class ShaderProcessor
         {
             if (HasConcept<LocationAttribute>(attributeData)) 
             {
-                if (attributeData.ConstructorArguments is [{ Value: int location }])
-                {
-                    slot = new LocationSlot(location);
-                    return slot;
-                }
+                // Sin argumento (por ejemplo [SV_Target]) es la Location 0, el valor por defecto del atributo.
+                int location = attributeData.ConstructorArguments is [{ Value: int explicitLocation }]
+                    ? explicitLocation
+                    : 0;
+
+                slot = new LocationSlot(location);
+                return slot;
             }
             else if (HasConcept<UserSemanticAttribute>(attributeData))
             {
@@ -1269,6 +1271,10 @@ public class ShaderProcessor
                     {
                         builtIn = BuiltIn.FragCoord;
                     }
+                }
+                else if (HasConcept<FrontFacingFlag>(attributeData))
+                {
+                    builtIn = BuiltIn.FrontFacing;
                 }
                 else if (
                     HasConcept<VertexIndex>(attributeData))
