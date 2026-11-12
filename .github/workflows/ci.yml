@@ -37,6 +37,12 @@ jobs:
             8.0.x
             10.0.x
 
+      # ShadowDusk's native DXC / vkd3d-shader libraries are not in the repository.
+      # They must be restored BEFORE building so the build copies them next to the CLI
+      # (the mgfx / kni / fna targets need them).
+      - name: Restore ShadowDusk natives
+        run: bash ShadowDusk/tools/restore.sh
+
       - name: Restore
         run: dotnet restore YotsubaShader.Example/YotsubaShader.Example.csproj
 
@@ -47,11 +53,6 @@ jobs:
 
       - name: Build CLI
         run: dotnet build YotsubaShader.CLI/YotsubaShader.CLI.csproj --configuration Release
-
-      # ShadowDusk's native DXC / vkd3d-shader libraries are not in the repository;
-      # the mgfx / kni / fna targets need them.
-      - name: Restore ShadowDusk natives
-        run: bash ShadowDusk/tools/restore.sh
 
       - name: Run CLI against the example (compile)
         run: >
