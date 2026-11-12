@@ -2,3 +2,6 @@
 	path = YotsubaShaderCross
 	url = https://github.com/KMemphis/YotsubaShaderCross.git
 	branch = master
+[submodule "ShadowDusk"]
+	path = ShadowDusk
+	url = https://github.com/kaltinril/ShadowDusk.git
