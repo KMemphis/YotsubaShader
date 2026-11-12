@@ -25,6 +25,29 @@ Yotsuba IR → SPIR-V lowering → SpirVModule → SPIR-V binary
 - `SpirVCompiler.Compile(SpirVModule)` serializes a module to `byte[]`.
 - SPIR-V enums and records represent capabilities, execution models, decorations, storage classes, operations, parameters, functions, and blocks.
 
+## Buffer layout
+
+A uniform or storage-buffer resource must be a struct. The struct becomes a SPIR-V `Block` and every member gets an `Offset`, so the application knows where to write each value. The policy depends on the kind of resource:
+
+| Resource | Layout |
+| --- | --- |
+| `Uniform` | std140 |
+| `StorageBuffer`, `PushConstant` | std430 |
+
+`N` is the size of a component: 4 bytes for `int`, `uint` and `float`, 8 bytes for `double`.
+
+| Member | Alignment | Size |
+| --- | --- | --- |
+| scalar | `N` | `N` |
+| vector of 2 | `2N` | `2N` |
+| vector of 3 | `4N` | `3N` |
+| vector of 4 | `4N` | `4N` |
+| nested struct | its largest member alignment (std140: at least 16) | rounded up to its alignment |
+
+Each member starts at the next multiple of its alignment. A scalar can fill the fourth component that a vector of 3 leaves free, so `{ float A; Vector3 B; float C; }` places `B` at offset 16 and `C` at offset 28 in both layouts.
+
+A member that has no defined layout fails with a message that names it: `bool` (use `uint`), matrices and arrays, which are not supported in buffers yet. A resource that is not a struct fails too; wrap the value in a struct. One struct type cannot be used with two layouts that give different offsets, for example a nested struct shared by a uniform and a storage buffer; use one struct per kind of buffer.
+
 ## Responsibilities
 
 - Lower backend-neutral IR into legal SPIR-V instructions.

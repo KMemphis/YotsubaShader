@@ -127,9 +127,17 @@ public static class BuildIrTypes
     
     public static void BuildRequiredTypes(SpirVModule module, Shader shader)
     {
+        var decoratedStructs = new Dictionary<string, (BufferLayoutPolicy Policy, IReadOnlyList<int> Offsets)>();
+
         foreach (var shaderGlobalResource in shader.GlobalResources)
         {
             BuildStorageTypes(module, shaderGlobalResource, GlobalVariableId(shaderGlobalResource), Stage.None);
+
+            // Un uniform o un storage buffer es un Block: su disposición en memoria va en las decoraciones.
+            if (BufferLayout.IsBuffer(shaderGlobalResource.Kind))
+            {
+                BufferLayout.DecorateResource(module, shaderGlobalResource, decoratedStructs);
+            }
         }
 
         foreach (var shaderFunction in shader.Functions)
