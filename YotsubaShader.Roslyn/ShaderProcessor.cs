@@ -315,6 +315,24 @@ public class ShaderProcessor
         return GetStorage(parameterInfo.Symbol, null, slot, compilation, stage);
     }
 
+    /// <summary>
+    /// El valor por defecto de un parámetro con su tipo real. Roslyn lo entrega ya con el tipo del parámetro
+    /// (un <c>uint</c> llega como <c>uint</c>), así que no se reinterpreta a través de otro tipo.
+    /// </summary>
+    private static T? DefaultValueOf<T>(IParameterSymbol? parameter) where T : struct
+    {
+        if (parameter is not { HasExplicitDefaultValue: true })
+        {
+            return null;
+        }
+
+        return parameter.ExplicitDefaultValue is T value
+            ? value
+            : throw new NotSupportedException(
+                $"The default value of parameter '{parameter.Name}' " +
+                $"({parameter.ExplicitDefaultValue ?? "null"}) is not a valid {parameter.Type.ToDisplayString()}.");
+    }
+
     internal static Storage GetStorage(ISymbol symbol, Storage? storage, InterfaceSlot? slot, Compilation compilation, IRStage stage, bool isLocal = false)
     {
         ITypeSymbol? type = symbol switch
@@ -344,8 +362,8 @@ public class ShaderProcessor
                 {
                     Bits = 32,
                     Signed = true,
-                    InitialValue = parameter is { HasExplicitDefaultValue: true }
-                        ? new IntLiteral(((int)parameter.ExplicitDefaultValue!).ToString(), true)
+                    InitialValue = DefaultValueOf<int>(parameter) is { } defaultInt
+                        ? new IntLiteral(defaultInt.ToString(CultureInfo.InvariantCulture), true)
                         : null
                 };
                 break;
@@ -354,32 +372,32 @@ public class ShaderProcessor
                 {
                     Bits = 32,
                     Signed = false,
-                    InitialValue = parameter is { HasExplicitDefaultValue: true }
-                        ? new IntLiteral(((int)parameter.ExplicitDefaultValue!).ToString(), false)
+                    InitialValue = DefaultValueOf<uint>(parameter) is { } defaultUInt
+                        ? new IntLiteral(defaultUInt.ToString(CultureInfo.InvariantCulture), false)
                         : null
                 };
                 break;
             case SpecialType.System_Double:
                 storage = new Double(symbol.Name, storageKind, slot)
                 {
-                    InitialValue = parameter is { HasExplicitDefaultValue: true }
-                        ? new DoubleLiteral((double)parameter.ExplicitDefaultValue!)
+                    InitialValue = DefaultValueOf<double>(parameter) is { } defaultDouble
+                        ? new DoubleLiteral(defaultDouble)
                         : null
                 };
                 break;
             case SpecialType.System_Single:
                 storage = new Float(symbol.Name, storageKind, slot)
                 {
-                    InitialValue = parameter is { HasExplicitDefaultValue: true }
-                        ? new FloatLiteral((float)parameter.ExplicitDefaultValue!)
+                    InitialValue = DefaultValueOf<float>(parameter) is { } defaultFloat
+                        ? new FloatLiteral(defaultFloat)
                         : null
                 };
                 break;
             case SpecialType.System_Boolean:
                 storage = new Bool(symbol.Name, storageKind, slot)
                 {
-                    InitialValue = parameter is { HasExplicitDefaultValue: true }
-                        ? new BoolLiteral((bool)parameter.ExplicitDefaultValue!)
+                    InitialValue = DefaultValueOf<bool>(parameter) is { } defaultBool
+                        ? new BoolLiteral(defaultBool)
                         : null
                 };
                 break;
