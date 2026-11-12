@@ -90,6 +90,7 @@ using YotsubaShader.Language.Native.Types.Texture;
 using YotsubaShader.Language.Native.Types.Vector;
 using YotsubaShader.Language.Native.Types.Vector.Exceptions;
 using YotsubaShader.Roslyn.Model;
+using YotsubaShader.Roslyn.Sources;
 using Double = YotsubaShader.IR.Intermediate.Types.Double;
 using LanguageStage = YotsubaShader.Language.Stage;
 using IRStage = YotsubaShader.IR.Intermediate.Stage;
@@ -101,38 +102,25 @@ namespace YotsubaShader.Roslyn;
 public class ShaderProcessor
 {
     
-    internal static Dictionary<IMethodSymbol, FunctionId> functionIds =
-        new(SymbolEqualityComparer.Default);
+    [ThreadStatic]
+    internal static SourceGraph Sources = null!;
+        
+    [ThreadStatic]
+    internal static Dictionary<SymbolKey, FunctionId> functionIds =
+        new();
 
+    [ThreadStatic]
     internal static List<FunctionsInfo> PendingFunctionsInfos;
-
-    // Cada tipo struct recibe un nombre único dentro del shader: dos `Data` de espacios de nombres
-    // distintos no pueden compartir el mismo ID de SPIR-V.
-    private static Dictionary<ITypeSymbol, string> structTypeNames =
-        new(SymbolEqualityComparer.Default);
-
-    internal static string UniqueStructTypeName(ITypeSymbol type, string preferredName)
-    {
-        if (structTypeNames.TryGetValue(type, out string? existing))
-        {
-            return existing;
-        }
-
-        string name = preferredName;
-
-        for (int suffix = 1; structTypeNames.ContainsValue(name); suffix++)
-        {
-            name = $"{preferredName}_{suffix}";
-        }
-
-        structTypeNames[type] = name;
-
-        return name;
-    }
-
+    
+    [ThreadStatic]
+    private static Dictionary<SymbolKey, string> structTypeNames =
+        new();
     
     public (string, Shader)[] Process(Compilation compilation, CancellationToken token)
     {
+        Sources = new SourceGraph(compilation,
+            new DecompiledSourceProvider(compilation));
+        
         var csharpShaderMetadata = ShaderDiscovery.Find(compilation, token);
         (string, Shader)[] shaders = new (string, Shader)[csharpShaderMetadata.Length];
         int i = 0;
@@ -140,8 +128,8 @@ public class ShaderProcessor
         foreach (ShaderInfo shaderInfo in csharpShaderMetadata)
         {
             
-            functionIds = new Dictionary<IMethodSymbol, FunctionId>(SymbolEqualityComparer.Default);
-            structTypeNames = new Dictionary<ITypeSymbol, string>(SymbolEqualityComparer.Default);
+            functionIds = new Dictionary<SymbolKey, FunctionId>();
+            structTypeNames = new Dictionary<SymbolKey, string>();
             
             var globals = new Dictionary<ISymbol, Storage>(SymbolEqualityComparer.Default);
             
@@ -151,7 +139,7 @@ public class ShaderProcessor
             PendingFunctionsInfos = new List<FunctionsInfo>();
             foreach (var shaderInfoEntryPoint in shaderInfo.Functions)
             {
-                ProcessShaderFunction(compilation, shaderInfoEntryPoint, functions, PendingFunctionsInfos, globals);
+                ProcessWithChain(compilation, shaderInfoEntryPoint, functions, PendingFunctionsInfos, globals);
             }
 
             for (int index = 0;
@@ -159,12 +147,7 @@ public class ShaderProcessor
                  index++)
             {
                 var functionInfo = PendingFunctionsInfos[index];
-                ProcessShaderFunction(
-                    compilation,
-                    functionInfo,
-                    functions,
-                    PendingFunctionsInfos,
-                    globals);
+                ProcessWithChain(compilation, functionInfo, functions, PendingFunctionsInfos, globals);
             }
 
             var shader = new Shader(functions, globals.Values.ToArray());
@@ -176,13 +159,14 @@ public class ShaderProcessor
 
     private static void ProcessShaderFunction(Compilation compilation, FunctionsInfo shaderInfoEntryPoint, List<Function> shaderFunction, List<FunctionsInfo> extraMethods, Dictionary<ISymbol, Storage> globals)
     {
-        if (!functionIds.TryGetValue(shaderInfoEntryPoint.Method, out var functionId))
+        SymbolKey key = SymbolKey.Of(shaderInfoEntryPoint.Method);
+        if (!functionIds.TryGetValue(key, out var functionId))
         {
             functionId = new FunctionId((uint)functionIds.Count);
-            functionIds[shaderInfoEntryPoint.Method] = functionId;
+            functionIds[key] = functionId;
         }
         
-        var processor = new StatementOperationProcessor(){ Globals = globals};
+        var processor = new StatementOperationProcessor(){ Globals = globals, CurrentFunction = shaderInfoEntryPoint};
         IRStage stage = shaderInfoEntryPoint.Stage switch
         {
             LanguageStage.Compute  => IRStage.Compute,
@@ -232,7 +216,7 @@ public class ShaderProcessor
             bodyFunc.Add(new VariableDeclaration(self, zero));        }
                 
         var syntax = shaderInfoEntryPoint.Method.DeclaringSyntaxReferences[0].GetSyntax();
-        var semanticModel = compilation.GetSemanticModel(syntax.SyntaxTree);
+        var semanticModel = Sources.GetSemanticModel(syntax.SyntaxTree);
 
         var operations = semanticModel.GetOperation(syntax);
 
@@ -1155,7 +1139,7 @@ public class ShaderProcessor
                 continue;
             }
 
-            SemanticModel semanticModel = compilation.GetSemanticModel(expression.SyntaxTree);
+            SemanticModel semanticModel = Sources.GetSemanticModel(expression.SyntaxTree);
             Optional<object?> constant = semanticModel.GetConstantValue(expression);
 
             if (constant.HasValue)
@@ -1460,4 +1444,45 @@ public class ShaderProcessor
                 $"Invalid HLSL register: '{register}'.");
         }
     }
+    
+    internal static string UniqueStructTypeName(ITypeSymbol type, string preferredName)
+    {
+        SymbolKey key = SymbolKey.OfType(type);
+        if (structTypeNames.TryGetValue(key, out string? existing))
+        {
+            return existing;
+        }
+
+        string name = preferredName;
+
+        for (int suffix = 1; structTypeNames.ContainsValue(name); suffix++)
+        {
+            name = $"{preferredName}_{suffix}";
+        }
+
+        structTypeNames[key] = name;
+
+        return name;
+    }
+
+
+    private static void ProcessWithChain(Compilation compilation, FunctionsInfo f,
+        List<Function> functions, List<FunctionsInfo> pending, Dictionary<ISymbol, Storage> globals)
+    {
+        try { ProcessShaderFunction(compilation, f, functions, pending, globals); }
+        catch (NotSupportedException ex)
+        {
+            throw new NotSupportedException($"{ex.Message}\n{DescribeChain(f)}", ex);
+        }
+        static string DescribeChain(FunctionsInfo? f)
+        {
+            var lines = new List<string>();
+            for (; f is not null; f = f.CalledFrom)
+                lines.Add($"  → {f.Method.ContainingType.Name}.{f.Method.Name} ({f.Method.ContainingAssembly.Name})");
+            lines.Reverse();
+            return string.Join("\n", lines);
+        }
+    }
+    
+    
 }

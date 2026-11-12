@@ -86,6 +86,9 @@ namespace YotsubaShader.Roslyn;
 
 public partial class StatementOperationProcessor
 {
+    
+    public FunctionsInfo? CurrentFunction { get; init; }
+    
     private readonly Dictionary<ISymbol, Storage> _locals =
         new(SymbolEqualityComparer.Default);
 
@@ -239,8 +242,7 @@ public partial class StatementOperationProcessor
         Stage stage,
         IReadOnlyList<Expression>? preparedArguments = null)
 {
-    if (targetMethod.MethodKind is not (MethodKind.Ordinary or MethodKind.UserDefinedOperator or MethodKind.Constructor) ||
-        targetMethod.DeclaringSyntaxReferences.IsDefaultOrEmpty)
+    if (targetMethod.MethodKind is not (MethodKind.Ordinary or MethodKind.UserDefinedOperator or MethodKind.Constructor))
     {
         throw new NotSupportedException(
             $"El método '{targetMethod.ToDisplayString()}' no tiene un cuerpo de shader compilable.");
@@ -301,33 +303,40 @@ public partial class StatementOperationProcessor
         arguments.Add(argument);
     }
 
+    var key = SymbolKey.Of(targetMethod);
     if (!ShaderProcessor.functionIds.TryGetValue(
-            targetMethod,
+            key,
             out FunctionId functionId))
     {
+        
+        IMethodSymbol method = ShaderProcessor.Sources.Resolve(targetMethod).Method;
+        
         functionId = new FunctionId(
             (uint)ShaderProcessor.functionIds.Count);
 
         ShaderProcessor.functionIds.Add(
-            targetMethod,
+            key,
             functionId);
 
-        var parameters = targetMethod.Parameters
+        var parameters = method.Parameters
             .OrderBy(parameter => parameter.Ordinal)
             .Select(parameter => new ParameterInfo(
                 parameter,
                 IsField: false))
             .ToImmutableArray();
 
-        var returnType = targetMethod.MethodKind == MethodKind.Constructor
-            ? targetMethod.ContainingType
-            : targetMethod.ReturnType;
-        
+        var returnType = method.MethodKind == MethodKind.Constructor
+            ? method.ContainingType
+            : method.ReturnType;
+
         var functionInfo = new FunctionsInfo(
-            targetMethod,
+            method,
             Language.Stage.None,
             parameters,
-            returnType);
+            returnType)
+        {
+            CalledFrom = CurrentFunction
+        };
 
         ShaderProcessor.PendingFunctionsInfos.Add(functionInfo);
     }

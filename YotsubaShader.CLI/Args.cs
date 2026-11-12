@@ -81,7 +81,10 @@ public enum ShaderTarget
     Glsl,
     GlslEs,
     Msl,
-    Cpp
+    Cpp,
+    MonoGame,
+    Kni,
+    Fna
 }
 
 public sealed class Args
@@ -180,6 +183,9 @@ public sealed class Args
             "gles" or "glsles" => ShaderTarget.GlslEs,
             "msl" or "metal" => ShaderTarget.Msl,
             "cpp" => ShaderTarget.Cpp,
+            "mgfx" or "monogame" => ShaderTarget.MonoGame,
+            "kni" or "kni-webgl" => ShaderTarget.Kni,
+            "fna" => ShaderTarget.Fna,
             _ => throw new CliUsageException(
                 $"Target desconocido '{value}'.")
         };
