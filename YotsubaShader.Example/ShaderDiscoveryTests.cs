@@ -77,7 +77,7 @@ namespace YotsubaShader.Example;
 public class ShaderDiscoveryTests
 {
     private const string MegaShaderLike = """
-        using YotsubaShader.Compiler.SpirV.Stages;
+        using YotsubaShader.Language;
 
         namespace Game;
 
@@ -88,10 +88,10 @@ public class ShaderDiscoveryTests
         {
             public string DebugName { get; set; } = "mega";
 
-            [ShaderStage(ShaderStage.Vertex)]
+            [ShaderStage(Stage.Vertex)]
             private VertexOutput VS(VertexInput input) => new VertexOutput { X = input.X, Y = input.Y };
 
-            [ShaderStage(ShaderStage.Fragment)]
+            [ShaderStage(Stage.Fragment)]
             private float FS(VertexOutput input, int index) => Lighting(input.X);
 
             private float Lighting(float x) => x;
@@ -150,7 +150,7 @@ public class ShaderDiscoveryTests
     public void Finds_shaders_in_nested_types_and_several_namespaces()
     {
         const string code = """
-            using YotsubaShader.Compiler.SpirV.Stages;
+            using YotsubaShader.Language;
 
             namespace A.B
             {
@@ -158,14 +158,14 @@ public class ShaderDiscoveryTests
                 {
                     public class Inner
                     {
-                        [ShaderStage(ShaderStage.Compute)] void CS() { }
+                        [ShaderStage(Stage.Compute)] void CS() { }
                     }
                 }
             }
 
             public class TopLevel
             {
-                [ShaderStage(ShaderStage.Fragment)] static float FS() => 1f;
+                [ShaderStage(Stage.Fragment)] static float FS() => 1f;
             }
             """;
 
@@ -176,17 +176,17 @@ public class ShaderDiscoveryTests
     }
 
     [Theory]
-    [InlineData("[ShaderStage(ShaderStage.Fragment)]")]
-    [InlineData("[ShaderStageAttribute(ShaderStage.Fragment)]")]
-    [InlineData("[Ys.ShaderStage(Ys.ShaderStage.Fragment)]")]
-    [InlineData("[Stage(ShaderStage.Fragment)]")]
-    [InlineData("[YotsubaShader.Compiler.SpirV.Stages.ShaderStage(YotsubaShader.Compiler.SpirV.Stages.ShaderStage.Fragment)]")]
+    [InlineData("[ShaderStage(Stage.Fragment)]")]
+    [InlineData("[ShaderStageAttribute(Stage.Fragment)]")]
+    [InlineData("[Ys.ShaderStage(Ys.Stage.Fragment)]")]
+    [InlineData("[Entry(Stage.Fragment)]")]
+    [InlineData("[YotsubaShader.Language.ShaderStage(YotsubaShader.Language.Stage.Fragment)]")]
     public void Attribute_is_matched_by_symbol_not_by_text(string attribute)
     {
         string code = $$"""
-            using YotsubaShader.Compiler.SpirV.Stages;
-            using Ys = YotsubaShader.Compiler.SpirV.Stages;
-            using Stage = YotsubaShader.Compiler.SpirV.Stages.ShaderStageAttribute;
+            using YotsubaShader.Language;
+            using Ys = YotsubaShader.Language;
+            using Entry = YotsubaShader.Language.ShaderStageAttribute;
 
             public class S
             {
