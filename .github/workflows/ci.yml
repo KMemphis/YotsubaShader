@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build-and-test:
+    name: Build, CLI and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # The CLI targets net10.0; the libraries and the Example/test project target net8.0.
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Restore
+        run: dotnet restore YotsubaShader.Example/YotsubaShader.Example.csproj
+
+      # The Example project's post-build step also runs the CLI (`add`); it is
+      # disabled here so the CLI is exercised explicitly in the next steps.
+      - name: Build
+        run: dotnet build YotsubaShader.Example/YotsubaShader.Example.csproj --configuration Release --no-restore -p:CompileYotsubaShaders=false
+
+      - name: Build CLI
+        run: dotnet build YotsubaShader.CLI/YotsubaShader.CLI.csproj --configuration Release
+
+      - name: Run CLI against the example (compile)
+        run: >
+          dotnet run --project YotsubaShader.CLI/YotsubaShader.CLI.csproj --configuration Release --no-build --
+          compile YotsubaShader.Example/YotsubaShader.Example.csproj
+          --target spirv --target hlsl --target glsl --target gles --target msl --target cpp
+          --output "$RUNNER_TEMP/compiled-shaders"
+
+      - name: Verify CLI produced output
+        run: |
+          count=$(find "$RUNNER_TEMP/compiled-shaders" -type f | wc -l)
+          echo "CLI generated $count file(s)"
+          test "$count" -gt 0
+
+      - name: Run CLI against the example (add)
+        run: >
+          dotnet run --project YotsubaShader.CLI/YotsubaShader.CLI.csproj --configuration Release --no-build --
+          add YotsubaShader.Example/YotsubaShader.Example.csproj
+          --target spirv --target hlsl --target glsl --target gles --target msl --target cpp
+          --output "$RUNNER_TEMP/compiled-shaders-add"
+
+      - name: Test
+        run: dotnet test YotsubaShader.Example/YotsubaShader.Example.csproj --configuration Release --no-restore -p:CompileYotsubaShaders=false --logger "trx;LogFileName=test-results.trx" --results-directory test-results
+
+      - name: Upload compiled shaders
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiled-shaders
+          path: ${{ runner.temp }}/compiled-shaders
+          if-no-files-found: ignore
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results
+          if-no-files-found: ignore
