@@ -52,11 +52,11 @@ jobs:
         run: dotnet build YotsubaShader.Example/YotsubaShader.Example.csproj --configuration Release --no-restore -p:CompileYotsubaShaders=false
 
       - name: Build CLI
-        run: dotnet build YotsubaShader.CLI/YotsubaShader.CLI.csproj --configuration Release
+        run: dotnet build YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj --configuration Release
 
       - name: Run CLI against the example (compile)
         run: >
-          dotnet run --project YotsubaShader.CLI/YotsubaShader.CLI.csproj --configuration Release --no-build --
+          dotnet run --project YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj --configuration Release --no-build --
           compile YotsubaShader.Example/YotsubaShader.Example.csproj
           --target spirv --target hlsl --target glsl --target gles --target msl --target cpp
           --target mgfx --target kni --target fna
@@ -70,7 +70,7 @@ jobs:
 
       - name: Run CLI against the example (add)
         run: >
-          dotnet run --project YotsubaShader.CLI/YotsubaShader.CLI.csproj --configuration Release --no-build --
+          dotnet run --project YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj --configuration Release --no-build --
           add YotsubaShader.Example/YotsubaShader.Example.csproj
           --target spirv --target hlsl --target glsl --target gles --target msl --target cpp
           --target mgfx --target kni --target fna
@@ -79,20 +79,55 @@ jobs:
       - name: Test
         run: dotnet test YotsubaShader.Example/YotsubaShader.Example.csproj --configuration Release --no-restore -p:CompileYotsubaShaders=false --logger "trx;LogFileName=test-results.trx" --results-directory test-results
 
-      # MonoGame DesktopGL load test: compiles an HLSL shader to MGFX, loads it as a
-      # real Effect and renders a triangle (software OpenGL under Xvfb). Verified on
-      # linux-x64. The KNI and FNA examples are intentionally not run in CI: KNI
-      # crashes (SIGSEGV) under Xvfb/Mesa and FNA needs the fnalibs native bundle.
+      # Load tests: each compiles a HLSL shader to the engine's effect format, loads it as a
+      # real Effect and renders a triangle (software OpenGL under Xvfb). Verified on linux-x64.
+      # FNA needs native SDL3 and FNA3D, which are not packaged for Ubuntu: they are built
+      # from source once and cached.
       - name: Install Xvfb and Mesa
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends xvfb xauth libgl1 libgl1-mesa-dri libglx-mesa0 libegl1 libopenal1
+          sudo apt-get install -y --no-install-recommends xvfb xauth libgl1 libgl1-mesa-dri libglx-mesa0 libegl1 libopenal1 libsdl2-2.0-0
 
       - name: Build MonoGame example
         run: dotnet build examples/MonoGame.LoadTest/MonoGame.LoadTest.csproj --configuration Release
 
       - name: Run MonoGame example (load MGFX)
         run: xvfb-run -a -s "-screen 0 1280x720x24" dotnet run --no-build --configuration Release --project examples/MonoGame.LoadTest/MonoGame.LoadTest.csproj
+
+      - name: Build KNI example
+        run: dotnet build examples/KNI.LoadTest/KNI.LoadTest.csproj --configuration Release
+
+      - name: Run KNI example (load effect)
+        run: xvfb-run -a -s "-screen 0 1280x720x24" dotnet run --no-build --configuration Release --project examples/KNI.LoadTest/KNI.LoadTest.csproj
+
+      - name: Cache FNA native libraries
+        id: fnalibs
+        uses: actions/cache@v4
+        with:
+          path: ~/fnalibs
+          key: fnalibs-linux-x64-sdl-3.2.22-fna3d-v1
+
+      - name: Build FNA native libraries (SDL3, FNA3D)
+        if: steps.fnalibs.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get install -y --no-install-recommends cmake ninja-build build-essential pkg-config \
+            libx11-dev libxext-dev libxcursor-dev libxi-dev libxrandr-dev libxss-dev libxfixes-dev libxtst-dev \
+            libgl-dev libegl-dev libdrm-dev libgbm-dev libasound2-dev libudev-dev
+          curl -sSL -o "$RUNNER_TEMP/sdl3.tgz" https://github.com/libsdl-org/SDL/releases/download/release-3.2.22/SDL3-3.2.22.tar.gz
+          tar -xzf "$RUNNER_TEMP/sdl3.tgz" -C "$RUNNER_TEMP"
+          cmake -S "$RUNNER_TEMP/SDL3-3.2.22" -B "$RUNNER_TEMP/sdl3-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF
+          cmake --build "$RUNNER_TEMP/sdl3-build"
+          cmake --install "$RUNNER_TEMP/sdl3-build" --prefix "$HOME/fnalibs"
+          git clone --recursive --depth 1 https://github.com/FNA-XNA/FNA3D.git "$RUNNER_TEMP/FNA3D"
+          cmake -S "$RUNNER_TEMP/FNA3D" -B "$RUNNER_TEMP/fna3d-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_SDL3=ON -DCMAKE_PREFIX_PATH="$HOME/fnalibs"
+          cmake --build "$RUNNER_TEMP/fna3d-build"
+          cp -a "$RUNNER_TEMP"/fna3d-build/libFNA3D.so* "$HOME/fnalibs/lib/"
+
+      - name: Build FNA example
+        run: dotnet build examples/FNA.LoadTest/FNA.LoadTest.csproj --configuration Release
+
+      - name: Run FNA example (load effect)
+        run: LD_LIBRARY_PATH="$HOME/fnalibs/lib" xvfb-run -a -s "-screen 0 1280x720x24" dotnet run --no-build --configuration Release --project examples/FNA.LoadTest/FNA.LoadTest.csproj
 
       - name: Upload compiled shaders
         if: always()

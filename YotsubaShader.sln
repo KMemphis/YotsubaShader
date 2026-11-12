@@ -48,13 +48,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.WgslSyntax", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Concepts", "YotsubaShader.Concepts\YotsubaShader.Concepts.csproj", "{A7A3276E-03C0-49AC-899A-E892C0FBA338}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Compiler", "YotsubaShader.Compiler\YotsubaShader.Compiler.csproj", "{BDBEE72D-2285-4E1F-8A41-10FAE8663AF4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Compiler.Library", "YotsubaShader.Compiler.Library\YotsubaShader.Compiler.Library.csproj", "{BDBEE72D-2285-4E1F-8A41-10FAE8663AF4}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ShaderCross", "ShaderCross", "{11B332DF-64F6-4697-8745-77990ACE51F5}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShaderCross", "YotsubaShaderCross\src\YotsubaShaderCross\YotsubaShaderCross.csproj", "{D43673A5-F9CE-47AD-BD47-FE1A6817FD4F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.CLI", "YotsubaShader.CLI\YotsubaShader.CLI.csproj", "{F0D24D70-F8DF-438D-8E8F-8D9409C0A290}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Compiler.CLI", "YotsubaShader.Compiler.CLI\YotsubaShader.Compiler.CLI.csproj", "{F0D24D70-F8DF-438D-8E8F-8D9409C0A290}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ThirdParty", "ThirdParty", "{2E1EB394-5976-49BD-A084-A353FD63BFAB}"
 EndProject

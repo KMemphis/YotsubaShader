@@ -2,7 +2,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using ShadowDusk.Core;
 
-namespace YotsubaShader.Compiler.CompileToGameEngines;
+namespace YotsubaShader.Compiler.Library.CompileToGameEngines;
 
 /// <summary>
 /// SPIRV-Cross emite un programa HLSL completo por stage, y ambos repiten nombres

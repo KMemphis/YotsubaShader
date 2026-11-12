@@ -70,9 +70,9 @@ using System.Text;
 using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.MSBuild;
-using YotsubaShader.CLI;
-using YotsubaShader.Compiler;
-using YotsubaShader.Compiler.CompileToGameEngines;
+using YotsubaShader.Compiler.CLI;
+using YotsubaShader.Compiler.Library;
+using YotsubaShader.Compiler.Library.CompileToGameEngines;
 using YotsubaShader.IR.Intermediate;
 
 using Microsoft.CodeAnalysis;

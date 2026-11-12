@@ -78,7 +78,7 @@ Tu juego (C#, y luego otros lenguajes)
 └──────────────────────────────────────────────────────────┘
 
 En build (herramienta, no runtime):
-C# shader → YotsubaShader.CLI → IR → SPIR-V (Vulkan) + MSL (Metal) + WGSL (WebGPU, pendiente)
+C# shader → YotsubaShader.Compiler.CLI → IR → SPIR-V (Vulkan) + MSL (Metal) + WGSL (WebGPU, pendiente)
                                    → reflexión → empaquetado .ysb
 ```
 
@@ -183,7 +183,7 @@ métodos marcados con `[ShaderStage(Stage.Vertex)]`, `[ShaderStage(Stage.Fragmen
   MoltenVK); WebGPU cubre el navegador. Dispositivos sin ninguna de las tres APIs quedan fuera de soporte.
 - **Audio**: mezclador propio mínimo sobre la salida de SDL3 (cargadores WAV, OGG, MP3, FLAC).
 - **Fuente, imagen**: `stb`-equivalentes en Rust, atlas SDF para texto.
-- **Build de shaders**: `YotsubaShader.CLI` invocado desde un target MSBuild en proyectos C# y desde un
+- **Build de shaders**: `YotsubaShader.Compiler.CLI` invocado desde un target MSBuild en proyectos C# y desde un
   comando `yotsuba pack` independiente en el resto de lenguajes.
 - **Distribución**: NuGet para C#, y binarios precompilados por plataforma para el resto
   (`yotsuba-vX.Y.Z-<plataforma>.zip` con `lib` + `yotsuba.h`).
