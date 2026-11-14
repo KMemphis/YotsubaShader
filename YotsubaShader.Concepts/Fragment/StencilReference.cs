@@ -67,6 +67,10 @@
 #endregion
 
 
-namespace YotsubaShader.Concepts.Fragment;
-
-public class StencilReference : YotsubaShaderConcept;
+namespace YotsubaShader.Concepts.Fragment
+{
+    public class StencilReference : YotsubaShaderConcept
+    {
+        
+    }
+}

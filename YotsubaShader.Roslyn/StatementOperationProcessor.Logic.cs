@@ -67,6 +67,7 @@
 #endregion
 
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Operations;
 using YotsubaShader.IR.Intermediate;
@@ -80,6 +81,7 @@ using YotsubaShader.Language.Native.Types.Vector;
 using YotsubaShader.Language.Native.Types.Vector.Exceptions;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.FunctionCalls;
 using YotsubaShader.IR.Intermediate.FunctionBody.Statements;
+using YotsubaShader.IR.Intermediate.Slot;
 using YotsubaShader.Roslyn.Model;
 using IRTypes = YotsubaShader.IR.Intermediate.Types;
 namespace YotsubaShader.Roslyn;
@@ -123,6 +125,9 @@ public partial class StatementOperationProcessor
             case IFieldReferenceOperation { Instance: IInstanceReferenceOperation } resourceField
                 when Globals is not null && Globals.TryGetValue(resourceField.Field, out Storage? resource):
                 return new StorageReference(resource);
+            case IFieldReferenceOperation { Instance: IInstanceReferenceOperation } interfaceField
+                when TryGetInterfaceField(interfaceField.Field, inputs, compilation, stage, out Storage? interfaceStorage):
+                return new StorageReference(interfaceStorage);
             case IFieldReferenceOperation fieldReferenceOperation:
                 return ProcessMemberReference(fieldReferenceOperation.Instance,
                     fieldReferenceOperation.Field.Name,
@@ -331,7 +336,7 @@ public partial class StatementOperationProcessor
 
         var functionInfo = new FunctionsInfo(
             method,
-            Language.Stage.None,
+            null,
             parameters,
             returnType)
         {
@@ -502,6 +507,32 @@ public partial class StatementOperationProcessor
                 throw new NotSupportedException(
                     $"The creation of '{objectCreationOperation.Type}' is not supported yet.");
         }
+    }
+
+    /// <summary>
+    /// Un campo de la clase con semántica de interfaz ([POSITION], [COLOR], [Location]...) se lee como
+    /// una entrada del stage actual. Se registra al primer uso, así cada función solo declara las
+    /// entradas que realmente lee.
+    /// </summary>
+    private static bool TryGetInterfaceField(
+        IFieldSymbol field,
+        Dictionary<ISymbol, Storage> inputs,
+        Compilation compilation,
+        Stage stage,
+        [NotNullWhen(true)] out Storage? storage)
+    {
+        if (inputs.TryGetValue(field, out storage)) return true;
+
+        InterfaceSlot? slot = ShaderProcessor.GetAttributeData(field.GetAttributes(), stage);
+        if (slot is null)
+        {
+            storage = null;
+            return false;
+        }
+
+        storage = ShaderProcessor.GetStorage(field, null, slot, compilation, stage);
+        inputs.Add(field, storage);
+        return true;
     }
 
     private Expression ProcessMemberReference(

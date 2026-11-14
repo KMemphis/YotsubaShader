@@ -66,8 +66,9 @@
 */
 #endregion
 
-namespace YotsubaShader.GlslSyntax;
-
-[AttributeUsage(AttributeUsagesTable.Input)]
-[NumberOfSubgroups]
-public class gl_NumSubgroups : YotsubaShaderConcept;
+namespace YotsubaShader.GlslSyntax
+{
+    [AttributeUsage(AttributeUsagesTable.Input)]
+    [NumberOfSubgroups]
+    public class gl_NumSubgroups : YotsubaShaderConcept;
+}

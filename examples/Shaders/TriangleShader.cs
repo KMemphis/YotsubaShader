@@ -7,37 +7,48 @@ namespace Examples.Shaders;
 /// <summary>Dibuja cada vértice con su color: lo mínimo para comprobar que un efecto carga y renderiza.</summary>
 public class TriangleShader
 {
-    public struct VS_Input
+    public struct VSInput
     {
-        [POSITION]
+        [POSITION] 
         public Vector2 Position;
 
-        [COLOR]
+        [COLOR] 
         public Vector4 Color;
     }
 
-    public struct VS_Output
+    public struct VSOutput
     {
-        [COLOR]
-        public Vector4 Color;
+        [TEXCOORD]
+        public Vector2 Pos;
+        [COLOR] 
+        public Vector4 COLOR;
     }
 
     [ShaderStage(Stage.Vertex)]
-    public VS_Output VS(VS_Input vertex, [SV_Position] out Vector4 Position)
+    public VSOutput Vs(VSInput vsInput)
     {
-        VS_Output vertexOutput = new VS_Output();
+        VSOutput output;
+        output.COLOR = new Vector4(0, 3, 3, 3);
+        output.Pos = new Vector2
+        {
+            X = 3,
+            Y = 4
+        };
 
-        Position = new Vector4(vertex.Position.X, vertex.Position.Y, 0);
-        vertexOutput.Color = vertex.Color;
-
-        return vertexOutput;
+        return output;
     }
 
     [ShaderStage(Stage.Fragment)]
-    [return: SV_Target(0)]
-    public Vector4 FS(VS_Output fragment)
+    public Vector4 Fs(VSOutput vsOutput)
     {
-        return fragment.Color;
+        return vsOutput.COLOR;
+    }
+
+    [ShaderStage(Stage.Compute)]
+    [numthreads(1,2,3)]
+    void Compute()
+    {
+        
     }
 }
 
@@ -46,8 +57,6 @@ public struct Vector2
 {
     [VectorComponent(0)] public float X;
     [VectorComponent(1)] public float Y;
-
-    public Vector2(float x, float y) { X = x; Y = y; }
 }
 
 [Vector]
@@ -57,7 +66,6 @@ public struct Vector3
     [VectorComponent(1)] public float Y;
     [VectorComponent(2)] public float Z;
 
-    public Vector3(float x, float y, float z) { X = x; Y = y; Z = z; }
 }
 
 [Vector]
@@ -68,5 +76,11 @@ public struct Vector4
     [VectorComponent(2)] public float Z;
     [VectorComponent(3)] public float W;
 
-    public Vector4(float x, float y, float z) { X = x; Y = y; Z = z; W = 1; }
+    public Vector4(float x, float y, float z, float w)
+    {
+        X = x;
+        Y = y;
+        Z = z;
+        W = w;
+    }
 }

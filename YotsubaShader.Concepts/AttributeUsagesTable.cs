@@ -67,19 +67,22 @@
 #endregion
 
 
-namespace YotsubaShader.Concepts;
+using System;
 
-public static class AttributeUsagesTable
+namespace YotsubaShader.Concepts
 {
-    public const AttributeTargets Input = AttributeTargets.Field | AttributeTargets.Parameter | AttributeTargets.Property;
+    public static class AttributeUsagesTable
+    {
+        public const AttributeTargets Input = AttributeTargets.Field | AttributeTargets.Parameter | AttributeTargets.Property;
 
-    public const AttributeTargets Resource = AttributeTargets.Field | AttributeTargets.Parameter | AttributeTargets.Property;
+        public const AttributeTargets Resource = AttributeTargets.Field | AttributeTargets.Parameter | AttributeTargets.Property;
     
-    public const AttributeTargets Output = AttributeTargets.Field | AttributeTargets.Parameter
-                                                                  | AttributeTargets.ReturnValue;
+        public const AttributeTargets Output = AttributeTargets.Field | AttributeTargets.Parameter
+                                                                      | AttributeTargets.ReturnValue;
 
-    public const AttributeTargets InputOutput = Input | Output;
+        public const AttributeTargets InputOutput = Input | Output;
 
-    public const AttributeTargets Method = AttributeTargets.Method;
+        public const AttributeTargets Method = AttributeTargets.Method;
 
+    }
 }

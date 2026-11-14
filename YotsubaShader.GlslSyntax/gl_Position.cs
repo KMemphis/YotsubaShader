@@ -69,8 +69,9 @@
 using YotsubaShader.Concepts;
 using YotsubaShader.Concepts.Vertex;
 
-namespace YotsubaShader.GlslSyntax;
-
-[AttributeUsage(AttributeUsagesTable.InputOutput)]
-[ClipSpacePosition]
-public class gl_Position : YotsubaShaderConcept;
+namespace YotsubaShader.GlslSyntax
+{
+    [AttributeUsage(AttributeUsagesTable.InputOutput)]
+    [ClipSpacePosition]
+    public class gl_Position : YotsubaShaderConcept;
+}

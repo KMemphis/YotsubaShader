@@ -66,10 +66,14 @@
 */
 #endregion
 
-namespace YotsubaShader.Language.Compiler;
+using System;
 
-[AttributeUsage(AttributeTargets.All)]
-public class ShaderIgnore : Attribute
+namespace YotsubaShader.Language.Compiler
 {
-    
+
+    [AttributeUsage(AttributeTargets.All)]
+    public class ShaderIgnore : Attribute
+    {
+
+    }
 }

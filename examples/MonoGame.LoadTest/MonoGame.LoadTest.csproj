@@ -8,6 +8,7 @@
         <IsPackable>false</IsPackable>
         <RootNamespace>Examples.MonoGame</RootNamespace>
         <AssemblyName>Examples.MonoGame</AssemblyName>
+        <LangVersion>latest</LangVersion>
     </PropertyGroup>
 
     <ItemGroup>

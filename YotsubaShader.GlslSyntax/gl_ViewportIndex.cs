@@ -68,8 +68,9 @@
 
 using YotsubaShader.Concepts.Vertex;
 
-namespace YotsubaShader.GlslSyntax;
-
-[AttributeUsage(AttributeUsagesTable.InputOutput)]
-[ViewportIndex]
-public class gl_ViewportIndex : YotsubaShaderConcept;
+namespace YotsubaShader.GlslSyntax
+{
+    [AttributeUsage(AttributeUsagesTable.InputOutput)]
+    [ViewportIndex]
+    public class gl_ViewportIndex : YotsubaShaderConcept;
+}

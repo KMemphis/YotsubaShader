@@ -66,10 +66,20 @@
 */
 #endregion
 
-namespace YotsubaShader.Language.Native.Types.Matrix;
+using System;
 
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
-public sealed class MatrixColumnAttribute(int index) : YotsubaShaderAttribute
+namespace YotsubaShader.Language.Native.Types.Matrix
 {
-    public int Index { get; } = index;
+
+    [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property)]
+    public sealed class MatrixColumnAttribute : YotsubaShaderAttribute
+    {
+        public MatrixColumnAttribute(int index)
+        {
+            Index = index;
+        }
+
+        public int Index { get; }
+    }
+
 }

@@ -1,0 +1,61 @@
+<Project>
+  <!--
+    Genera Math, Intrinsic y los tipos de relleno a partir del JSON de la sintaxis, antes de compilar.
+
+    Uso en el .csproj de cada sintaxis (una sola línea):
+        <Import Project="..\build\Intrinsics\Intrinsics.targets" />
+
+    Por defecto usa el único *.json que haya en la carpeta del proyecto. Para indicar otro:
+        <PropertyGroup><IntrinsicsJson>ruta\al\archivo.json</IntrinsicsJson></PropertyGroup>
+  -->
+
+  <PropertyGroup>
+    <IntrinsicsEnumFile Condition="'$(IntrinsicsEnumFile)' == ''">$(MSBuildThisFileDirectory)..\..\YotsubaShader.Concepts\Methods\Intrinsic.cs</IntrinsicsEnumFile>
+    <IntrinsicsOutputDir>$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)Intrinsics\</IntrinsicsOutputDir>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IntrinsicsJson)' == ''">
+    <_IntrinsicsJsonFile Include="$(MSBuildProjectDirectory)\*.json" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(IntrinsicsJson)' != ''">
+    <_IntrinsicsJsonFile Include="$(IntrinsicsJson)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- El JSON aparece en el IDE pero no se copia a la salida. -->
+    <None Update="@(_IntrinsicsJsonFile)" CopyToOutputDirectory="Never" />
+    <_IntrinsicsGenerated Include="$(IntrinsicsOutputDir)Math.g.cs;$(IntrinsicsOutputDir)Intrinsic.g.cs;$(IntrinsicsOutputDir)Placeholders.g.cs" />
+    <_IntrinsicsInput Include="@(_IntrinsicsJsonFile)" />
+    <_IntrinsicsInput Include="$(MSBuildThisFileDirectory)GenerateIntrinsics.cs;$(MSBuildThisFileFullPath)" />
+    <_IntrinsicsInput Include="$(IntrinsicsEnumFile)" Condition="Exists('$(IntrinsicsEnumFile)')" />
+  </ItemGroup>
+
+  <UsingTask TaskName="GenerateIntrinsics"
+             TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <Task>
+      <Code Type="Class" Language="cs" Source="$(MSBuildThisFileDirectory)GenerateIntrinsics.cs" />
+    </Task>
+  </UsingTask>
+
+  <!-- Solo se ejecuta si cambió el JSON, el enum Intrinsic o el propio generador. -->
+  <Target Name="GenerateIntrinsicsCode"
+          Inputs="@(_IntrinsicsInput)"
+          Outputs="@(_IntrinsicsGenerated)"
+          Condition="'@(_IntrinsicsJsonFile)' != ''">
+    <GenerateIntrinsics JsonFile="@(_IntrinsicsJsonFile)"
+                        OutputDirectory="$(IntrinsicsOutputDir)"
+                        EnumFile="$(IntrinsicsEnumFile)" />
+  </Target>
+
+  <!-- Añade los archivos generados a la compilación (también cuando el target anterior se omite por estar al día). -->
+  <Target Name="IncludeIntrinsicsCode"
+          BeforeTargets="BeforeCompile;CoreCompile"
+          DependsOnTargets="GenerateIntrinsicsCode"
+          Condition="'@(_IntrinsicsJsonFile)' != ''">
+    <ItemGroup>
+      <Compile Include="@(_IntrinsicsGenerated)" Condition="Exists('%(FullPath)')" />
+      <FileWrites Include="@(_IntrinsicsGenerated)" />
+    </ItemGroup>
+  </Target>
+</Project>

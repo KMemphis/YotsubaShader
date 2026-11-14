@@ -8,6 +8,7 @@
         <IsPackable>false</IsPackable>
         <RootNamespace>Examples.FNA</RootNamespace>
         <AssemblyName>Examples.FNA</AssemblyName>
+        <LangVersion>latest</LangVersion>
     </PropertyGroup>
 
     <ItemGroup>

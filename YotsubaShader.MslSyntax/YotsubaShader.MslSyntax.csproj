@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>netstandard2.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
     </PropertyGroup>
 
 
@@ -18,5 +19,7 @@
         <ProjectReference Include="..\YotsubaShader.Concepts\YotsubaShader.Concepts.csproj" />
         <ProjectReference Include="..\YotsubaShader.Language\YotsubaShader.Language.csproj" />
     </ItemGroup>
+
+    <Import Project="..\build\Intrinsics\Intrinsics.targets" />
 
 </Project>

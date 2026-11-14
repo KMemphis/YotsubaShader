@@ -66,8 +66,9 @@
 */
 #endregion
 
-namespace YotsubaShader.GlslSyntax;
-
-[AttributeUsage(AttributeUsagesTable.Input)]
-[PrimitiveIndex]
-public class gl_PrimitiveID : YotsubaShaderConcept;
+namespace YotsubaShader.GlslSyntax
+{
+    [AttributeUsage(AttributeUsagesTable.Input)]
+    [PrimitiveIndex]
+    public class gl_PrimitiveID : YotsubaShaderConcept;
+}

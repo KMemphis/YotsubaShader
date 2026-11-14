@@ -66,12 +66,13 @@
 */
 #endregion
 
-namespace YotsubaShader.Language;
-
-public enum Stage
+namespace YotsubaShader.Language
 {
-    Vertex,
-    Fragment,
-    Compute,
-    None
+
+    public enum Stage
+    {
+        Vertex,
+        Fragment,
+        Compute
+    }
 }

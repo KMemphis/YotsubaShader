@@ -66,8 +66,9 @@
 */
 #endregion
 
-namespace YotsubaShader.GlslSyntax;
-
-[AttributeUsage(AttributeUsagesTable.Output)]
-[SampleMask]
-public class gl_SampleMask : YotsubaShaderConcept;
+namespace YotsubaShader.GlslSyntax
+{
+    [AttributeUsage(AttributeUsagesTable.Output)]
+    [SampleMask]
+    public class gl_SampleMask : YotsubaShaderConcept;
+}

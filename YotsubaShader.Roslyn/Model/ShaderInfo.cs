@@ -88,7 +88,7 @@ public sealed record ResourceInfo(ISymbol Symbol)
 /// <summary>Un método marcado con <c>[ShaderStage]</c>.</summary>
 public sealed record FunctionsInfo(
     IMethodSymbol Method,
-    Stage Stage,
+    Stage? Stage,
     ImmutableArray<ParameterInfo> Parameters,
     ITypeSymbol ReturnType)
 {

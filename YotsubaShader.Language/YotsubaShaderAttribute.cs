@@ -65,11 +65,15 @@
 ╚════════════════════════════════════════════════════════════════════════════════════╝
 */
 #endregion
-#nullable disable
-namespace YotsubaShader.Language;
 
-[AttributeUsage(AttributeTargets.All)]
-public class YotsubaShaderAttribute : Attribute
+using System;
+
+namespace YotsubaShader.Language
 {
-    
+
+    [AttributeUsage(AttributeTargets.All)]
+    public class YotsubaShaderAttribute : Attribute
+    {
+
+    }
 }

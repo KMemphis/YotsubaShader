@@ -67,14 +67,15 @@
 #endregion
 
 
-namespace YotsubaShader.Concepts.BindingSlotsAndResources;
-
-public class TextureSlot : YotsubaShaderConcept
+namespace YotsubaShader.Concepts.BindingSlotsAndResources
 {
-    public const string SET = BindingSlot.SET;
-    public const string BINDING = BindingSlot.BINDING;
+    public class TextureSlot : YotsubaShaderConcept
+    {
+        public const string SET = BindingSlot.SET;
+        public const string BINDING = BindingSlot.BINDING;
     
     
-    //public const string Prefix = BindingSlot.Prefix; // En el futuro se incluye si es necesario
-    public const string RegisterString = BindingSlot.RegisterString;
+        //public const string Prefix = BindingSlot.Prefix; // En el futuro se incluye si es necesario
+        public const string RegisterString = BindingSlot.RegisterString;
+    }
 }

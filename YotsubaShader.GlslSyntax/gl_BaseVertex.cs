@@ -66,8 +66,9 @@
 */
 #endregion
 
-namespace YotsubaShader.GlslSyntax;
-
-[AttributeUsage(AttributeUsagesTable.Input)]
-[BaseVertex]
-public class gl_BaseVertex : YotsubaShaderConcept;
+namespace YotsubaShader.GlslSyntax
+{
+    [AttributeUsage(AttributeUsagesTable.Input)]
+    [BaseVertex]
+    public class gl_BaseVertex : YotsubaShaderConcept;
+}

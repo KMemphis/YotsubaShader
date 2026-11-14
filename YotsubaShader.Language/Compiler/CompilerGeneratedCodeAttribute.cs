@@ -66,28 +66,37 @@
 */
 #endregion
 
-namespace YotsubaShader.Language.Compiler;
+using System;
 
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
-public class CompilerGeneratedCodeAttribute(Binaries binariesFormats) : YotsubaShaderAttribute
+namespace YotsubaShader.Language.Compiler
 {
-    public Binaries BinaryFormat = binariesFormats;
 
-    public CompilerGeneratedCodeAttribute() : this(Binaries.SpirV)
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
+    public class CompilerGeneratedCodeAttribute : YotsubaShaderAttribute
     {
-        
-    }
-}
+        public Binaries BinaryFormat;
 
-[Flags]
-public enum Binaries : uint
-{
-    SpirV,
-    Msl,
-    Dxil,
-    Dxbc,
-    Wgsl,
-    Glsl,
-    GlslEs,
-    Hlsl
+        public CompilerGeneratedCodeAttribute() : this(Binaries.SpirV)
+        {
+
+        }
+
+        public CompilerGeneratedCodeAttribute(Binaries binariesFormats)
+        {
+            BinaryFormat = binariesFormats;
+        }
+    }
+
+    [Flags]
+    public enum Binaries : uint
+    {
+        SpirV,
+        Msl,
+        Dxil,
+        Dxbc,
+        Wgsl,
+        Glsl,
+        GlslEs,
+        Hlsl
+    }
 }

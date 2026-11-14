@@ -67,6 +67,10 @@
 #endregion
 
 
-namespace YotsubaShader.Concepts.BindingSlotsAndResources;
-
-public class UniformBuffer : YotsubaShaderConcept;
+namespace YotsubaShader.Concepts.BindingSlotsAndResources
+{
+    public class UniformBuffer : YotsubaShaderConcept
+    {
+        
+    }
+}

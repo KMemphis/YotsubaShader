@@ -67,6 +67,10 @@
 #endregion
 
 
-namespace YotsubaShader.Concepts.Fragment;
-
-public class FragmentCoordinate : YotsubaShaderConcept;
+namespace YotsubaShader.Concepts.Fragment
+{
+    public class FragmentCoordinate : YotsubaShaderConcept
+    {
+        
+    }
+}

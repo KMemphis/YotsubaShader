@@ -66,12 +66,15 @@
 */
 #endregion
 
-namespace YotsubaShader.Language.Native.Types.Texture;
-
-public enum TextureComponentTypes
+namespace YotsubaShader.Language.Native.Types.Texture
 {
-    Float = 1,
-    Int = 2,
-    Uint = 3,
-    GenericDefine = 4
+
+    public enum TextureComponentTypes
+    {
+        Float = 1,
+        Int = 2,
+        Uint = 3,
+        GenericDefine = 4
+    }
+
 }

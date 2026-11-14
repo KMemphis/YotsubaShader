@@ -67,9 +67,10 @@
 #endregion
 
 
-namespace YotsubaShader.Concepts.Fragment;
-
-public class HelperInvocation : YotsubaShaderConcept
+namespace YotsubaShader.Concepts.Fragment
 {
+    public class HelperInvocation : YotsubaShaderConcept
+    {
     
+    }
 }

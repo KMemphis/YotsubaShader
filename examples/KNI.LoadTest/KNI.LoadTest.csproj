@@ -8,6 +8,7 @@
         <IsPackable>false</IsPackable>
         <RootNamespace>Examples.KNI</RootNamespace>
         <AssemblyName>Examples.KNI</AssemblyName>
+        <LangVersion>latest</LangVersion>
     </PropertyGroup>
 
     <ItemGroup>

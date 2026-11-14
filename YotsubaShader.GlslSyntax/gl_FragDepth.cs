@@ -66,8 +66,9 @@
 */
 #endregion
 
-namespace YotsubaShader.GlslSyntax;
-
-[AttributeUsage(AttributeUsagesTable.Output)]
-[FragDepth]
-public class gl_FragDepth : YotsubaShaderConcept;
+namespace YotsubaShader.GlslSyntax
+{
+    [AttributeUsage(AttributeUsagesTable.Output)]
+    [FragDepth]
+    public class gl_FragDepth : YotsubaShaderConcept;
+}

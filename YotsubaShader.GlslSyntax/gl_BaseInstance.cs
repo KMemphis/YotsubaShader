@@ -68,8 +68,14 @@
 
 using YotsubaShader.Concepts.Vertex;
 
-namespace YotsubaShader.GlslSyntax;
+namespace YotsubaShader.GlslSyntax
+{
 
-[AttributeUsage(AttributeUsagesTable.Input)]
-[BaseInstance]
-public class gl_BaseInstance : YotsubaShaderConcept;
+    [AttributeUsage(AttributeUsagesTable.Input)]
+    [BaseInstance]
+    public class gl_BaseInstance : YotsubaShaderConcept
+    {
+        
+    }
+
+}

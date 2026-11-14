@@ -67,9 +67,10 @@
 #endregion
 
 
-namespace YotsubaShader.Concepts.Vertex;
-
-public class ViewportIndex : YotsubaShaderConcept
+namespace YotsubaShader.Concepts.Vertex
 {
+    public class ViewportIndex : YotsubaShaderConcept
+    {
     
+    }
 }

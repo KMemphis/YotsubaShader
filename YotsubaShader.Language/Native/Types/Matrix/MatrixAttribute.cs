@@ -66,7 +66,13 @@
 */
 #endregion
 
-namespace YotsubaShader.Language.Native.Types.Matrix;
+using System;
 
-[AttributeUsage(AttributeTargets.Struct)]
-public class MatrixAttribute : YotsubaShaderAttribute;
+namespace YotsubaShader.Language.Native.Types.Matrix
+{
+
+    [AttributeUsage(AttributeTargets.Struct)]
+    public class MatrixAttribute : YotsubaShaderAttribute
+    {
+    }
+}

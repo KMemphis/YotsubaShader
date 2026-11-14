@@ -66,8 +66,9 @@
 */
 #endregion
 
-namespace YotsubaShader.GlslSyntax;
-
-[AttributeUsage(AttributeUsagesTable.Input)]
-[LocalInvocationId]
-public class gl_LocalInvocationID : YotsubaShaderConcept;
+namespace YotsubaShader.GlslSyntax
+{
+    [AttributeUsage(AttributeUsagesTable.Input)]
+    [LocalInvocationId]
+    public class gl_LocalInvocationID : YotsubaShaderConcept;
+}

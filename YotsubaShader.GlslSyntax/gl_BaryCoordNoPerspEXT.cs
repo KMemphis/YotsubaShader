@@ -66,8 +66,9 @@
 */
 #endregion
 
-namespace YotsubaShader.GlslSyntax;
-
-[AttributeUsage(AttributeUsagesTable.Input)]
-[BarycentricCoordinatesNoPerspective]
-public class gl_BaryCoordNoPerspEXT : YotsubaShaderConcept;
+namespace YotsubaShader.GlslSyntax
+{
+    [AttributeUsage(AttributeUsagesTable.Input)]
+    [BarycentricCoordinatesNoPerspective]
+    public class gl_BaryCoordNoPerspEXT : YotsubaShaderConcept;
+}

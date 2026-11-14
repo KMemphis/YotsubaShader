@@ -67,9 +67,10 @@
 #endregion
 
 
-namespace YotsubaShader.Concepts.Compute;
-
-public class WorkgroupSizeBuiltInValue : YotsubaShaderConcept
+namespace YotsubaShader.Concepts.Compute
 {
+    public class WorkgroupSizeBuiltInValue : YotsubaShaderConcept
+    {
     
+    }
 }

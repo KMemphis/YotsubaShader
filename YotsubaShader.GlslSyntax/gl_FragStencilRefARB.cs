@@ -66,8 +66,9 @@
 */
 #endregion
 
-namespace YotsubaShader.GlslSyntax;
-
-[AttributeUsage(AttributeUsagesTable.Output)]
-[StencilReference]
-public class gl_FragStencilRefARB : YotsubaShaderConcept;
+namespace YotsubaShader.GlslSyntax
+{
+    [AttributeUsage(AttributeUsagesTable.Output)]
+    [StencilReference]
+    public class gl_FragStencilRefARB : YotsubaShaderConcept;
+}
