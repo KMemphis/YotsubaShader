@@ -48,13 +48,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.WgslSyntax", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Concepts", "YotsubaShader.Concepts\YotsubaShader.Concepts.csproj", "{A7A3276E-03C0-49AC-899A-E892C0FBA338}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Compiler", "YotsubaShader.Compiler\YotsubaShader.Compiler.csproj", "{BDBEE72D-2285-4E1F-8A41-10FAE8663AF4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Compiler.Library", "YotsubaShader.Compiler.Library\YotsubaShader.Compiler.Library.csproj", "{BDBEE72D-2285-4E1F-8A41-10FAE8663AF4}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ShaderCross", "ShaderCross", "{11B332DF-64F6-4697-8745-77990ACE51F5}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShaderCross", "YotsubaShaderCross\src\YotsubaShaderCross\YotsubaShaderCross.csproj", "{D43673A5-F9CE-47AD-BD47-FE1A6817FD4F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.CLI", "YotsubaShader.CLI\YotsubaShader.CLI.csproj", "{F0D24D70-F8DF-438D-8E8F-8D9409C0A290}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Compiler.CLI", "YotsubaShader.Compiler.CLI\YotsubaShader.Compiler.CLI.csproj", "{F0D24D70-F8DF-438D-8E8F-8D9409C0A290}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ThirdParty", "ThirdParty", "{2E1EB394-5976-49BD-A084-A353FD63BFAB}"
 EndProject
@@ -67,6 +67,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShadowDusk.HLSL", "ShadowDusk\src\ShadowDusk.HLSL\ShadowDusk.HLSL.csproj", "{719865A9-11D6-4898-A4BD-6DBC753BC352}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShadowDusk.GLSL", "ShadowDusk\src\ShadowDusk.GLSL\ShadowDusk.GLSL.csproj", "{980B14CA-A067-4322-9B8A-797F471F8040}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.IDE.Analyzer", "YotsubaShader.IDE.Analyzer\YotsubaShader.IDE.Analyzer.csproj", "{A5D8A721-F753-4FB4-9AE9-3272C06A47B3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -166,6 +168,10 @@ Global
 		{A1000004-5E4D-4C1B-9E00-0000000000A4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A1000004-5E4D-4C1B-9E00-0000000000A4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A1000004-5E4D-4C1B-9E00-0000000000A4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A5D8A721-F753-4FB4-9AE9-3272C06A47B3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A5D8A721-F753-4FB4-9AE9-3272C06A47B3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A5D8A721-F753-4FB4-9AE9-3272C06A47B3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A5D8A721-F753-4FB4-9AE9-3272C06A47B3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -200,5 +206,6 @@ Global
 		{A1000002-5E4D-4C1B-9E00-0000000000A2} = {EF294F3E-3094-41FA-BDFE-9815E71319B2}
 		{A1000003-5E4D-4C1B-9E00-0000000000A3} = {EF294F3E-3094-41FA-BDFE-9815E71319B2}
 		{A1000004-5E4D-4C1B-9E00-0000000000A4} = {EF294F3E-3094-41FA-BDFE-9815E71319B2}
+		{A5D8A721-F753-4FB4-9AE9-3272C06A47B3} = {FEB9906B-D8F3-4AEA-8103-D98735F79388}
 	EndGlobalSection
 EndGlobal

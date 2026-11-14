@@ -66,10 +66,13 @@
 */
 #endregion
 
-namespace YotsubaShader.Concepts.Vertex;
+using System;
 
-[AttributeUsage(AttributeTargets.All)]
-public class UserSemanticAttribute : YotsubaShaderConcept
+namespace YotsubaShader.Concepts.Vertex
 {
-    public const string INDEX = "Index";
+    [AttributeUsage(AttributeTargets.All)]
+    public class UserSemanticAttribute : YotsubaShaderConcept
+    {
+        public const string INDEX = "Index";
+    }
 }

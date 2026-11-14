@@ -67,7 +67,13 @@
 #endregion
 
 
-namespace YotsubaShader.Concepts;
+using System;
 
-[AttributeUsage(AttributeTargets.All)]
-public class YotsubaShaderConcept : Attribute;
+namespace YotsubaShader.Concepts
+{
+    [AttributeUsage(AttributeTargets.All)]
+    public class YotsubaShaderConcept : Attribute
+    {
+        
+    }
+}

@@ -66,145 +66,151 @@
 */
 #endregion
 
-namespace YotsubaShader.CLI;
+using System.Runtime.InteropServices;
+using YotsubaShader.IR.Intermediate;
+using YotsubaShaderCross;
+using YotsubaShaderCross.Spv;
 
-public enum Command
+namespace YotsubaShader.Compiler.Library;
+
+public record CompiledCode(
+    ShaderReflection Reflection,
+    byte[] SpirV,
+    string SpirVAs,
+    string CSharpFullClassName)
 {
-    Compile,
-    Add
-}
-
-public enum ShaderTarget
-{
-    SpirV,
-    Hlsl,
-    Glsl,
-    GlslEs,
-    Msl,
-    Cpp,
-    MonoGame,
-    Kni,
-    Fna
-}
-
-public sealed class Args
-{
-    public Command Command { get; }
-    public string ProjectPath { get; }
-    public IReadOnlyList<ShaderTarget> Targets { get; }
-    public string OutputDirectory { get; }
-
-    public Args(string[] args)
+    private CppVector<uint> ByteArrToCppVector()
     {
-        if (args.Length == 0)
+        ReadOnlySpan<uint> words =
+            MemoryMarshal.Cast<byte, uint>(SpirV);
+
+        return new CppVector<uint>(words.ToArray());
+    }
+
+    public string ToMsl(Stage stage)
+    {
+        (string entryPoint, ExecutionModel executionModel) =
+            GetEntryPoint(stage);
+
+        var compiler = new CompilerMSL(ByteArrToCppVector());
+
+        compiler.set_entry_point(entryPoint, executionModel);
+
+        return compiler.compile().str();
+    }
+
+    public string ToHlsl(Stage stage)
+    {
+        (string entryPoint, ExecutionModel executionModel) =
+            GetEntryPoint(stage);
+
+        var compiler = new CompilerHLSL(ByteArrToCppVector());
+
+        compiler.set_entry_point(entryPoint, executionModel);
+        
+        CompilerHLSL.Options options = compiler.get_hlsl_options();
+        options.use_entry_point_name = true;
+        options.user_semantic = true;
+        options.shader_model = 50;
+        compiler.set_hlsl_options(options);
+
+        return compiler.compile().str();
+    }
+
+    public string ToGlsl(Stage stage, uint version = 450)
+    {
+        (string entryPoint, YotsubaShaderCross.Spv.ExecutionModel executionModel) =
+            GetEntryPoint(stage);
+
+        var compiler = new CompilerGLSL(ByteArrToCppVector());
+
+        compiler.set_entry_point(entryPoint, executionModel);
+
+        CompilerGLSL.Options options = compiler.get_common_options();
+        options.version = version;
+        options.es = false;
+        options.vulkan_semantics = true;
+
+        // GLSL ejecutable requiere void main().
+        options.use_entry_point_name = false;
+
+        compiler.set_common_options(options);
+
+        return compiler.compile().str();
+    }
+
+    public string ToGlslEs(Stage stage, uint version = 310)
+    {
+        (string entryPoint, YotsubaShaderCross.Spv.ExecutionModel executionModel) =
+            GetEntryPoint(stage);
+
+        var compiler = new CompilerGLSL(ByteArrToCppVector());
+
+        compiler.set_entry_point(entryPoint, executionModel);
+
+        CompilerGLSL.Options options = compiler.get_common_options();
+        options.version = version;
+        options.es = true;
+        options.vulkan_semantics = true;
+
+        // GLSL ES ejecutable requiere void main().
+        options.use_entry_point_name = false;
+
+        compiler.set_common_options(options);
+
+        return compiler.compile().str();
+    }
+
+    public string ToCpp(Stage stage)
+    {
+        (string entryPoint, YotsubaShaderCross.Spv.ExecutionModel executionModel) =
+            GetEntryPoint(stage);
+
+        var compiler = new CompilerCPP(ByteArrToCppVector());
+
+        compiler.set_entry_point(entryPoint, executionModel);
+
+        return compiler.compile().str();
+    }
+
+    private (string EntryPoint, YotsubaShaderCross.Spv.ExecutionModel ExecutionModel)
+        GetEntryPoint(Stage stage)
+    {
+        if (stage == Stage.None)
         {
-            throw new CliUsageException("Falta un comando. Usa: yotsuba compile <proyecto.csproj>.");
+            throw new ArgumentOutOfRangeException(
+                nameof(stage),
+                stage,
+                "Stage.None no representa un entry point.");
         }
 
-        Command = ParseCommand(args[0]);
-
-        string? projectPath = null;
-        string? outputDirectory = null;
-        var targets = new List<ShaderTarget>();
-
-        for (int index = 1; index < args.Length; index++)
-        {
-            string argument = args[index];
-
-            switch (argument)
-            {
-                case "--target":
-                    targets.Add(ParseTarget(ReadValue(args, ref index, "--target")));
-                    break;
-
-                case "--output":
-                    outputDirectory = ReadValue(args, ref index, "--output");
-                    break;
-
-                default:
-                    if (argument.StartsWith("--", StringComparison.Ordinal))
-                    {
-                        throw new CliUsageException(
-                            $"Opción desconocida '{argument}'.");
-                    }
-
-                    if (projectPath is not null)
-                    {
-                        throw new CliUsageException(
-                            $"Sólo se admite un proyecto. El valor extra es '{argument}'.");
-                    }
-
-                    projectPath = argument;
-                    break;
-            }
-        }
-
-        if (projectPath is null)
-        {
-            throw new CliUsageException(
-                "Falta el proyecto .csproj.");
-        }
-
-        if (targets.Count == 0)
-        {
-            throw new CliUsageException(
-                "Debes indicar al menos un --target.");
-        }
-
-        ProjectPath = Path.GetFullPath(projectPath);
-
-        string projectDirectory =
-            Path.GetDirectoryName(ProjectPath)
-            ?? throw new CliUsageException(
-                $"No se pudo resolver el directorio de '{projectPath}'.");
-
-        OutputDirectory = Path.GetFullPath(
-            outputDirectory ?? "artifacts",
-            projectDirectory);
-
-        Targets = targets
-            .Distinct()
+        Function[] functions = Reflection.IntermediateLanguage.Functions
+            .Where(function => function.Stage == stage)
             .ToArray();
+
+        return functions.Length switch
+        {
+            1 => (
+                functions[0].HumanName,
+                ToExecutionModel(functions[0].Stage)),
+
+            0 => throw new InvalidOperationException(
+                $"El shader '{CSharpFullClassName}' no tiene un entry point de stage '{stage}'."),
+
+            _ => throw new InvalidOperationException(
+                $"El shader '{CSharpFullClassName}' tiene {functions.Length} entry points " +
+                $"para el stage '{stage}'. Seleccionar solo Stage no es suficiente.")
+        };
     }
 
-    private static Command ParseCommand(string value) =>
-        value.Equals("compile", StringComparison.OrdinalIgnoreCase)
-            ? Command.Compile
-            : value.Equals("add", StringComparison.OrdinalIgnoreCase) ?
-                Command.Add:
-            throw new CliUsageException($"Comando desconocido '{value}'.");
-
-    private static ShaderTarget ParseTarget(string value) =>
-        value.ToLowerInvariant() switch
-        {
-            "spirv" or "spv" => ShaderTarget.SpirV,
-            "hlsl" => ShaderTarget.Hlsl,
-            "glsl" => ShaderTarget.Glsl,
-            "gles" or "glsles" => ShaderTarget.GlslEs,
-            "msl" or "metal" => ShaderTarget.Msl,
-            "cpp" => ShaderTarget.Cpp,
-            "mgfx" or "monogame" => ShaderTarget.MonoGame,
-            "kni" or "kni-webgl" => ShaderTarget.Kni,
-            "fna" => ShaderTarget.Fna,
-            _ => throw new CliUsageException(
-                $"Target desconocido '{value}'.")
-        };
-
-    private static string ReadValue(
-        string[] args,
-        ref int index,
-        string option)
+    private static YotsubaShaderCross.Spv.ExecutionModel ToExecutionModel(Stage stage)
     {
-        if (++index >= args.Length ||
-            args[index].StartsWith("--", StringComparison.Ordinal))
+        return stage switch
         {
-            throw new CliUsageException(
-                $"La opción '{option}' requiere un valor.");
-        }
-
-        return args[index];
+            Stage.Vertex => YotsubaShaderCross.Spv.ExecutionModel.ExecutionModelVertex,
+            Stage.Fragment => YotsubaShaderCross.Spv.ExecutionModel.ExecutionModelFragment,
+            Stage.Compute => YotsubaShaderCross.Spv.ExecutionModel.ExecutionModelGLCompute,
+            _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, null)
+        };
     }
 }
-
-public sealed class CliUsageException(string message)
-    : Exception(message);

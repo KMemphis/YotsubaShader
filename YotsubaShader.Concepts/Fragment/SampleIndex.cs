@@ -67,9 +67,10 @@
 #endregion
 
 
-namespace YotsubaShader.Concepts.Fragment;
-
-public class SampleIndex : YotsubaShaderConcept
+namespace YotsubaShader.Concepts.Fragment
 {
+    public class SampleIndex : YotsubaShaderConcept
+    {
     
+    }
 }

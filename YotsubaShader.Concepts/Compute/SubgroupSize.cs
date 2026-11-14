@@ -67,9 +67,10 @@
 #endregion
 
 
-namespace YotsubaShader.Concepts.Compute;
-
-public class SubgroupSize : YotsubaShaderConcept
+namespace YotsubaShader.Concepts.Compute
 {
+    public class SubgroupSize : YotsubaShaderConcept
+    {
     
+    }
 }

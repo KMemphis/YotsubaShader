@@ -68,8 +68,9 @@
 
 using YotsubaShader.Concepts.Vertex;
 
-namespace YotsubaShader.GlslSyntax;
-
-[AttributeUsage(AttributeUsagesTable.Output)]
-[ClipInstance]
-public class gl_ClipDistance : YotsubaShaderConcept;
+namespace YotsubaShader.GlslSyntax
+{
+    [AttributeUsage(AttributeUsagesTable.Output)]
+    [ClipInstance]
+    public class gl_ClipDistance : YotsubaShaderConcept;
+}

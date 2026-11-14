@@ -7,10 +7,14 @@
         <IsPackable>false</IsPackable>
         <RootNamespace>Examples.Shaders</RootNamespace>
         <AssemblyName>Examples.Shaders</AssemblyName>
+        <LangVersion>latest</LangVersion>
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\YotsubaShader.Language\YotsubaShader.Language.csproj" />
+        <ProjectReference Include="..\..\YotsubaShader.IDE.Analyzer\YotsubaShader.IDE.Analyzer.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false"
+        />
         <ProjectReference Include="..\..\YotsubaShader.HlslSyntax\YotsubaShader.HlslSyntax.csproj" />
     </ItemGroup>
 
@@ -18,7 +22,7 @@
          Requiere los nativos de ShadowDusk: bash ShadowDusk/tools/restore.sh -->
     <PropertyGroup>
         <CompileYotsubaShaders>true</CompileYotsubaShaders>
-        <YotsubaCliProject>$(MSBuildThisFileDirectory)../../YotsubaShader.CLI/YotsubaShader.CLI.csproj</YotsubaCliProject>
+        <YotsubaCliProject>$(MSBuildThisFileDirectory)../../YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj</YotsubaCliProject>
     </PropertyGroup>
 
     <Target Name="CompileYotsubaShaders"

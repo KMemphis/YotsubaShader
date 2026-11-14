@@ -3,7 +3,7 @@ using ShadowDusk.Core;
 using ShadowDusk.Core.Preprocessor;
 using YotsubaShader.IR.Intermediate;
 
-namespace YotsubaShader.Compiler.CompileToGameEngines;
+namespace YotsubaShader.Compiler.Library.CompileToGameEngines;
 
 public static class KNI
 {

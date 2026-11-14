@@ -67,9 +67,10 @@
 #endregion
 
 
-namespace YotsubaShader.Concepts.BindingSlotsAndResources;
-
-public class ReadOnlyStorageBuffer() : YotsubaShaderConcept
+namespace YotsubaShader.Concepts.BindingSlotsAndResources
 {
-    public const string USE = RWStorageBuffer.USE;
+    public class ReadOnlyStorageBuffer : YotsubaShaderConcept
+    {
+        public const string USE = RWStorageBuffer.USE;
+    }
 }

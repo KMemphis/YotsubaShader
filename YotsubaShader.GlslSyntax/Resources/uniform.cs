@@ -68,8 +68,9 @@
 
 using YotsubaShader.Concepts.BindingSlotsAndResources;
 
-namespace YotsubaShader.GlslSyntax.Resources;
-
-[AttributeUsage(AttributeUsagesTable.Resource)]
-[UniformBuffer]
-public class uniform : YotsubaShaderConcept;
+namespace YotsubaShader.GlslSyntax.Resources
+{
+    [AttributeUsage(AttributeUsagesTable.Resource)]
+    [UniformBuffer]
+    public class uniform : YotsubaShaderConcept;
+}

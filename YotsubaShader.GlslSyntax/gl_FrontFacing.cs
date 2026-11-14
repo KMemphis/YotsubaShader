@@ -66,8 +66,9 @@
 */
 #endregion
 
-namespace YotsubaShader.GlslSyntax;
-
-[AttributeUsage(AttributeUsagesTable.Input)]
-[FrontFacingFlag]
-public class gl_FrontFacing : YotsubaShaderConcept;
+namespace YotsubaShader.GlslSyntax
+{
+    [AttributeUsage(AttributeUsagesTable.Input)]
+    [FrontFacingFlag]
+    public class gl_FrontFacing : YotsubaShaderConcept;
+}

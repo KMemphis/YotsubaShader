@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <IsRoslynComponent>true</IsRoslynComponent>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" PrivateAssets="all" />
+    </ItemGroup>
+
+
+    <ItemGroup>
+        <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+        <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+    </ItemGroup>
+    
+    <ItemGroup>
+      <Folder Include="GlslSyntax\" />
+      <Folder Include="HlslSyntax\" />
+      <Folder Include="MslSyntax\" />
+      <Folder Include="SpirvSyntax\" />
+      <Folder Include="WgslSyntax\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\YotsubaShader.GlslSyntax\YotsubaShader.GlslSyntax.csproj" />
+      <ProjectReference Include="..\YotsubaShader.HlslSyntax\YotsubaShader.HlslSyntax.csproj" />
+      <ProjectReference Include="..\YotsubaShader.MslSyntax\YotsubaShader.MslSyntax.csproj" />
+      <ProjectReference Include="..\YotsubaShader.SpirvSyntax\YotsubaShader.SpirvSyntax.csproj" />
+      <ProjectReference Include="..\YotsubaShader.WgslSyntax\YotsubaShader.WgslSyntax.csproj" />
+    </ItemGroup>
+</Project>

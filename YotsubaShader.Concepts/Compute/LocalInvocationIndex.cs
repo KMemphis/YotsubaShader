@@ -67,9 +67,10 @@
 #endregion
 
 
-namespace YotsubaShader.Concepts.Compute;
-
-public class LocalInvocationIndex : YotsubaShaderConcept
+namespace YotsubaShader.Concepts.Compute
 {
+    public class LocalInvocationIndex : YotsubaShaderConcept
+    {
     
+    }
 }

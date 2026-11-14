@@ -66,7 +66,16 @@
 */
 #endregion
 
-namespace YotsubaShader.Language.Native.Types.Vector;
+using System;
 
-[AttributeUsage(AttributeTargets.Struct)]
-public class VectorAttribute() : YotsubaShaderAttribute;
+namespace YotsubaShader.Language.Native.Types.Vector
+{
+
+    [AttributeUsage(AttributeTargets.Struct)]
+    public class VectorAttribute : YotsubaShaderAttribute
+    {
+        public VectorAttribute()
+        {
+        }
+    }
+}

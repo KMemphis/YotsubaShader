@@ -67,9 +67,10 @@
 #endregion
 
 
-namespace YotsubaShader.Concepts.Fragment;
-
-public class FragDepth : YotsubaShaderConcept
+namespace YotsubaShader.Concepts.Fragment
 {
-    public const string MODE = "Mode";
+    public class FragDepth : YotsubaShaderConcept
+    {
+        public const string MODE = "Mode";
+    }
 }

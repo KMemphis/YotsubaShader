@@ -66,10 +66,18 @@
 */
 #endregion
 
-namespace YotsubaShader.Concepts;
+using System;
 
-[AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Field)]
-public class ConceptKeyAttribute(string key) : Attribute
+namespace YotsubaShader.Concepts
 {
-    public string Key = key;
+    [AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Field)]
+    public class ConceptKeyAttribute : Attribute
+    {
+        public string Key;
+
+        public ConceptKeyAttribute(string key)
+        {
+            Key = key;
+        }
+    }
 }

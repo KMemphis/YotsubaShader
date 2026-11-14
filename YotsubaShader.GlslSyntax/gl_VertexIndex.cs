@@ -69,8 +69,9 @@
 using YotsubaShader.Concepts;
 using YotsubaShader.Concepts.Vertex;
 
-namespace YotsubaShader.GlslSyntax;
-
-[AttributeUsage(AttributeUsagesTable.Input)]
-[VertexIndex]
-public class gl_VertexIndex : YotsubaShaderConcept;
+namespace YotsubaShader.GlslSyntax
+{
+    [AttributeUsage(AttributeUsagesTable.Input)]
+    [VertexIndex]
+    public class gl_VertexIndex : YotsubaShaderConcept;
+}

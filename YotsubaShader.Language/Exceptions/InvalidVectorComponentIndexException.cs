@@ -66,25 +66,29 @@
 */
 #endregion
 
-namespace YotsubaShader.Language.Exceptions;
+using System;
 
-public class InvalidVectorComponentIndexException : Exception
+namespace YotsubaShader.Language.Exceptions
 {
-    public InvalidVectorComponentIndexException(
-        string typeName,
-        string? memberName,
-        int? index,
-        string reason)
-        : base(BuildMessage(typeName, memberName, index, reason))
+
+    public class InvalidVectorComponentIndexException : Exception
     {
+        public InvalidVectorComponentIndexException(
+            string typeName,
+            string memberName,
+            int? index,
+            string reason)
+            : base(BuildMessage(typeName, memberName, index, reason))
+        {
+        }
+
+        private static string BuildMessage(string typeName, string memberName, int? index, string reason)
+        {
+            string member = memberName is null ? "" : $", member '{memberName}'";
+            string position = index is null ? "" : $", index {index}";
+
+            return $"Invalid vector component declaration in '{typeName}'{member}{position}: {reason}.";
+        }
+
     }
-
-    private static string BuildMessage(string typeName, string? memberName, int? index, string reason)
-    {
-        string member = memberName is null ? "" : $", member '{memberName}'";
-        string position = index is null ? "" : $", index {index}";
-
-        return $"Invalid vector component declaration in '{typeName}'{member}{position}: {reason}.";
-    }
-
 }

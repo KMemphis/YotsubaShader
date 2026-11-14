@@ -77,7 +77,7 @@ public class register : YotsubaShaderConcept
     public register([ConceptKey(BindingSlot.SET)] RegisterPrefix prefix, [ConceptKey(BindingSlot.BINDING)] int n)
     {
 
-        if (!Enum.IsDefined(prefix))
+        if (!Enum.IsDefined(typeof(RegisterPrefix), prefix))
             throw new ArgumentOutOfRangeException(nameof(prefix), prefix, "Unknown HLSL register prefix.");
 
         if (n < 0)
@@ -92,7 +92,7 @@ public class register : YotsubaShaderConcept
     public register(RegisterPrefix prefix, [ConceptKey(BindingSlot.BINDING)] int n, [ConceptKey(BindingSlot.SET)] int space)
     {
 
-        if (!Enum.IsDefined(prefix))
+        if (!Enum.IsDefined(typeof(RegisterPrefix), prefix))
             throw new ArgumentOutOfRangeException(nameof(prefix), prefix, "Unknown HLSL register prefix.");
 
         if (n < 0)
@@ -105,7 +105,7 @@ public class register : YotsubaShaderConcept
 
     public register([ConceptKey(BindingSlot.RegisterString)] string resource)
     {
-        ArgumentNullException.ThrowIfNull(resource);
+        if (resource is null) throw new NullReferenceException();
 
         if (resource.Length < 2)
             throw new ArgumentException($"Invalid HLSL register: '{resource}'.", nameof(resource));
@@ -119,14 +119,13 @@ public class register : YotsubaShaderConcept
 
     public static RegisterPrefix Parse(string resource, out int binding)
     {
-        ReadOnlySpan<char> text = resource.AsSpan();
-        ReadOnlySpan<char> prefixText = text[..1];
+        string prefixText = resource.Substring(0, 1);
 
         if (!Enum.TryParse<RegisterPrefix>(prefixText, ignoreCase: false, out var prefix)
-            || !Enum.IsDefined(prefix))
-            throw new ArgumentException($"Unknown HLSL register prefix: '{prefixText.ToString()}'.", nameof(resource));
-
-        ReadOnlySpan<char> numberText = text[1..];
+            || !Enum.IsDefined(typeof(RegisterPrefix), prefix))
+            throw new ArgumentException($"Unknown HLSL register prefix '{prefixText}'.");
+        
+        string numberText = resource.Substring(1);
         if (!int.TryParse(
                 numberText,
                 System.Globalization.NumberStyles.None,

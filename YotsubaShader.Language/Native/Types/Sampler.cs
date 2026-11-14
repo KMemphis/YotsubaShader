@@ -66,7 +66,14 @@
 */
 #endregion
 
-namespace YotsubaShader.Language.Native.Types;
+using System;
 
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
-public class SamplerAttribute : YotsubaShaderAttribute;
+namespace YotsubaShader.Language.Native.Types
+{
+
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
+    public class SamplerAttribute : YotsubaShaderAttribute
+    {
+        
+    }
+}

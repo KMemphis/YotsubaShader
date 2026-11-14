@@ -66,11 +66,13 @@
 */
 #endregion
 
-namespace YotsubaShader.Language.Native.Types.Texture;
-
-public enum TextureDepth
+namespace YotsubaShader.Language.Native.Types.Texture
 {
-    No = 0,
-    Yes = 1,
-    Unknown = 2
+
+    public enum TextureDepth
+    {
+        No = 0,
+        Yes = 1,
+        Unknown = 2
+    }
 }

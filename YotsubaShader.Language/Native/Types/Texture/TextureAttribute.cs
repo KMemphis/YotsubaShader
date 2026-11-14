@@ -66,22 +66,32 @@
 */
 #endregion
 
-namespace YotsubaShader.Language.Native.Types.Texture;
+using System;
 
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
-public class TextureAttribute(TextureDimension dimension, TextureComponentTypes componentTypes) : YotsubaShaderAttribute
+namespace YotsubaShader.Language.Native.Types.Texture
 {
-    public TextureDimension Dimension = dimension;
 
-    public TextureComponentTypes ComponentTypes = componentTypes;
-    
-    public TextureUsage Usage = TextureUsage.Sampled;
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
+    public class TextureAttribute : YotsubaShaderAttribute
+    {
+        public TextureDimension Dimension;
 
-    public TextureDepth Depth = TextureDepth.No;
+        public TextureComponentTypes ComponentTypes;
 
-    public TextureFormat Format = TextureFormat.Unknown;
+        public TextureUsage Usage = TextureUsage.Sampled;
 
-    public bool Arrayed = false;
+        public TextureDepth Depth = TextureDepth.No;
 
-    public bool Multisampled = false;
+        public TextureFormat Format = TextureFormat.Unknown;
+
+        public bool Arrayed = false;
+
+        public bool Multisampled = false;
+
+        public TextureAttribute(TextureDimension dimension, TextureComponentTypes componentTypes)
+        {
+            Dimension = dimension;
+            ComponentTypes = componentTypes;
+        }
+    }
 }

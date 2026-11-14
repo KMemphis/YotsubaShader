@@ -66,12 +66,14 @@
 */
 #endregion
 
-namespace YotsubaShader.Language.Native.Types.Texture;
-
-public enum TextureDimension
+namespace YotsubaShader.Language.Native.Types.Texture
 {
-   D1 = 1,
-    D2 = 2,
-    D3 = 3,
-    Cube = 4
+
+    public enum TextureDimension
+    {
+        D1 = 1,
+        D2 = 2,
+        D3 = 3,
+        Cube = 4
+    }
 }

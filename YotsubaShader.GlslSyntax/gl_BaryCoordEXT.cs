@@ -66,8 +66,12 @@
 */
 #endregion
 
-namespace YotsubaShader.GlslSyntax;
-
-[AttributeUsage(AttributeUsagesTable.Input)]
-[BarycentricCoordinates]
-public class gl_BaryCoordEXT : YotsubaShaderConcept;
+namespace YotsubaShader.GlslSyntax
+{
+    [AttributeUsage(AttributeUsagesTable.Input)]
+    [BarycentricCoordinates]
+    public class gl_BaryCoordEXT : YotsubaShaderConcept
+    {
+        
+    }
+}

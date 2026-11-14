@@ -66,11 +66,13 @@
 */
 #endregion
 
-namespace YotsubaShader.Language.Native.Types.Texture;
-
-public enum TextureUsage
+namespace YotsubaShader.Language.Native.Types.Texture
 {
-    Unknown = 0,
-    Sampled = 1,
-    Storage = 2
+
+    public enum TextureUsage
+    {
+        Unknown = 0,
+        Sampled = 1,
+        Storage = 2
+    }
 }

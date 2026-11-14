@@ -23,7 +23,7 @@ public static class YotsubaShader_ShadersCompilations
 
     public static byte[] ToSpirV(this global::Examples.Shaders.TriangleShader _shader)
     {
-        return global::System.Convert.FromBase64String("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");
+        return global::System.Convert.FromBase64String("AwIjBwAGAQAAAAAAKAAAAAAAAAARAAIAAQAAAAoACABTUFZfR09PR0xFX2RlY29yYXRlX3N0cmluZwAACgAJAFNQVl9HT09HTEVfaGxzbF9mdW5jdGlvbmFsaXR5MQAADgADAAAAAAABAAAADwAIAAAAAAABAAAAVnMAAAIAAAADAAAABAAAAAUAAAAPAAcABAAAAAYAAABGcwAABwAAAAgAAAAJAAAADwAFAAUAAAAKAAAAQ29tcHV0ZQAQAAMABgAAAAcAAAAQAAYACgAAABEAAAABAAAAAgAAAAMAAAAFAAMAAQAAAFZzAAAFAAcAAgAAAHZzSW5wdXRfUG9zaXRpb24AAAAABQAGAAMAAAB2c0lucHV0X0NvbG9yAAAABQAGAAQAAABfX3JldHVybl9Qb3MAAAAABQAGAAUAAABfX3JldHVybl9DT0xPUgAABQADAAYAAABGcwAABQAGAAcAAAB2c091dHB1dF9Qb3MAAAAABQAGAAgAAAB2c091dHB1dF9DT0xPUgAABQAFAAkAAABfX3JldHVybgAAAAAFAAQACgAAAENvbXB1dGUABQAFAAsAAABWU091dHB1dAAAAAAGAAQACwAAAAAAAABQb3MABgAFAAsAAAABAAAAQ09MT1IAAAAFAAYADAAAAFZTT3V0cHV0X051bGwAAAAFAAQADQAAAGluaXQAAAAARwAEAAIAAAAeAAAAAAAAAAAWBgACAAAAAxYAAFBPU0lUSU9OAAAAAEcABAADAAAAHgAAAAEAAAAAFgUAAwAAAAMWAABDT0xPUjAAAEcABAAEAAAAHgAAAAAAAAAAFgYABAAAAAMWAABURVhDT09SRDAAAABHAAQABQAAAB4AAAABAAAAABYFAAUAAAADFgAAQ09MT1IwAABHAAQABwAAAB4AAAAAAAAAABYGAAcAAAADFgAAVEVYQ09PUkQwAAAARwAEAAgAAAAeAAAAAQAAAAAWBQAIAAAAAxYAAENPTE9SMAAARwAEAAkAAAAeAAAAAAAAABMAAgAOAAAAFgADAA8AAAAgAAAAFwAEABAAAAAPAAAAAgAAACAABAARAAAAAQAAABAAAAAXAAQAEgAAAA8AAAAEAAAAIAAEABMAAAABAAAAEgAAACAABAAUAAAAAwAAABAAAAAgAAQAFQAAAAMAAAASAAAAHgAEAAsAAAAQAAAAEgAAAC4AAwALAAAADAAAACEAAwAWAAAADgAAACAABAAXAAAABwAAAAsAAAAgAAQAGAAAAAcAAAASAAAAFQAEABkAAAAgAAAAAAAAACsABAAZAAAAGgAAAAEAAAAgAAQAGwAAAAcAAAAQAAAAKwAEABkAAAAcAAAAAAAAADsABAARAAAAAgAAAAEAAAA7AAQAEwAAAAMAAAABAAAAOwAEABQAAAAEAAAAAwAAADsABAAVAAAABQAAAAMAAAA7AAQAEQAAAAcAAAABAAAAOwAEABMAAAAIAAAAAQAAADsABAAVAAAACQAAAAMAAAA2AAUADgAAAAEAAAAAAAAAFgAAAPgAAgAdAAAAOwAEABcAAAANAAAABwAAAD4AAwANAAAADAAAAEEABQAYAAAAHgAAAA0AAAAaAAAAPQAEABIAAAAfAAAAAwAAAD4AAwAeAAAAHwAAAEEABQAbAAAAIAAAAA0AAAAcAAAAPQAEABAAAAAhAAAAAgAAAD4AAwAgAAAAIQAAAD0ABAALAAAAIgAAAA0AAABRAAUAEAAAACMAAAAiAAAAAAAAAD4AAwAEAAAAIwAAAFEABQASAAAAJAAAACIAAAABAAAAPgADAAUAAAAkAAAA/QABADgAAQA2AAUADgAAAAYAAAAAAAAAFgAAAPgAAgAlAAAAPQAEABIAAAAmAAAACAAAAD4AAwAJAAAAJgAAAP0AAQA4AAEANgAFAA4AAAAKAAAAAAAAABYAAAD4AAIAJwAAAP0AAQA4AAEA");
     }
 
     public static string ToHlsl(
@@ -34,19 +34,22 @@ public static class YotsubaShader_ShadersCompilations
         {
             global::YotsubaShader.Language.Stage.Fragment =>
                 """
-                struct VS_Output
+                struct VSOutput
                 {
-                    float4 Color;
+                    float2 Pos;
+                    float4 COLOR;
                 };
                 
-                static const VS_Output VS_Output_Null = { 0.0f.xxxx };
+                static const VSOutput VSOutput_Null = { 0.0f.xx, 0.0f.xxxx };
                 
-                static float4 fragment_Color;
+                static float2 vsOutput_Pos;
+                static float4 vsOutput_COLOR;
                 static float4 _return;
                 
                 struct SPIRV_Cross_Input
                 {
-                    float4 fragment_Color : COLOR0;
+                    float2 vsOutput_Pos : TEXCOORD0;
+                    float4 vsOutput_COLOR : COLOR0;
                 };
                 
                 struct SPIRV_Cross_Output
@@ -54,15 +57,16 @@ public static class YotsubaShader_ShadersCompilations
                     float4 _return : SV_Target0;
                 };
                 
-                void FS_inner()
+                void Fs_inner()
                 {
-                    _return = fragment_Color;
+                    _return = vsOutput_COLOR;
                 }
                 
-                SPIRV_Cross_Output FS(SPIRV_Cross_Input stage_input)
+                SPIRV_Cross_Output Fs(SPIRV_Cross_Input stage_input)
                 {
-                    fragment_Color = stage_input.fragment_Color;
-                    FS_inner();
+                    vsOutput_Pos = stage_input.vsOutput_Pos;
+                    vsOutput_COLOR = stage_input.vsOutput_COLOR;
+                    Fs_inner();
                     SPIRV_Cross_Output stage_output;
                     stage_output._return = _return;
                     return stage_output;
@@ -71,57 +75,70 @@ public static class YotsubaShader_ShadersCompilations
 ,
             global::YotsubaShader.Language.Stage.Vertex =>
                 """
-                struct VS_Output
+                struct VSOutput
                 {
-                    float4 Color;
+                    float2 Pos;
+                    float4 COLOR;
                 };
                 
-                static const VS_Output VS_Output_Null = { 0.0f.xxxx };
+                static const VSOutput VSOutput_Null = { 0.0f.xx, 0.0f.xxxx };
                 
-                static float4 gl_Position;
-                static float2 vertex_Position;
-                static float4 vertex_Color;
-                static float4 _return_Color;
+                static float2 vsInput_Position;
+                static float4 vsInput_Color;
+                static float2 _return_Pos;
+                static float4 _return_COLOR;
                 
                 struct SPIRV_Cross_Input
                 {
-                    float2 vertex_Position : POSITION;
-                    float4 vertex_Color : COLOR0;
+                    float2 vsInput_Position : POSITION;
+                    float4 vsInput_Color : COLOR0;
                 };
                 
                 struct SPIRV_Cross_Output
                 {
-                    float4 _return_Color : COLOR0;
-                    float4 gl_Position : SV_Position;
+                    float2 _return_Pos : TEXCOORD0;
+                    float4 _return_COLOR : COLOR0;
                 };
                 
-                float4 NewVector4(float x, float y, float z)
+                void Vs_inner()
                 {
-                    float4 _this;
-                    _this.x = x;
-                    _this.y = y;
-                    _this.z = z;
-                    _this.w = float(1);
-                    return _this;
+                    VSOutput init = VSOutput_Null;
+                    init.COLOR = vsInput_Color;
+                    init.Pos = vsInput_Position;
+                    _return_Pos = init.Pos;
+                    _return_COLOR = init.COLOR;
                 }
                 
-                void VS_inner()
+                SPIRV_Cross_Output Vs(SPIRV_Cross_Input stage_input)
                 {
-                    VS_Output vertexOutput = VS_Output_Null;
-                    gl_Position = NewVector4(vertex_Position.x, vertex_Position.y, float(0));
-                    vertexOutput.Color = vertex_Color;
-                    _return_Color = vertexOutput.Color;
-                }
-                
-                SPIRV_Cross_Output VS(SPIRV_Cross_Input stage_input)
-                {
-                    vertex_Position = stage_input.vertex_Position;
-                    vertex_Color = stage_input.vertex_Color;
-                    VS_inner();
+                    vsInput_Position = stage_input.vsInput_Position;
+                    vsInput_Color = stage_input.vsInput_Color;
+                    Vs_inner();
                     SPIRV_Cross_Output stage_output;
-                    stage_output.gl_Position = gl_Position;
-                    stage_output._return_Color = _return_Color;
+                    stage_output._return_Pos = _return_Pos;
+                    stage_output._return_COLOR = _return_COLOR;
                     return stage_output;
+                }
+                """
+,
+            global::YotsubaShader.Language.Stage.Compute =>
+                """
+                struct VSOutput
+                {
+                    float2 Pos;
+                    float4 COLOR;
+                };
+                
+                static const VSOutput VSOutput_Null = { 0.0f.xx, 0.0f.xxxx };
+                
+                void Compute_inner()
+                {
+                }
+                
+                [numthreads(1, 2, 3)]
+                void Compute()
+                {
+                    Compute_inner();
                 }
                 """
 ,
@@ -142,17 +159,19 @@ public static class YotsubaShader_ShadersCompilations
                 """
                 #version 450
                 
-                struct VS_Output
+                struct VSOutput
                 {
-                    vec4 Color;
+                    vec2 Pos;
+                    vec4 COLOR;
                 };
                 
-                layout(location = 0) in vec4 fragment_Color;
+                layout(location = 0) in vec2 vsOutput_Pos;
+                layout(location = 1) in vec4 vsOutput_COLOR;
                 layout(location = 0) out vec4 _return;
                 
                 void main()
                 {
-                    _return = fragment_Color;
+                    _return = vsOutput_COLOR;
                 }
                 
                 """
@@ -161,33 +180,41 @@ public static class YotsubaShader_ShadersCompilations
                 """
                 #version 450
                 
-                struct VS_Output
+                struct VSOutput
                 {
-                    vec4 Color;
+                    vec2 Pos;
+                    vec4 COLOR;
                 };
                 
-                layout(location = 0) in vec2 vertex_Position;
-                layout(location = 1) in vec4 vertex_Color;
-                layout(location = 0) out vec4 _return_Color;
-                
-                vec4 NewVector4(float x, float y, float z)
-                {
-                    vec4 _this;
-                    _this.x = x;
-                    _this.y = y;
-                    _this.z = z;
-                    float _55 = float(1);
-                    _this.w = _55;
-                    return _this;
-                }
+                layout(location = 0) in vec2 vsInput_Position;
+                layout(location = 1) in vec4 vsInput_Color;
+                layout(location = 0) out vec2 _return_Pos;
+                layout(location = 1) out vec4 _return_COLOR;
                 
                 void main()
                 {
-                    VS_Output vertexOutput = VS_Output(vec4(0.0));
-                    float _42 = float(0);
-                    gl_Position = NewVector4(vertex_Position.x, vertex_Position.y, _42);
-                    vertexOutput.Color = vertex_Color;
-                    _return_Color = vertexOutput.Color;
+                    VSOutput init = VSOutput(vec2(0.0), vec4(0.0));
+                    init.COLOR = vsInput_Color;
+                    init.Pos = vsInput_Position;
+                    _return_Pos = init.Pos;
+                    _return_COLOR = init.COLOR;
+                }
+                
+                """
+,
+            global::YotsubaShader.Language.Stage.Compute =>
+                """
+                #version 450
+                layout(local_size_x = 1, local_size_y = 2, local_size_z = 3) in;
+                
+                struct VSOutput
+                {
+                    vec2 Pos;
+                    vec4 COLOR;
+                };
+                
+                void main()
+                {
                 }
                 
                 """
@@ -211,17 +238,19 @@ public static class YotsubaShader_ShadersCompilations
                 precision mediump float;
                 precision highp int;
                 
-                struct VS_Output
+                struct VSOutput
                 {
-                    highp vec4 Color;
+                    highp vec2 Pos;
+                    highp vec4 COLOR;
                 };
                 
-                layout(location = 0) in highp vec4 fragment_Color;
+                layout(location = 0) in highp vec2 vsOutput_Pos;
+                layout(location = 1) in highp vec4 vsOutput_COLOR;
                 layout(location = 0) out highp vec4 _return;
                 
                 void main()
                 {
-                    _return = fragment_Color;
+                    _return = vsOutput_COLOR;
                 }
                 
                 """
@@ -230,33 +259,41 @@ public static class YotsubaShader_ShadersCompilations
                 """
                 #version 310 es
                 
-                struct VS_Output
+                struct VSOutput
                 {
-                    vec4 Color;
+                    vec2 Pos;
+                    vec4 COLOR;
                 };
                 
-                layout(location = 0) in vec2 vertex_Position;
-                layout(location = 1) in vec4 vertex_Color;
-                layout(location = 0) out vec4 _return_Color;
-                
-                vec4 NewVector4(float x, float y, float z)
-                {
-                    vec4 _this;
-                    _this.x = x;
-                    _this.y = y;
-                    _this.z = z;
-                    float _55 = float(1);
-                    _this.w = _55;
-                    return _this;
-                }
+                layout(location = 0) in vec2 vsInput_Position;
+                layout(location = 1) in vec4 vsInput_Color;
+                layout(location = 0) out vec2 _return_Pos;
+                layout(location = 1) out vec4 _return_COLOR;
                 
                 void main()
                 {
-                    VS_Output vertexOutput = VS_Output(vec4(0.0));
-                    float _42 = float(0);
-                    gl_Position = NewVector4(vertex_Position.x, vertex_Position.y, _42);
-                    vertexOutput.Color = vertex_Color;
-                    _return_Color = vertexOutput.Color;
+                    VSOutput init = VSOutput(vec2(0.0), vec4(0.0));
+                    init.COLOR = vsInput_Color;
+                    init.Pos = vsInput_Position;
+                    _return_Pos = init.Pos;
+                    _return_COLOR = init.COLOR;
+                }
+                
+                """
+,
+            global::YotsubaShader.Language.Stage.Compute =>
+                """
+                #version 310 es
+                layout(local_size_x = 1, local_size_y = 2, local_size_z = 3) in;
+                
+                struct VSOutput
+                {
+                    vec2 Pos;
+                    vec4 COLOR;
+                };
+                
+                void main()
+                {
                 }
                 
                 """
@@ -281,25 +318,26 @@ public static class YotsubaShader_ShadersCompilations
                 
                 using namespace metal;
                 
-                struct VS_Output
+                struct VSOutput
                 {
-                    float4 Color;
+                    float2 Pos;
+                    float4 COLOR;
                 };
                 
-                struct FS_out
+                struct Fs_out
                 {
                     float4 _return [[color(0)]];
                 };
                 
-                struct FS_in
+                struct Fs_in
                 {
-                    float4 fragment_Color [[user(locn0)]];
+                    float4 vsOutput_COLOR [[user(locn1)]];
                 };
                 
-                fragment FS_out FS(FS_in in [[stage_in]])
+                fragment Fs_out Fs(Fs_in in [[stage_in]])
                 {
-                    FS_out out = {};
-                    out._return = in.fragment_Color;
+                    Fs_out out = {};
+                    out._return = in.vsOutput_COLOR;
                     return out;
                 }
                 
@@ -307,49 +345,58 @@ public static class YotsubaShader_ShadersCompilations
 ,
             global::YotsubaShader.Language.Stage.Vertex =>
                 """
-                #pragma clang diagnostic ignored "-Wmissing-prototypes"
-                
                 #include <metal_stdlib>
                 #include <simd/simd.h>
                 
                 using namespace metal;
                 
-                struct VS_Output
+                struct VSOutput
                 {
-                    float4 Color;
+                    float2 Pos;
+                    float4 COLOR;
                 };
                 
-                struct VS_out
+                struct Vs_out
                 {
-                    float4 _return_Color [[user(locn0)]];
+                    float2 _return_Pos [[user(locn0)]];
+                    float4 _return_COLOR [[user(locn1)]];
                     float4 gl_Position [[position]];
                 };
                 
-                struct VS_in
+                struct Vs_in
                 {
-                    float2 vertex_Position [[attribute(0)]];
-                    float4 vertex_Color [[attribute(1)]];
+                    float2 vsInput_Position [[attribute(0)]];
+                    float4 vsInput_Color [[attribute(1)]];
                 };
                 
-                static inline __attribute__((always_inline))
-                float4 NewVector4(float x, float y, float z)
+                vertex Vs_out Vs(Vs_in in [[stage_in]])
                 {
-                    float4 _this;
-                    _this.x = x;
-                    _this.y = y;
-                    _this.z = z;
-                    _this.w = float(1);
-                    return _this;
+                    Vs_out out = {};
+                    VSOutput init = VSOutput{ float2(0.0), float4(0.0) };
+                    init.COLOR = in.vsInput_Color;
+                    init.Pos = in.vsInput_Position;
+                    out._return_Pos = init.Pos;
+                    out._return_COLOR = init.COLOR;
+                    return out;
                 }
                 
-                vertex VS_out VS(VS_in in [[stage_in]])
+                """
+,
+            global::YotsubaShader.Language.Stage.Compute =>
+                """
+                #include <metal_stdlib>
+                #include <simd/simd.h>
+                
+                using namespace metal;
+                
+                struct VSOutput
                 {
-                    VS_out out = {};
-                    VS_Output vertexOutput = VS_Output{ float4(0.0) };
-                    out.gl_Position = NewVector4(in.vertex_Position.x, in.vertex_Position.y, float(0));
-                    vertexOutput.Color = in.vertex_Color;
-                    out._return_Color = vertexOutput.Color;
-                    return out;
+                    float2 Pos;
+                    float4 COLOR;
+                };
+                
+                kernel void Compute()
+                {
                 }
                 
                 """
@@ -371,13 +418,13 @@ public static class YotsubaShader_ShadersCompilations
             case global::YotsubaShader.MonoGamePlatform.iOS:
             case global::YotsubaShader.MonoGamePlatform.Android:
             case global::YotsubaShader.MonoGamePlatform.GL4:
-                return global::System.Convert.FromBase64String("TUdGWAoAnybVoQAAAAACAAAAAZUBAAAjaWZkZWYgR0xfRVMKcHJlY2lzaW9uIGhpZ2hwIGZsb2F0OwpwcmVjaXNpb24gbWVkaXVtcCBpbnQ7CiNlbmRpZgoKdW5pZm9ybSB2ZWM0IHBvc0ZpeHVwOwoKYXR0cmlidXRlIHZlYzQgdnNfdjA7CmF0dHJpYnV0ZSB2ZWM0IHZzX3YxOwp2YXJ5aW5nIHZlYzQgdkZyb250Q29sb3I7Cgp2b2lkIG1haW4oKQp7CiAgICB2RnJvbnRDb2xvciA9IHZzX3YxOwogICAgZ2xfUG9zaXRpb24gPSB2ZWM0KHZzX3YwLnh5LCAwLjAsIDEuMCk7CiAgICBnbF9Qb3NpdGlvbi55ID0gZ2xfUG9zaXRpb24ueSAqIHBvc0ZpeHVwLnk7CiAgICBnbF9Qb3NpdGlvbi54eSArPSBwb3NGaXh1cC56dyAqIGdsX1Bvc2l0aW9uLnd3OwogICAgZ2xfUG9zaXRpb24ueiA9IDIuMCAqIGdsX1Bvc2l0aW9uLnogLSBnbF9Qb3NpdGlvbi53Owp9CgoAAAIFdnNfdjAAAAAABXZzX3YxAQAAAAACAQAAI2lmZGVmIEdMX0VTCiNpZmRlZiBHTF9GUkFHTUVOVF9QUkVDSVNJT05fSElHSApwcmVjaXNpb24gaGlnaHAgZmxvYXQ7CnByZWNpc2lvbiBoaWdocCBpbnQ7CiNlbHNlCnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwpwcmVjaXNpb24gbWVkaXVtcCBpbnQ7CiNlbmRpZgojZW5kaWYKCiNkZWZpbmUgcHNfb0MwIGdsX0ZyYWdDb2xvcgp2YXJ5aW5nIHZlYzQgdkZyb250Q29sb3I7Cgp2b2lkIG1haW4oKQp7CiAgICBwc19vQzAgPSB2RnJvbnRDb2xvcjsKfQoKAAAAAAAAAAEAAAABVAAAAAABAAAAAVAAAAAAAAAAAAEAAAAAAABNR0ZY");
+                return global::System.Convert.FromBase64String("TUdGWAoAFg6Q5gAAAAACAAAAAaABAAAjaWZkZWYgR0xfRVMKcHJlY2lzaW9uIGhpZ2hwIGZsb2F0OwpwcmVjaXNpb24gbWVkaXVtcCBpbnQ7CiNlbmRpZgoKdW5pZm9ybSB2ZWM0IHBvc0ZpeHVwOwoKYXR0cmlidXRlIHZlYzQgdnNfdjA7CmF0dHJpYnV0ZSB2ZWM0IHZzX3YxOwp2YXJ5aW5nIHZlYzQgdlRleENvb3JkMDsKdmFyeWluZyB2ZWM0IHZGcm9udENvbG9yOwoKdm9pZCBtYWluKCkKewogICAgdlRleENvb3JkMC54eSA9IHZzX3YwLnh5OwogICAgdkZyb250Q29sb3IgPSB2c192MTsKICAgIGdsX1Bvc2l0aW9uLnkgPSBnbF9Qb3NpdGlvbi55ICogcG9zRml4dXAueTsKICAgIGdsX1Bvc2l0aW9uLnh5ICs9IHBvc0ZpeHVwLnp3ICogZ2xfUG9zaXRpb24ud3c7CiAgICBnbF9Qb3NpdGlvbi56ID0gMi4wICogZ2xfUG9zaXRpb24ueiAtIGdsX1Bvc2l0aW9uLnc7Cn0KCgAAAgV2c192MAAAAAAFdnNfdjEBAAAAAAIBAAAjaWZkZWYgR0xfRVMKI2lmZGVmIEdMX0ZSQUdNRU5UX1BSRUNJU0lPTl9ISUdICnByZWNpc2lvbiBoaWdocCBmbG9hdDsKcHJlY2lzaW9uIGhpZ2hwIGludDsKI2Vsc2UKcHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7CnByZWNpc2lvbiBtZWRpdW1wIGludDsKI2VuZGlmCiNlbmRpZgoKI2RlZmluZSBwc19vQzAgZ2xfRnJhZ0NvbG9yCnZhcnlpbmcgdmVjNCB2RnJvbnRDb2xvcjsKCnZvaWQgbWFpbigpCnsKICAgIHBzX29DMCA9IHZGcm9udENvbG9yOwp9CgoAAAAAAAAAAQAAAAFUAAAAAAEAAAABUAAAAAAAAAAAAQAAAAAAAE1HRlg=");
             case global::YotsubaShader.MonoGamePlatform.WindowsDX11:
-                return global::System.Convert.FromBase64String("TUdGWAoBFnm3hQAAAAACAAAAAYQCAABEWEJDKgZb+nGcYrJqrJcZxrSYowEAAACEAgAABQAAADQAAACIAAAA3AAAADQBAADoAQAASVNHTkwAAAACAAAACAAAADgAAAAAAAAAAAAAAAMAAAAAAAAAAwMAAEQAAAAAAAAAAAAAAAMAAAABAAAADw8AAFBPU0lUSU9OAKurq0NPTE9SAKurT1NHTkwAAAACAAAACAAAADgAAAAAAAAAAAAAAAMAAAAAAAAADwAAAEAAAAAAAAAAAQAAAAMAAAABAAAADwAAAENPTE9SAKurU1ZfUG9zaXRpb24AUkRFRlAAAAAAAAAAPAAAAAAAAAA8AAAAAAX+/wAAAAA8AAAAUkQxMTwAAAAYAAAAIAAAACgAAAAkAAAADAAAAAAAAAB2a2QzZC1zaGFkZXIgMi4xAKurq1NIRFKsAAAAUAABACsAAABlAAAD8iAQAAAAAABnAAAE8iAQAAEAAAABAAAAXwAAAzIQEAAAAAAAXwAAA/IQEAABAAAAaAAAAgEAAAA2AAAFMgAQAAAAAABGEBAAAAAAADYAAAVCABAAAAAAAAFAAAAAAAAANgAABYIAEAAAAAAAAUAAAAAAgD82AAAF8iAQAAEAAABGDhAAAAAAADYAAAXyIBAAAAAAAEYeEAABAAAAPgAAAVNUQVSUAAAACwAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADMAQAARFhCQ9+WkOVxK00Nw7dmTzrTFRkBAAAAzAEAAAUAAAA0AAAAZAAAAJgAAADwAAAAMAEAAElTR04oAAAAAQAAAAgAAAAgAAAAAAAAAAAAAAADAAAAAAAAAA8PAABDT0xPUgCrq09TR04sAAAAAQAAAAgAAAAgAAAAAAAAAAAAAAADAAAAAAAAAA8AAABTVl9UYXJnZXQAq6tSREVGUAAAAAAAAAA8AAAAAAAAADwAAAAABf//AAAAADwAAABSRDExPAAAABgAAAAgAAAAKAAAACQAAAAMAAAAAAAAAHZrZDNkLXNoYWRlciAyLjEAq6urU0hEUjgAAABQAAAADgAAAGUAAAPyIBAAAAAAAGIQAAPyEBAAAAAAADYAAAXyIBAAAAAAAEYeEAAAAAAAPgAAAVNUQVSUAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAVQAAAAAAQAAAAFQAAAAAAAAAAABAAAAAAAATUdGWA==");
+                return global::System.Convert.FromBase64String("TUdGWAoBIV+oyQAAAAACAAAAATwCAABEWEJDeyVOLSYJVYv3lngDC/ew6QEAAAA8AgAABQAAADQAAACIAAAA3AAAADQBAACgAQAASVNHTkwAAAACAAAACAAAADgAAAAAAAAAAAAAAAMAAAAAAAAAAwMAAEQAAAAAAAAAAAAAAAMAAAABAAAADw8AAFBPU0lUSU9OAKurq0NPTE9SAKurT1NHTkwAAAACAAAACAAAADgAAAAAAAAAAAAAAAMAAAAAAAAAAwwAAEQAAAAAAAAAAAAAAAMAAAABAAAADwAAAFRFWENPT1JEAKurq0NPTE9SAKurUkRFRlAAAAAAAAAAPAAAAAAAAAA8AAAAAAX+/wAAAAA8AAAAUkQxMTwAAAAYAAAAIAAAACgAAAAkAAAADAAAAAAAAAB2a2QzZC1zaGFkZXIgMi4xAKurq1NIRFJkAAAAUAABABkAAABlAAADMiAQAAAAAABlAAAD8iAQAAEAAABfAAADMhAQAAAAAABfAAAD8hAQAAEAAAA2AAAFMiAQAAAAAABGEBAAAAAAADYAAAXyIBAAAQAAAEYeEAABAAAAPgAAAVNUQVSUAAAABwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADwAQAARFhCQ/qFTf4ndinsbZ2jB8lhuqMBAAAA8AEAAAUAAAA0AAAAiAAAALwAAAAUAQAAVAEAAElTR05MAAAAAgAAAAgAAAA4AAAAAAAAAAAAAAADAAAAAAAAAAMDAABEAAAAAAAAAAAAAAADAAAAAQAAAA8PAABURVhDT09SRACrq6tDT0xPUgCrq09TR04sAAAAAQAAAAgAAAAgAAAAAAAAAAAAAAADAAAAAAAAAA8AAABTVl9UYXJnZXQAq6tSREVGUAAAAAAAAAA8AAAAAAAAADwAAAAABf//AAAAADwAAABSRDExPAAAABgAAAAgAAAAKAAAACQAAAAMAAAAAAAAAHZrZDNkLXNoYWRlciAyLjEAq6urU0hEUjgAAABQAAAADgAAAGUAAAPyIBAAAAAAAGIQAAPyEBAAAQAAADYAAAXyIBAAAAAAAEYeEAABAAAAPgAAAVNUQVSUAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAVQAAAAAAQAAAAFQAAAAAAAAAAABAAAAAAAATUdGWA==");
             case global::YotsubaShader.MonoGamePlatform.WindowsDirectX12:
-                return global::System.Convert.FromBase64String("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");
+                return global::System.Convert.FromBase64String("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");
             case global::YotsubaShader.MonoGamePlatform.DesktopVulkan:
-                return global::System.Convert.FromBase64String("TUdGWAtQ26jVkAAAAAACAAAAARFUcmlhbmdsZVNoYWRlci5meAJWU9wCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAiMHAAABAAAADgAYAAAAAAAAABEAAgABAAAADgADAAAAAAABAAAADwAJAAAAAAABAAAAbWFpbgAAAAACAAAAAwAAAAQAAAAFAAAAAwADAAUAAABYAgAABQAGAAIAAABpbi52YXIuUE9TSVRJT04ABQAGAAMAAABpbi52YXIuQ09MT1IwAAAABQAGAAQAAABvdXQudmFyLkNPTE9SMAAABQAEAAEAAABtYWluAAAAAEcABAAFAAAACwAAAAAAAABHAAQAAgAAAB4AAAAAAAAARwAEAAMAAAAeAAAAAQAAAEcABAAEAAAAHgAAAAAAAAAWAAMABgAAACAAAAArAAQABgAAAAcAAAAAAAAAFwAEAAgAAAAGAAAABAAAABcABAAJAAAABgAAAAIAAAArAAQABgAAAAoAAAAAAIA/IAAEAAsAAAABAAAACQAAACAABAAMAAAAAQAAAAgAAAAgAAQADQAAAAMAAAAIAAAAEwACAA4AAAAhAAMADwAAAA4AAAA7AAQACwAAAAIAAAABAAAAOwAEAAwAAAADAAAAAQAAADsABAANAAAABAAAAAMAAAA7AAQADQAAAAUAAAADAAAANgAFAA4AAAABAAAAAAAAAA8AAAD4AAIAEAAAAD0ABAAJAAAAEQAAAAIAAAA9AAQACAAAABIAAAADAAAAUQAFAAYAAAATAAAAEQAAAAAAAABRAAUABgAAABQAAAARAAAAAQAAAFAABwAIAAAAFQAAABMAAAAUAAAABwAAAAoAAAA+AAMABAAAABIAAAB/AAQABgAAABYAAAAUAAAAUgAGAAgAAAAXAAAAFgAAABUAAAABAAAAPgADAAUAAAAXAAAA/QABADgAAQAAAAIAAAAAAAABAAAAABFUcmlhbmdsZVNoYWRlci5meAJGU8QBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAiMHAAABAAAADgAMAAAAAAAAABEAAgABAAAADgADAAAAAAABAAAADwAHAAQAAAABAAAAbWFpbgAAAAACAAAAAwAAABAAAwABAAAABwAAAAMAAwAFAAAAWAIAAAUABgACAAAAaW4udmFyLkNPTE9SMAAAAAUABwADAAAAb3V0LnZhci5TVl9UYXJnZXQwAAAFAAQAAQAAAG1haW4AAAAARwAEAAIAAAAeAAAAAAAAAEcABAADAAAAHgAAAAAAAAAWAAMABAAAACAAAAAXAAQABQAAAAQAAAAEAAAAIAAEAAYAAAABAAAABQAAACAABAAHAAAAAwAAAAUAAAATAAIACAAAACEAAwAJAAAACAAAADsABAAGAAAAAgAAAAEAAAA7AAQABwAAAAMAAAADAAAANgAFAAgAAAABAAAAAAAAAAkAAAD4AAIACgAAAD0ABAAFAAAACwAAAAIAAAA+AAMAAwAAAAsAAAD9AAEAOAABAAAAAAAAAAABAAAAAVQAAAAAAQAAAAFQAAAAAAAAAAABAAAAAAAATUdGWA==");
+                return global::System.Convert.FromBase64String("TUdGWAtQxbI6hwAAAAACAAAAARFUcmlhbmdsZVNoYWRlci5meAJWc3wCAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAiMHAAABAAAADgASAAAAAAAAABEAAgABAAAADgADAAAAAAABAAAADwAJAAAAAAABAAAAbWFpbgAAAAACAAAAAwAAAAQAAAAFAAAAAwADAAUAAABYAgAABQAGAAIAAABpbi52YXIuUE9TSVRJT04ABQAGAAMAAABpbi52YXIuQ09MT1IwAAAABQAHAAQAAABvdXQudmFyLlRFWENPT1JEMAAAAAUABgAFAAAAb3V0LnZhci5DT0xPUjAAAAUABAABAAAAbWFpbgAAAABHAAQAAgAAAB4AAAAAAAAARwAEAAMAAAAeAAAAAQAAAEcABAAEAAAAHgAAAAAAAABHAAQABQAAAB4AAAABAAAAFgADAAYAAAAgAAAAFwAEAAcAAAAGAAAAAgAAABcABAAIAAAABgAAAAQAAAAgAAQACQAAAAEAAAAHAAAAIAAEAAoAAAABAAAACAAAACAABAALAAAAAwAAAAcAAAAgAAQADAAAAAMAAAAIAAAAEwACAA0AAAAhAAMADgAAAA0AAAA7AAQACQAAAAIAAAABAAAAOwAEAAoAAAADAAAAAQAAADsABAALAAAABAAAAAMAAAA7AAQADAAAAAUAAAADAAAANgAFAA0AAAABAAAAAAAAAA4AAAD4AAIADwAAAD0ABAAHAAAAEAAAAAIAAAA9AAQACAAAABEAAAADAAAAPgADAAQAAAAQAAAAPgADAAUAAAARAAAA/QABADgAAQAAAAIAAAAAAAABAAAAABFUcmlhbmdsZVNoYWRlci5meAJGc8QBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAiMHAAABAAAADgAMAAAAAAAAABEAAgABAAAADgADAAAAAAABAAAADwAHAAQAAAABAAAAbWFpbgAAAAACAAAAAwAAABAAAwABAAAABwAAAAMAAwAFAAAAWAIAAAUABgACAAAAaW4udmFyLkNPTE9SMAAAAAUABwADAAAAb3V0LnZhci5TVl9UYXJnZXQwAAAFAAQAAQAAAG1haW4AAAAARwAEAAIAAAAeAAAAAQAAAEcABAADAAAAHgAAAAAAAAAWAAMABAAAACAAAAAXAAQABQAAAAQAAAAEAAAAIAAEAAYAAAABAAAABQAAACAABAAHAAAAAwAAAAUAAAATAAIACAAAACEAAwAJAAAACAAAADsABAAGAAAAAgAAAAEAAAA7AAQABwAAAAMAAAADAAAANgAFAAgAAAABAAAAAAAAAAkAAAD4AAIACgAAAD0ABAAFAAAACwAAAAIAAAA+AAMAAwAAAAsAAAD9AAEAOAABAAAAAAAAAAABAAAAAVQAAAAAAQAAAAFQAAAAAAAAAAABAAAAAAAATUdGWA==");
             default:
                 throw new global::System.ArgumentOutOfRangeException(
                     nameof(platform),
@@ -388,12 +435,12 @@ public static class YotsubaShader_ShadersCompilations
 
     public static byte[] ToKNIWebGL_FX(this global::Examples.Shaders.TriangleShader _shader)
     {
-        return global::System.Convert.FromBase64String("TUdGWAoAnybVoQAAAAACAAAAAZUBAAAjaWZkZWYgR0xfRVMKcHJlY2lzaW9uIGhpZ2hwIGZsb2F0OwpwcmVjaXNpb24gbWVkaXVtcCBpbnQ7CiNlbmRpZgoKdW5pZm9ybSB2ZWM0IHBvc0ZpeHVwOwoKYXR0cmlidXRlIHZlYzQgdnNfdjA7CmF0dHJpYnV0ZSB2ZWM0IHZzX3YxOwp2YXJ5aW5nIHZlYzQgdkZyb250Q29sb3I7Cgp2b2lkIG1haW4oKQp7CiAgICB2RnJvbnRDb2xvciA9IHZzX3YxOwogICAgZ2xfUG9zaXRpb24gPSB2ZWM0KHZzX3YwLnh5LCAwLjAsIDEuMCk7CiAgICBnbF9Qb3NpdGlvbi55ID0gZ2xfUG9zaXRpb24ueSAqIHBvc0ZpeHVwLnk7CiAgICBnbF9Qb3NpdGlvbi54eSArPSBwb3NGaXh1cC56dyAqIGdsX1Bvc2l0aW9uLnd3OwogICAgZ2xfUG9zaXRpb24ueiA9IDIuMCAqIGdsX1Bvc2l0aW9uLnogLSBnbF9Qb3NpdGlvbi53Owp9CgoAAAIFdnNfdjAAAAAABXZzX3YxAQAAAAACAQAAI2lmZGVmIEdMX0VTCiNpZmRlZiBHTF9GUkFHTUVOVF9QUkVDSVNJT05fSElHSApwcmVjaXNpb24gaGlnaHAgZmxvYXQ7CnByZWNpc2lvbiBoaWdocCBpbnQ7CiNlbHNlCnByZWNpc2lvbiBtZWRpdW1wIGZsb2F0OwpwcmVjaXNpb24gbWVkaXVtcCBpbnQ7CiNlbmRpZgojZW5kaWYKCiNkZWZpbmUgcHNfb0MwIGdsX0ZyYWdDb2xvcgp2YXJ5aW5nIHZlYzQgdkZyb250Q29sb3I7Cgp2b2lkIG1haW4oKQp7CiAgICBwc19vQzAgPSB2RnJvbnRDb2xvcjsKfQoKAAAAAAAAAAEAAAABVAAAAAABAAAAAVAAAAAAAAAAAAEAAAAAAABNR0ZY");
+        return global::System.Convert.FromBase64String("TUdGWAoAFg6Q5gAAAAACAAAAAaABAAAjaWZkZWYgR0xfRVMKcHJlY2lzaW9uIGhpZ2hwIGZsb2F0OwpwcmVjaXNpb24gbWVkaXVtcCBpbnQ7CiNlbmRpZgoKdW5pZm9ybSB2ZWM0IHBvc0ZpeHVwOwoKYXR0cmlidXRlIHZlYzQgdnNfdjA7CmF0dHJpYnV0ZSB2ZWM0IHZzX3YxOwp2YXJ5aW5nIHZlYzQgdlRleENvb3JkMDsKdmFyeWluZyB2ZWM0IHZGcm9udENvbG9yOwoKdm9pZCBtYWluKCkKewogICAgdlRleENvb3JkMC54eSA9IHZzX3YwLnh5OwogICAgdkZyb250Q29sb3IgPSB2c192MTsKICAgIGdsX1Bvc2l0aW9uLnkgPSBnbF9Qb3NpdGlvbi55ICogcG9zRml4dXAueTsKICAgIGdsX1Bvc2l0aW9uLnh5ICs9IHBvc0ZpeHVwLnp3ICogZ2xfUG9zaXRpb24ud3c7CiAgICBnbF9Qb3NpdGlvbi56ID0gMi4wICogZ2xfUG9zaXRpb24ueiAtIGdsX1Bvc2l0aW9uLnc7Cn0KCgAAAgV2c192MAAAAAAFdnNfdjEBAAAAAAIBAAAjaWZkZWYgR0xfRVMKI2lmZGVmIEdMX0ZSQUdNRU5UX1BSRUNJU0lPTl9ISUdICnByZWNpc2lvbiBoaWdocCBmbG9hdDsKcHJlY2lzaW9uIGhpZ2hwIGludDsKI2Vsc2UKcHJlY2lzaW9uIG1lZGl1bXAgZmxvYXQ7CnByZWNpc2lvbiBtZWRpdW1wIGludDsKI2VuZGlmCiNlbmRpZgoKI2RlZmluZSBwc19vQzAgZ2xfRnJhZ0NvbG9yCnZhcnlpbmcgdmVjNCB2RnJvbnRDb2xvcjsKCnZvaWQgbWFpbigpCnsKICAgIHBzX29DMCA9IHZGcm9udENvbG9yOwp9CgoAAAAAAAAAAQAAAAFUAAAAAAEAAAABUAAAAAAAAAAAAQAAAAAAAE1HRlg=");
     }
 
     public static byte[] ToFNA_FX(this global::Examples.Shaders.TriangleShader _shader)
     {
-        return global::System.Convert.FromBase64String("AQn//kQAAAAAAAAAAgAAAFQAAAACAAAAUAAAABAAAAAEAAAAAAAAAAAAAAAAAAAAAQAAAA8AAAAEAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAABAAAAAQAAAAMAAAAEAAAAAAAAAAEAAAAMAAAAAAAAAAIAAACSAAAAAAAAABQAAAAoAAAAkwAAAAAAAAAsAAAAQAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADEAAAAAAP+//7/DQBDVEFCHAAAABwAAAAAA/7/AAAAABwAAAAAAAAAAAAAAHZrZDNkLXNoYWRlciAyLjEAq6urHwAAAgAAAIAAAA+QHwAAAgoAAIABAA+QHwAAAgoAAIAAAA/gHwAAAgAAAIABAA/gUQAABQAAD6AAAAAAAACAPwAAAAAAAAAAAQAAAgAAA4AAAASQAQAAAgAABIAAAACgAQAAAgAACIAAAFWgAQAAAgEAD+AAAOSAAQAAAgAAD+ABAOSQ//8AAAAAAAAAAAAAAAAAAAEAAAAAAAAAWAAAAAAD///+/w0AQ1RBQhwAAAAcAAAAAAP//wAAAAAcAAAAAAAAAAAAAAB2a2QzZC1zaGFkZXIgMi4xAKurqx8AAAIKAACAAAAPkAEAAAIACA+AAADkkP//AAA=");
+        throw new global::System.NotSupportedException("Examples.Shaders.TriangleShader.ToFNA_FX: ShadowDusk no pudo compilar 'Examples.Shaders.TriangleShader':\nShaderError { File = Shader.vs.hlsl, Line = 35, Column = 23, Code = E5047, Message = Vertex shaders must output position in this shader model., Severity = Error, Kind = Compile, IncludingFilePath = , IncludingLineNumber = 0, RequestedPath = , SearchedPaths = , RawDiagnostics = Shader.vs.hlsl:35:23: E5047: Vertex shaders must output position in this shader model., FxcFormattedMessage = Shader.vs.hlsl(35,23-23): error E5047: Vertex shaders must output position in this shader model., HasAdditionalRawDiagnostics = False }");
     }
 
 }

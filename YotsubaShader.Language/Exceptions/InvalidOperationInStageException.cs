@@ -67,6 +67,15 @@
 #endregion
 
 
-namespace YotsubaShader.Language.Exceptions;
+using System;
 
-public class InvalidOperationInStageException(string details) : Exception(details);
+namespace YotsubaShader.Language.Exceptions
+{
+
+    public class InvalidOperationInStageException : Exception
+    {
+        public InvalidOperationInStageException(string details) : base(details)
+        {
+        }
+    }
+}

@@ -66,11 +66,12 @@
 */
 #endregion
 
-namespace YotsubaShader.GlslSyntax;
-
-[AttributeUsage(AttributeUsagesTable.Method)]
-[WorkgroupSizeMethod]
-public class layout_local_size(
-    [ConceptKey(WorkgroupSizeMethodAttribute.X)] uint x,
-    [ConceptKey(WorkgroupSizeMethodAttribute.Y)] uint y = 1, 
-    [ConceptKey(WorkgroupSizeMethodAttribute.Z)] uint z = 1) : YotsubaShaderConcept;
+namespace YotsubaShader.GlslSyntax
+{
+    [AttributeUsage(AttributeUsagesTable.Method)]
+    [WorkgroupSizeMethod]
+    public class layout_local_size(
+        [ConceptKey(WorkgroupSizeMethodAttribute.X)] uint x,
+        [ConceptKey(WorkgroupSizeMethodAttribute.Y)] uint y = 1, 
+        [ConceptKey(WorkgroupSizeMethodAttribute.Z)] uint z = 1) : YotsubaShaderConcept;
+}

@@ -68,8 +68,9 @@
 
 using YotsubaShader.Concepts.Vertex;
 
-namespace YotsubaShader.GlslSyntax;
-
-[AttributeUsage(AttributeUsagesTable.InputOutput)]
-[RenderTargetLayer]
-public class gl_Layer : YotsubaShaderConcept;
+namespace YotsubaShader.GlslSyntax
+{
+    [AttributeUsage(AttributeUsagesTable.InputOutput)]
+    [RenderTargetLayer]
+    public class gl_Layer : YotsubaShaderConcept;
+}

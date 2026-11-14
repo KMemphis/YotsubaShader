@@ -66,10 +66,13 @@
 */
 #endregion
 
-namespace YotsubaShader.Concepts;
+using System;
 
-[AttributeUsage(AttributeTargets.All)]
-public class LocationAttribute : YotsubaShaderConcept
+namespace YotsubaShader.Concepts
 {
-    public const string INDEX = "Index";
+    [AttributeUsage(AttributeTargets.All)]
+    public class LocationAttribute : YotsubaShaderConcept
+    {
+        public const string INDEX = "Index";
+    }
 }

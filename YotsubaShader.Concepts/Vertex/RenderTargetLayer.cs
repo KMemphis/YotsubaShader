@@ -67,6 +67,10 @@
 #endregion
 
 
-namespace YotsubaShader.Concepts.Vertex;
-
-public class RenderTargetLayer : YotsubaShaderConcept;
+namespace YotsubaShader.Concepts.Vertex
+{
+    public class RenderTargetLayer : YotsubaShaderConcept
+    {
+        
+    }
+}

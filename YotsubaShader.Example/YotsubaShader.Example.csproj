@@ -5,6 +5,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
+        <LangVersion>latest</LangVersion>
     </PropertyGroup>
 
     <ItemGroup>
@@ -28,7 +29,7 @@
 
     <PropertyGroup>
         <CompileYotsubaShaders>true</CompileYotsubaShaders>
-        <YotsubaCliProject>$(MSBuildThisFileDirectory)../YotsubaShader.CLI/YotsubaShader.CLI.csproj</YotsubaCliProject>
+        <YotsubaCliProject>$(MSBuildThisFileDirectory)../YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj</YotsubaCliProject>
         <YotsubaShaderOutput>$(MSBuildProjectDirectory)/CompiledShaders</YotsubaShaderOutput>
     </PropertyGroup>
 

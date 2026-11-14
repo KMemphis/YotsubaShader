@@ -68,10 +68,11 @@
 
 using YotsubaShader.Concepts.BindingSlotsAndResources;
 
-namespace YotsubaShader.GlslSyntax.Resources;
-
-[AttributeUsage(AttributeUsagesTable.Resource)]
-[BindingSlot, TextureSlot, SamplerSlot]
-public class layout(
-    [ConceptKey(BindingSlot.SET)] int set, 
-    [ConceptKey(BindingSlot.BINDING)] int binding) : YotsubaShaderConcept;
+namespace YotsubaShader.GlslSyntax.Resources
+{
+    [AttributeUsage(AttributeUsagesTable.Resource)]
+    [BindingSlot, TextureSlot, SamplerSlot]
+    public class layout(
+        [ConceptKey(BindingSlot.SET)] int set, 
+        [ConceptKey(BindingSlot.BINDING)] int binding) : YotsubaShaderConcept;
+}

@@ -67,6 +67,10 @@
 #endregion
 
 
-namespace YotsubaShader.Concepts.Vertex;
-
-public class InstanceIndex : YotsubaShaderConcept;
+namespace YotsubaShader.Concepts.Vertex
+{
+    public class InstanceIndex : YotsubaShaderConcept
+    {
+        
+    }
+}

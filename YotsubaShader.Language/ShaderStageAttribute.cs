@@ -66,10 +66,20 @@
 */
 #endregion
 
-namespace YotsubaShader.Language;
+using System;
 
-[AttributeUsage(AttributeTargets.Method)]
-public class ShaderStageAttribute(Stage stage) : YotsubaShaderAttribute
+namespace YotsubaShader.Language
 {
-    public Stage Stage = stage;
+
+    [AttributeUsage(AttributeTargets.Method)]
+    public class ShaderStageAttribute : YotsubaShaderAttribute
+    {
+        public Stage Stage;
+
+        public ShaderStageAttribute(Stage stage)
+        {
+            Stage = stage;
+        }
+    }
+
 }

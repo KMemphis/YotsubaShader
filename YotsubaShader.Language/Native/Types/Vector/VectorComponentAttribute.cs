@@ -66,10 +66,19 @@
 */
 #endregion
 
-namespace YotsubaShader.Language.Native.Types.Vector;
+using System;
 
-[AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
-public class VectorComponentAttribute(int index) : YotsubaShaderAttribute
+namespace YotsubaShader.Language.Native.Types.Vector
 {
-    public int Index { get; } = index;
+
+    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
+    public class VectorComponentAttribute : YotsubaShaderAttribute
+    {
+        public VectorComponentAttribute(int index)
+        {
+            Index = index;
+        }
+
+        public int Index { get; }
+    }
 }

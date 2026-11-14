@@ -68,8 +68,9 @@
 
 using YotsubaShader.Concepts.BindingSlotsAndResources;
 
-namespace YotsubaShader.GlslSyntax.Resources;
-
-[AttributeUsage(AttributeUsagesTable.Resource)]
-[RWStorageBuffer, ReadOnlyStorageBuffer]
-public class buffer : YotsubaShaderConcept;
+namespace YotsubaShader.GlslSyntax.Resources
+{
+    [AttributeUsage(AttributeUsagesTable.Resource)]
+    [RWStorageBuffer, ReadOnlyStorageBuffer]
+    public class buffer : YotsubaShaderConcept;
+}
