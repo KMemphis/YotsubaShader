@@ -149,6 +149,8 @@ jobs:
         run: dotnet build YotsubaShader.Example/YotsubaShader.Example.csproj -c Release -p:CompileYotsubaShaders=false
       - name: Publish self-contained executable
         shell: bash
+        env:
+          MSYS2_ARG_CONV_EXCL: 'https://'
         run: |
           dotnet restore YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj \
             -r '${{ matrix.rid }}' -p:Version='${{ needs.validate.outputs.version }}' \
