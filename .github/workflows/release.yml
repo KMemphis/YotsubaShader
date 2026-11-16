@@ -149,13 +149,22 @@ jobs:
         run: dotnet build YotsubaShader.Example/YotsubaShader.Example.csproj -c Release -p:CompileYotsubaShaders=false
       - name: Publish self-contained executable
         shell: bash
-        env:
-          MSYS2_ARG_CONV_EXCL: 'https://'
         run: |
+          python - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          config = ET.Element('configuration')
+          sources = ET.SubElement(config, 'packageSources')
+          ET.SubElement(sources, 'clear')
+          ET.SubElement(sources, 'add', key='local', value=str((Path.cwd() / 'nupkg').resolve()))
+          ET.SubElement(sources, 'add', key='nuget.org', value='https://api.nuget.org/v3/index.json')
+          ET.ElementTree(config).write('release.nuget.config', encoding='utf-8', xml_declaration=True)
+          PY
           dotnet restore YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj \
             -r '${{ matrix.rid }}' -p:Version='${{ needs.validate.outputs.version }}' \
             -p:UseForkShadowDuskPackages=true \
-            --source "$PWD/nupkg" --source https://api.nuget.org/v3/index.json
+            --configfile release.nuget.config
           dotnet publish YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj \
             -c Release -r '${{ matrix.rid }}' --self-contained --no-restore \
             -o 'publish/${{ matrix.rid }}' \
