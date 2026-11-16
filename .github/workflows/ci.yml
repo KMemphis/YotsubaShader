@@ -181,3 +181,52 @@ jobs:
           name: test-results
           path: test-results
           if-no-files-found: ignore
+
+  platform-smoke:
+    name: Self-contained CLI ${{ matrix.rid }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {rid: win-x64, os: windows-2022}
+          - {rid: win-arm64, os: windows-11-arm}
+          - {rid: linux-x64, os: ubuntu-24.04}
+          - {rid: linux-arm64, os: ubuntu-24.04-arm}
+          - {rid: osx-x64, os: macos-15-intel}
+          - {rid: osx-arm64, os: macos-15}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore native dependencies on Unix
+        if: runner.os != 'Windows'
+        shell: bash
+        run: bash ShadowDusk/tools/restore.sh
+      - name: Restore native dependencies on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./ShadowDusk/tools/restore.ps1
+      - name: Publish and run outside checkout
+        shell: bash
+        run: |
+          dotnet publish YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj \
+            -c Release -r '${{ matrix.rid }}' --self-contained -o 'publish/${{ matrix.rid }}'
+          mkdir -p "$RUNNER_TEMP/yotsuba-${{ matrix.rid }}"
+          cp -R 'publish/${{ matrix.rid }}/.' "$RUNNER_TEMP/yotsuba-${{ matrix.rid }}/"
+          if [[ '${{ runner.os }}' == 'Windows' ]]; then
+            exe="$RUNNER_TEMP/yotsuba-${{ matrix.rid }}/YotsubaShader.Compiler.CLI.exe"
+          else
+            exe="$RUNNER_TEMP/yotsuba-${{ matrix.rid }}/YotsubaShader.Compiler.CLI"
+            chmod +x "$exe"
+          fi
+          python scripts/verify_release.py smoke "$exe" YotsubaShader.Example/YotsubaShader.Example.csproj
