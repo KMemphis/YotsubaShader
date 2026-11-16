@@ -134,6 +134,11 @@ def check_packages(feed: pathlib.Path, version: str, require_six_natives: bool) 
 def smoke(executable: pathlib.Path, project: pathlib.Path) -> None:
     executable = executable.resolve(strict=True)
     project = project.resolve(strict=True)
+    help_result = subprocess.run(
+        [str(executable), "--help"], capture_output=True, text=True, timeout=30,
+        check=True)
+    if "Uso:" not in help_result.stdout:
+        raise ValueError("CLI help output is missing")
     targets = {
         "spirv": ".spv",
         "hlsl": ".hlsl",

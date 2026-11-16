@@ -79,7 +79,40 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 
-Args parameters = new Args(args);
+const string usage = """
+Uso:
+  yotsuba compile <proyecto.csproj> --target <destino> [--target <destino> ...] [--output <directorio>]
+  yotsuba add <proyecto.csproj> --target <destino> [--target <destino> ...]
+
+Destinos: spirv, hlsl, glsl, gles, msl, cpp, mgfx, kni, fna.
+Usa --help para mostrar esta ayuda.
+Ejecutable del Release: ./YotsubaShader.Compiler.CLI (Linux/macOS) o YotsubaShader.Compiler.CLI.exe (Windows).
+""";
+
+bool topLevelHelp = args.Length == 1 &&
+    (args[0] is "--help" or "-h" or "help");
+bool commandHelp = args.Length == 2 &&
+    (args[0] is "compile" or "add") &&
+    (args[1] is "--help" or "-h");
+
+if (topLevelHelp || commandHelp)
+{
+    Console.WriteLine(usage);
+    return;
+}
+
+Args parameters;
+try
+{
+    parameters = new Args(args);
+}
+catch (CliUsageException exception)
+{
+    Console.Error.WriteLine(exception.Message);
+    Console.Error.WriteLine("Usa --help para ver los comandos y destinos disponibles.");
+    Environment.ExitCode = 2;
+    return;
+}
 
 if (!File.Exists(parameters.ProjectPath))
 {
