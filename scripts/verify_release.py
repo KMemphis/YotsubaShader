@@ -134,14 +134,25 @@ def check_packages(feed: pathlib.Path, version: str, require_six_natives: bool) 
 def smoke(executable: pathlib.Path, project: pathlib.Path) -> None:
     executable = executable.resolve(strict=True)
     project = project.resolve(strict=True)
-    targets = ("spirv", "hlsl", "glsl", "msl", "mgfx", "kni", "fna")
+    targets = {
+        "spirv": ".spv",
+        "hlsl": ".hlsl",
+        "glsl": ".glsl",
+        "msl": ".msl",
+        "mgfx": ".mgfx",
+        "kni": ".knifx",
+        "fna": ".fxb",
+    }
     with tempfile.TemporaryDirectory(prefix="yotsuba-release-smoke-") as scratch:
+        output = pathlib.Path(scratch) / "output"
+        args = [str(executable), "compile", str(project)]
         for target in targets:
-            output = pathlib.Path(scratch) / target
-            args = [str(executable), "compile", str(project), "--target", target,
-                    "--output", str(output)]
-            subprocess.run(args, cwd=scratch, check=True, timeout=300)
-            generated = [item for item in output.rglob("*") if item.is_file() and item.stat().st_size]
+            args.extend(("--target", target))
+        args.extend(("--output", str(output)))
+        subprocess.run(args, cwd=scratch, check=True, timeout=300)
+        for target, extension in targets.items():
+            generated = [item for item in output.rglob(f"*{extension}")
+                         if item.is_file() and item.stat().st_size]
             if not generated:
                 raise ValueError(f"CLI produced no nonempty {target} output files")
             print(f"{target}: compiled {len(generated)} nonempty files outside the checkout")
