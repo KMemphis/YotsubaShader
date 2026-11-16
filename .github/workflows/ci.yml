@@ -220,7 +220,8 @@ jobs:
         shell: bash
         run: |
           dotnet publish YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj \
-            -c Release -r '${{ matrix.rid }}' --self-contained -o 'publish/${{ matrix.rid }}'
+            -c Release -r '${{ matrix.rid }}' --self-contained \
+            -p:RestoreLockedMode=false -o 'publish/${{ matrix.rid }}'
           mkdir -p "$RUNNER_TEMP/yotsuba-${{ matrix.rid }}"
           cp -R 'publish/${{ matrix.rid }}/.' "$RUNNER_TEMP/yotsuba-${{ matrix.rid }}/"
           if [[ '${{ runner.os }}' == 'Windows' ]]; then
