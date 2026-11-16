@@ -29,6 +29,12 @@ GitHub Releases del fork; `tools/restore.*` comprueba sus SHA-256 y los cargador
 comprueban la identidad nativa antes de usarlos. El verificador del Release exige
 que los seis RID incluyan los binarios requeridos.
 
+Si un Release se publicó accidentalmente como preliminar, primero cámbialo a
+estable. Reejecutar el workflow omitido conserva el evento original y lo vuelve
+a omitir. Para reintentar el mismo Release estable sin mover la etiqueta ni crear
+otro Release, ejecuta manualmente `release.yml` desde `main` con el input
+`tag=vX.Y.Z`. El workflow comprueba el Release y construye desde ese tag.
+
 Para comprobar los paquetes localmente, con los binarios nativos ya restaurados:
 
 ```sh

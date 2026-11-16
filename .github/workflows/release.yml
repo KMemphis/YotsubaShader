@@ -3,9 +3,15 @@ name: Publish NuGet and CLI
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing stable GitHub Release tag to retry
+        required: true
+        type: string
 
 concurrency:
-  group: release-${{ github.event.release.tag_name }}
+  group: release-${{ github.event.release.tag_name || inputs.tag }}
   cancel-in-progress: false
 
 permissions:
@@ -17,19 +23,21 @@ env:
 
 jobs:
   validate:
-    if: ${{ !github.event.release.prerelease }}
+    if: ${{ github.event_name == 'workflow_dispatch' || !github.event.release.prerelease }}
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
           submodules: recursive
           fetch-depth: 0
       - name: Validate stable tag
         id: version
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY'
           import os, re, xml.etree.ElementTree as ET
@@ -40,6 +48,8 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write(f'version={tag[1:]}\n')
           PY
+          test "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq .draft)" = false
+          test "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq .prerelease)" = false
           git fetch origin main
           git merge-base --is-ancestor HEAD origin/main
 
@@ -50,6 +60,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
           submodules: recursive
       - uses: actions/setup-dotnet@v4
         with:
@@ -119,6 +130,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
           submodules: recursive
       - uses: actions/setup-dotnet@v4
         with:
@@ -222,7 +234,7 @@ jobs:
       - name: Attach all six archives
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
           GH_REPO: ${{ github.repository }}
         run: |
           count=$(find cli-artifacts -type f | wc -l)
