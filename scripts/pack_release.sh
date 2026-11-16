@@ -8,7 +8,8 @@ output="$(cd "$output" && pwd)"
 
 for name in ShadowDusk.Core ShadowDusk.HLSL ShadowDusk.GLSL ShadowDusk.Compiler; do
   dotnet pack "ShadowDusk/src/$name/$name.csproj" \
-    -c Release -p:Version="$version" -o "$output"
+    -c Release -p:Version="$version" -p:UseYotsubaPackageIds=true \
+    -p:RestoreLockedMode=false -o "$output"
 done
 
 for name in \

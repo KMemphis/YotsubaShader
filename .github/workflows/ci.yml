@@ -219,6 +219,8 @@ jobs:
       - name: Publish and run outside checkout
         shell: bash
         run: |
+          dotnet build YotsubaShader.Example/YotsubaShader.Example.csproj \
+            -c Release -p:CompileYotsubaShaders=false
           dotnet publish YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj \
             -c Release -r '${{ matrix.rid }}' --self-contained \
             -p:RestoreLockedMode=false -o 'publish/${{ matrix.rid }}'

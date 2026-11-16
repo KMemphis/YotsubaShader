@@ -132,6 +132,9 @@ jobs:
         with:
           name: nupkg
           path: nupkg
+      - name: Build example project for workspace smoke test
+        shell: bash
+        run: dotnet build YotsubaShader.Example/YotsubaShader.Example.csproj -c Release -p:CompileYotsubaShaders=false
       - name: Publish self-contained executable
         shell: bash
         run: |
