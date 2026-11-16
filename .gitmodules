@@ -4,4 +4,4 @@
 	branch = master
 [submodule "ShadowDusk"]
 	path = ShadowDusk
-	url = https://github.com/kaltinril/ShadowDusk.git
+	url = https://github.com/KMemphis/YotsubaShader-ShadowDusk.git

@@ -79,6 +79,43 @@ jobs:
       - name: Test
         run: dotnet test YotsubaShader.Example/YotsubaShader.Example.csproj --configuration Release --no-restore -p:CompileYotsubaShaders=false --logger "trx;LogFileName=test-results.trx" --results-directory test-results
 
+      - name: Pack NuGet libraries, analyzer and tool
+        run: bash scripts/pack_release.sh 0.1.0 "$RUNNER_TEMP/nupkg"
+
+      - name: Verify package graph and analyzer layout
+        run: python3 scripts/verify_release.py packages "$RUNNER_TEMP/nupkg" 0.1.0 --skip-native-check
+
+      - name: Install libraries and analyzer in a clean consumer
+        run: |
+          mkdir -p "$RUNNER_TEMP/consumer"
+          cat > "$RUNNER_TEMP/consumer/Consumer.csproj" <<'EOF'
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup>
+            <ItemGroup>
+              <PackageReference Include="YotsubaShader.GlslSyntax" Version="0.1.0" />
+              <PackageReference Include="YotsubaShader.HlslSyntax" Version="0.1.0" />
+              <PackageReference Include="YotsubaShader.MslSyntax" Version="0.1.0" />
+              <PackageReference Include="YotsubaShader.SpirvSyntax" Version="0.1.0" />
+              <PackageReference Include="YotsubaShader.WgslSyntax" Version="0.1.0" />
+              <PackageReference Include="YotsubaShader.Compiler.Library" Version="0.1.0" />
+              <PackageReference Include="YotsubaShader.IDE.Analyzer" Version="0.1.0" PrivateAssets="all" />
+            </ItemGroup>
+          </Project>
+          EOF
+          echo 'public class Consumer {}' > "$RUNNER_TEMP/consumer/Consumer.cs"
+          dotnet restore "$RUNNER_TEMP/consumer/Consumer.csproj" \
+            --source "$RUNNER_TEMP/nupkg" --source https://api.nuget.org/v3/index.json
+          dotnet build "$RUNNER_TEMP/consumer/Consumer.csproj" -c Release --no-restore
+          dotnet msbuild "$RUNNER_TEMP/consumer/Consumer.csproj" -target:ResolveReferences -getItem:Analyzer \
+            | grep -F 'analyzers/dotnet/cs/YotsubaShader.IDE.Analyzer.dll'
+
+      - name: Install and smoke the packed dotnet tool
+        run: |
+          dotnet tool install YotsubaShader.Compiler.CLI --tool-path "$RUNNER_TEMP/yotsuba-tool" \
+            --add-source "$RUNNER_TEMP/nupkg" --version 0.1.0
+          python3 scripts/verify_release.py smoke "$RUNNER_TEMP/yotsuba-tool/yotsuba" \
+            YotsubaShader.Example/YotsubaShader.Example.csproj
+
       # Load tests: each compiles a HLSL shader to the engine's effect format, loads it as a
       # real Effect and renders a triangle (software OpenGL under Xvfb). Verified on linux-x64.
       # FNA needs native SDL3 and FNA3D, which are not packaged for Ubuntu: they are built

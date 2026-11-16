@@ -1,0 +1,20 @@
+<Project>
+  <PropertyGroup>
+    <Version>0.1.0</Version>
+    <Authors>YotsubaShader contributors</Authors>
+    <Description>YotsubaShader $(MSBuildProjectName) library.</Description>
+    <RepositoryUrl>https://github.com/KMemphis/YotsubaShader</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MS-PL</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/KMemphis/YotsubaShader</PackageProjectUrl>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)NOTICE" Pack="true" PackagePath="" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)YotsubaShaderCross/LICENSE" Pack="true" PackagePath="" Visible="false"
+          Condition="$([System.String]::Copy('$(MSBuildProjectName)').StartsWith('YotsubaShaderCross'))" />
+    <None Include="$(MSBuildThisFileDirectory)YotsubaShaderCross/LICENSES/*.txt" Pack="true" PackagePath="LICENSES/" Visible="false"
+          Condition="$([System.String]::Copy('$(MSBuildProjectName)').StartsWith('YotsubaShaderCross'))" />
+  </ItemGroup>
+</Project>

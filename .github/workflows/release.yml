@@ -1,0 +1,229 @@
+name: Publish NuGet and CLI
+
+on:
+  release:
+    types: [published]
+
+concurrency:
+  group: release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  validate:
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - name: Validate stable tag
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          python3 - <<'PY'
+          import os, re, xml.etree.ElementTree as ET
+          tag = os.environ['RELEASE_TAG']
+          if not re.fullmatch(r'v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)', tag):
+              raise SystemExit(f'Expected stable vX.Y.Z tag, got {tag!r}')
+          props = ET.parse('Directory.Build.props').getroot()
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'version={tag[1:]}\n')
+          PY
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main
+
+  pack:
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - name: Build and test
+        run: |
+          bash ShadowDusk/tools/restore.sh
+          dotnet build YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj -c Release
+          dotnet test YotsubaShader.Example/YotsubaShader.Example.csproj -c Release -p:CompileYotsubaShaders=false
+      - name: Pack every public and support package
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: bash scripts/pack_release.sh "$VERSION" nupkg
+      - name: Verify all package contents and six native sets
+        run: python3 scripts/verify_release.py packages nupkg '${{ needs.validate.outputs.version }}'
+      - name: Install packages in a clean consumer
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/consumer"
+          cat > "$RUNNER_TEMP/consumer/Consumer.csproj" <<EOF
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup>
+            <ItemGroup>
+              <PackageReference Include="YotsubaShader.Concepts" Version="$VERSION" />
+              <PackageReference Include="YotsubaShader.Language" Version="$VERSION" />
+              <PackageReference Include="YotsubaShader.GlslSyntax" Version="$VERSION" />
+              <PackageReference Include="YotsubaShader.HlslSyntax" Version="$VERSION" />
+              <PackageReference Include="YotsubaShader.MslSyntax" Version="$VERSION" />
+              <PackageReference Include="YotsubaShader.SpirvSyntax" Version="$VERSION" />
+              <PackageReference Include="YotsubaShader.WgslSyntax" Version="$VERSION" />
+              <PackageReference Include="YotsubaShader.Compiler.Library" Version="$VERSION" />
+              <PackageReference Include="YotsubaShader.IDE.Analyzer" Version="$VERSION" PrivateAssets="all" />
+            </ItemGroup>
+          </Project>
+          EOF
+          echo 'public class Consumer {}' > "$RUNNER_TEMP/consumer/Consumer.cs"
+          dotnet restore "$RUNNER_TEMP/consumer/Consumer.csproj" --source "$PWD/nupkg" --source https://api.nuget.org/v3/index.json
+          dotnet build "$RUNNER_TEMP/consumer/Consumer.csproj" -c Release --no-restore
+          dotnet msbuild "$RUNNER_TEMP/consumer/Consumer.csproj" -target:ResolveReferences -getItem:Analyzer \
+            | grep -F 'analyzers/dotnet/cs/YotsubaShader.IDE.Analyzer.dll'
+          dotnet tool install YotsubaShader.Compiler.CLI --tool-path "$RUNNER_TEMP/tool" --add-source "$PWD/nupkg" --version "$VERSION"
+          test -x "$RUNNER_TEMP/tool/yotsuba"
+          python3 scripts/verify_release.py smoke "$RUNNER_TEMP/tool/yotsuba" YotsubaShader.Example/YotsubaShader.Example.csproj
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: nupkg/*.nupkg
+          if-no-files-found: error
+
+  publish-cli:
+    needs: [validate, pack]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {rid: win-x64, os: windows-2022}
+          - {rid: win-arm64, os: windows-11-arm}
+          - {rid: linux-x64, os: ubuntu-24.04}
+          - {rid: linux-arm64, os: ubuntu-24.04-arm}
+          - {rid: osx-x64, os: macos-15-intel}
+          - {rid: osx-arm64, os: macos-15}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: nupkg
+      - name: Publish self-contained executable
+        shell: bash
+        run: |
+          dotnet restore YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj \
+            -r '${{ matrix.rid }}' -p:Version='${{ needs.validate.outputs.version }}' \
+            -p:UseForkShadowDuskPackages=true \
+            --source "$PWD/nupkg" --source https://api.nuget.org/v3/index.json
+          dotnet publish YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj \
+            -c Release -r '${{ matrix.rid }}' --self-contained --no-restore \
+            -o 'publish/${{ matrix.rid }}' \
+            -p:Version='${{ needs.validate.outputs.version }}' \
+            -p:UseForkShadowDuskPackages=true
+          cp LICENSE NOTICE ShadowDusk/src/ShadowDusk.HLSL/THIRD-PARTY-NOTICES.txt 'publish/${{ matrix.rid }}/'
+          cp YotsubaShaderCross/LICENSE 'publish/${{ matrix.rid }}/LICENSE-YotsubaShaderCross'
+      - name: Run outside checkout and verify all shader targets
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/yotsuba-${{ matrix.rid }}"
+          cp -R 'publish/${{ matrix.rid }}/.' "$RUNNER_TEMP/yotsuba-${{ matrix.rid }}/"
+          if [[ '${{ runner.os }}' == 'Windows' ]]; then
+            exe="$RUNNER_TEMP/yotsuba-${{ matrix.rid }}/YotsubaShader.Compiler.CLI.exe"
+          else
+            exe="$RUNNER_TEMP/yotsuba-${{ matrix.rid }}/YotsubaShader.Compiler.CLI"
+            chmod +x "$exe"
+          fi
+          python scripts/verify_release.py smoke "$exe" YotsubaShader.Example/YotsubaShader.Example.csproj
+      - name: Archive Windows executable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path 'publish/${{ matrix.rid }}/*' -DestinationPath 'YotsubaShader-${{ needs.validate.outputs.version }}-${{ matrix.rid }}.zip'
+      - name: Archive Unix executable
+        if: runner.os != 'Windows'
+        shell: bash
+        run: tar -C 'publish/${{ matrix.rid }}' -czf 'YotsubaShader-${{ needs.validate.outputs.version }}-${{ matrix.rid }}.tar.gz' .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.rid }}
+          path: YotsubaShader-${{ needs.validate.outputs.version }}-${{ matrix.rid }}.*
+          if-no-files-found: error
+
+  nuget-push:
+    needs: [validate, pack, publish-cli]
+    runs-on: ubuntu-24.04
+    environment: nuget
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: nupkg
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ vars.NUGET_USER }}
+      - name: Push packages to nuget.org
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          for package in Core HLSL GLSL Compiler; do
+            dotnet nuget push "nupkg/YotsubaShader.ShadowDusk.$package.$VERSION.nupkg" \
+              --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          done
+          for package in nupkg/*.nupkg; do
+            [[ "$package" == nupkg/YotsubaShader.ShadowDusk.* ]] && continue
+            dotnet nuget push "$package" --api-key "$NUGET_API_KEY" \
+              --source https://api.nuget.org/v3/index.json --skip-duplicate
+          done
+
+  release-assets:
+    needs: [validate, nuget-push]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cli-*
+          path: cli-artifacts
+      - name: Attach all six archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          count=$(find cli-artifacts -type f | wc -l)
+          test "$count" -eq 6
+          find cli-artifacts -type f -print0 | while IFS= read -r -d '' archive; do
+            gh release upload "$RELEASE_TAG" "$archive" --clobber
+          done

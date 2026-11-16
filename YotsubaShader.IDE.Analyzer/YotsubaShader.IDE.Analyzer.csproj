@@ -6,6 +6,10 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <IsRoslynComponent>true</IsRoslynComponent>
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <PackageId>YotsubaShader.IDE.Analyzer</PackageId>
+        <Description>Roslyn diagnostics for YotsubaShader shader projects.</Description>
+        <NoWarn>$(NoWarn);NU5128</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
@@ -28,10 +32,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\YotsubaShader.GlslSyntax\YotsubaShader.GlslSyntax.csproj" />
-      <ProjectReference Include="..\YotsubaShader.HlslSyntax\YotsubaShader.HlslSyntax.csproj" />
-      <ProjectReference Include="..\YotsubaShader.MslSyntax\YotsubaShader.MslSyntax.csproj" />
-      <ProjectReference Include="..\YotsubaShader.SpirvSyntax\YotsubaShader.SpirvSyntax.csproj" />
-      <ProjectReference Include="..\YotsubaShader.WgslSyntax\YotsubaShader.WgslSyntax.csproj" />
+      <None Include="$(OutputPath)$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs/" Visible="false" />
     </ItemGroup>
 </Project>
