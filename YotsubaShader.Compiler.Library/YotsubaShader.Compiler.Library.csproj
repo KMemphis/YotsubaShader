@@ -8,7 +8,10 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\ShadowDusk\src\ShadowDusk.Compiler\ShadowDusk.Compiler.csproj" />
+      <ProjectReference Include="..\ShadowDusk\src\ShadowDusk.Compiler\ShadowDusk.Compiler.csproj"
+                        Condition="'$(UseForkShadowDuskPackages)' != 'true'" />
+      <PackageReference Include="YotsubaShader.ShadowDusk.Compiler" Version="$(Version)"
+                        Condition="'$(UseForkShadowDuskPackages)' == 'true'" />
       <ProjectReference Include="..\YotsubaShader.Compiler.SpirV\YotsubaShader.Compiler.SpirV.csproj" />
       <ProjectReference Include="..\YotsubaShader.Roslyn\YotsubaShader.Roslyn.csproj" />
       <ProjectReference Include="..\YotsubaShaderCross\src\YotsubaShaderCross\YotsubaShaderCross.csproj" />

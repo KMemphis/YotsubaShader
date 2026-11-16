@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -79,6 +79,43 @@ jobs:
       - name: Test
         run: dotnet test YotsubaShader.Example/YotsubaShader.Example.csproj --configuration Release --no-restore -p:CompileYotsubaShaders=false --logger "trx;LogFileName=test-results.trx" --results-directory test-results
 
+      - name: Pack NuGet libraries, analyzer and tool
+        run: bash scripts/pack_release.sh 0.1.0 "$RUNNER_TEMP/nupkg"
+
+      - name: Verify package graph and analyzer layout
+        run: python3 scripts/verify_release.py packages "$RUNNER_TEMP/nupkg" 0.1.0 --skip-native-check
+
+      - name: Install libraries and analyzer in a clean consumer
+        run: |
+          mkdir -p "$RUNNER_TEMP/consumer"
+          cat > "$RUNNER_TEMP/consumer/Consumer.csproj" <<'EOF'
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup>
+            <ItemGroup>
+              <PackageReference Include="YotsubaShader.GlslSyntax" Version="0.1.0" />
+              <PackageReference Include="YotsubaShader.HlslSyntax" Version="0.1.0" />
+              <PackageReference Include="YotsubaShader.MslSyntax" Version="0.1.0" />
+              <PackageReference Include="YotsubaShader.SpirvSyntax" Version="0.1.0" />
+              <PackageReference Include="YotsubaShader.WgslSyntax" Version="0.1.0" />
+              <PackageReference Include="YotsubaShader.Compiler.Library" Version="0.1.0" />
+              <PackageReference Include="YotsubaShader.IDE.Analyzer" Version="0.1.0" PrivateAssets="all" />
+            </ItemGroup>
+          </Project>
+          EOF
+          echo 'public class Consumer {}' > "$RUNNER_TEMP/consumer/Consumer.cs"
+          dotnet restore "$RUNNER_TEMP/consumer/Consumer.csproj" \
+            --source "$RUNNER_TEMP/nupkg" --source https://api.nuget.org/v3/index.json
+          dotnet build "$RUNNER_TEMP/consumer/Consumer.csproj" -c Release --no-restore
+          dotnet msbuild "$RUNNER_TEMP/consumer/Consumer.csproj" -target:ResolveReferences -getItem:Analyzer \
+            | grep -F 'analyzers/dotnet/cs/YotsubaShader.IDE.Analyzer.dll'
+
+      - name: Install and smoke the packed dotnet tool
+        run: |
+          dotnet tool install YotsubaShader.Compiler.CLI --tool-path "$RUNNER_TEMP/yotsuba-tool" \
+            --add-source "$RUNNER_TEMP/nupkg" --version 0.1.0
+          python3 scripts/verify_release.py smoke "$RUNNER_TEMP/yotsuba-tool/yotsuba" \
+            YotsubaShader.Example/YotsubaShader.Example.csproj
+
       # Load tests: each compiles a HLSL shader to the engine's effect format, loads it as a
       # real Effect and renders a triangle (software OpenGL under Xvfb). Verified on linux-x64.
       # FNA needs native SDL3 and FNA3D, which are not packaged for Ubuntu: they are built
@@ -144,3 +181,55 @@ jobs:
           name: test-results
           path: test-results
           if-no-files-found: ignore
+
+  platform-smoke:
+    name: Self-contained CLI ${{ matrix.rid }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {rid: win-x64, os: windows-2022}
+          - {rid: win-arm64, os: windows-11-arm}
+          - {rid: linux-x64, os: ubuntu-24.04}
+          - {rid: linux-arm64, os: ubuntu-24.04-arm}
+          - {rid: osx-x64, os: macos-15-intel}
+          - {rid: osx-arm64, os: macos-15}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore native dependencies on Unix
+        if: runner.os != 'Windows'
+        shell: bash
+        run: bash ShadowDusk/tools/restore.sh
+      - name: Restore native dependencies on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./ShadowDusk/tools/restore.ps1
+      - name: Publish and run outside checkout
+        shell: bash
+        run: |
+          dotnet build YotsubaShader.Example/YotsubaShader.Example.csproj \
+            -c Release -p:CompileYotsubaShaders=false
+          dotnet publish YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj \
+            -c Release -r '${{ matrix.rid }}' --self-contained \
+            -p:RestoreLockedMode=false -o 'publish/${{ matrix.rid }}'
+          mkdir -p "$RUNNER_TEMP/yotsuba-${{ matrix.rid }}"
+          cp -R 'publish/${{ matrix.rid }}/.' "$RUNNER_TEMP/yotsuba-${{ matrix.rid }}/"
+          if [[ '${{ runner.os }}' == 'Windows' ]]; then
+            exe="$RUNNER_TEMP/yotsuba-${{ matrix.rid }}/YotsubaShader.Compiler.CLI.exe"
+          else
+            exe="$RUNNER_TEMP/yotsuba-${{ matrix.rid }}/YotsubaShader.Compiler.CLI"
+            chmod +x "$exe"
+          fi
+          python scripts/verify_release.py smoke "$exe" YotsubaShader.Example/YotsubaShader.Example.csproj

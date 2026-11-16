@@ -18,8 +18,8 @@ public class TriangleShader
 
     public struct VSOutput
     {
-        [TEXCOORD]
-        public Vector2 Pos;
+        [SV_Position]
+        public Vector4 Pos;
         [COLOR] 
         public Vector4 COLOR;
     }
@@ -28,12 +28,8 @@ public class TriangleShader
     public VSOutput Vs(VSInput vsInput)
     {
         VSOutput output;
-        output.COLOR = new Vector4(0, 3, 3, 3);
-        output.Pos = new Vector2
-        {
-            X = 3,
-            Y = 4
-        };
+        output.COLOR = new Vector4(1, 0, 0, 1);
+        output.Pos = new Vector4(vsInput.Position.X, vsInput.Position.Y, 0, 1);
 
         return output;
     }
@@ -57,6 +53,10 @@ public struct Vector2
 {
     [VectorComponent(0)] public float X;
     [VectorComponent(1)] public float Y;
+
+    public Vector2()
+    {
+    }
 }
 
 [Vector]
@@ -65,7 +65,9 @@ public struct Vector3
     [VectorComponent(0)] public float X;
     [VectorComponent(1)] public float Y;
     [VectorComponent(2)] public float Z;
-
+    public Vector3()
+    {
+    }
 }
 
 [Vector]
