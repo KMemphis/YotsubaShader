@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <PackageId>YotsubaShader.Extensions.KNI</PackageId>
+        <Description>YotsubaShader plugin: KNI WebGL (.knifx) backend for the yotsuba CLI.</Description>
+        <PackageTags>yotsuba-plugin;shader</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\YotsubaShader.Extensions\YotsubaShader.Extensions.csproj" />
+
+        <ProjectReference Include="..\ShadowDusk\src\ShadowDusk.Compiler\ShadowDusk.Compiler.csproj"
+                          Condition="'$(UseForkShadowDuskPackages)' != 'true'" />
+        <PackageReference Include="YotsubaShader.ShadowDusk.Compiler" Version="$(Version)"
+                          Condition="'$(UseForkShadowDuskPackages)' == 'true'" />
+    </ItemGroup>
+</Project>

@@ -3,6 +3,7 @@
 
 import argparse
 import hashlib
+import os
 import pathlib
 import subprocess
 import sys
@@ -32,6 +33,13 @@ PACKAGES = (
     "YotsubaShader.IDE.Analyzer",
     "YotsubaShader.Compiler.CLI",
 )
+
+# Every YotsubaShader.Extensions* project is packed by pack_release.sh.
+PACKAGES += tuple(sorted(
+    path.name
+    for path in pathlib.Path(__file__).resolve().parent.parent.glob("YotsubaShader.Extensions*")
+    if (path / f"{path.name}.csproj").is_file()
+))
 
 RIDS = {
     "win-x64": ("dxcompiler.dll", "spirv-cross.dll", "libvkd3d-shader-1.dll"),
@@ -144,10 +152,11 @@ def smoke(executable: pathlib.Path, project: pathlib.Path) -> None:
         "hlsl": ".hlsl",
         "glsl": ".glsl",
         "msl": ".msl",
-        "mgfx": ".mgfx",
-        "kni": ".knifx",
-        "fna": ".fxb",
     }
+    # Plugin targets are fetched from NuGet (latest version), so they can only be
+    # smoke-tested once the plugin packages are published.
+    if os.environ.get("YOTSUBA_SMOKE_PLUGINS") == "1":
+        targets.update({"monogame": ".mgfx", "kni": ".knifx", "fna": ".fxb"})
     with tempfile.TemporaryDirectory(prefix="yotsuba-release-smoke-") as scratch:
         output = pathlib.Path(scratch) / "output"
         args = [str(executable), "compile", str(project)]

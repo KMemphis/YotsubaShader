@@ -59,7 +59,6 @@ jobs:
           dotnet run --project YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj --configuration Release --no-build --
           compile YotsubaShader.Example/YotsubaShader.Example.csproj
           --target spirv --target hlsl --target glsl --target gles --target msl --target cpp
-          --target mgfx --target kni --target fna
           --output "$RUNNER_TEMP/compiled-shaders"
 
       - name: Verify CLI produced output
@@ -73,11 +72,16 @@ jobs:
           dotnet run --project YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj --configuration Release --no-build --
           add YotsubaShader.Example/YotsubaShader.Example.csproj
           --target spirv --target hlsl --target glsl --target gles --target msl --target cpp
-          --target mgfx --target kni --target fna
           --output "$RUNNER_TEMP/compiled-shaders-add"
 
       - name: Test
         run: dotnet test YotsubaShader.Example/YotsubaShader.Example.csproj --configuration Release --no-restore -p:CompileYotsubaShaders=false --logger "trx;LogFileName=test-results.trx" --results-directory test-results
+
+      - name: Build every Extensions project
+        run: |
+          for project in YotsubaShader.Extensions*/YotsubaShader.Extensions*.csproj; do
+            dotnet build "$project" --configuration Release
+          done
 
       - name: Pack NuGet libraries, analyzer and tool
         run: bash scripts/pack_release.sh 0.1.0 "$RUNNER_TEMP/nupkg"

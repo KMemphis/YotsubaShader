@@ -3,11 +3,11 @@ using ShadowDusk.Core;
 using ShadowDusk.Core.Preprocessor;
 using YotsubaShader.IR.Intermediate;
 
-namespace YotsubaShader.Compiler.Library.CompileToGameEngines;
+namespace YotsubaShader.Extensions.FNA;
 
-public static class KNI
+public static class FNA
 {
-     public static byte[] ToKNIWebGL_FX(this CompiledCode compiledCode)
+     public static byte[] ToFNA_FX(this CompiledCode compiledCode)
     {
         string vsEntry = compiledCode.Reflection.IntermediateLanguage.Functions.First(f => f.Stage == Stage.Vertex).HumanName;
         string psEntry = compiledCode.Reflection.IntermediateLanguage.Functions.First(f => f.Stage == Stage.Fragment).HumanName;
@@ -22,7 +22,7 @@ public static class KNI
             ["Shader.ps.hlsl"] = fragmentHlsl,
         };
 
-        (string vsProfile, string psProfile) = HlslMerge.ProfilesFor(PlatformTarget.OpenGL);
+        (string vsProfile, string psProfile) = HlslMerge.ProfilesFor(PlatformTarget.Fna);
 
         string fx = $$"""
                       #include "Shader.vs.hlsl"
@@ -35,7 +35,7 @@ public static class KNI
 
         var result = compiler.Compile(fx, new CompilerOptions
         {
-            Target = PlatformTarget.OpenGL,
+            Target = PlatformTarget.Fna,
             SourceFileName = compiledCode.CSharpFullClassName.Split(".").LastOrDefault() + ".fx",
             IncludeResolver = new InMemoryIncludeResolver(files),
         });
