@@ -72,22 +72,31 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.MSBuild;
 using YotsubaShader.Compiler.CLI;
 using YotsubaShader.Compiler.Library;
-using YotsubaShader.Compiler.Library.CompileToGameEngines;
 using YotsubaShader.IR.Intermediate;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using YotsubaShader.Extensions;
 
 
 const string usage = """
-Uso:
-  yotsuba compile <proyecto.csproj> --target <destino> [--target <destino> ...] [--output <directorio>]
-  yotsuba add <proyecto.csproj> --target <destino> [--target <destino> ...]
+                     Uso:
+                       yotsuba compile <proyecto.csproj> --target <destino> [--target <destino> ...] [--output <directorio>]
+                       yotsuba add <proyecto.csproj> --target <destino> [--target <destino> ...]
+                       yotsuba plugin list | install <nombre> | update [nombre] | remove <nombre>
 
-Destinos: spirv, hlsl, glsl, gles, msl, cpp, mgfx, kni, fna.
-Usa --help para mostrar esta ayuda.
-Ejecutable del Release: ./YotsubaShader.Compiler.CLI (Linux/macOS) o YotsubaShader.Compiler.CLI.exe (Windows).
-""";
+                     Destinos incluidos: spirv, hlsl, glsl, gles, msl, cpp.
+                     Destinos por plugin (se instalan solos desde NuGet, última versión): monogame, kni, fna.
+                     Ver más con: yotsuba plugin list
+                     Usa --help para mostrar esta ayuda.
+                     Ejecutable del Release: ./YotsubaShader.Compiler.CLI (Linux/macOS) o YotsubaShader.Compiler.CLI.exe (Windows).
+                     """;
+
+if (args.Length > 0 && args[0].Equals("plugin", StringComparison.OrdinalIgnoreCase))
+{
+    Environment.ExitCode = await PluginCommand.RunAsync(args[1..]);
+    return;
+}
 
 bool topLevelHelp = args.Length == 1 &&
     (args[0] is "--help" or "-h" or "help");
@@ -221,9 +230,79 @@ switch (parameters.Command)
             }
         }
 
+        if (parameters.PluginTargets.Count != 0)
+        {
+            using var pluginManager = new PluginManager();
+
+            foreach (string pluginName in parameters.PluginTargets)
+            {
+                Plugin plugin;
+
+                try
+                {
+                    plugin = await pluginManager.LoadAsync(pluginName, token);
+                }
+                catch (PluginException exception)
+                {
+                    Console.Error.WriteLine(exception.Message);
+                    Environment.ExitCode = 1;
+                    continue;
+                }
+
+                foreach (CompiledCode compiledCode in shaders)
+                {
+                    foreach (PluginOption? option in GetOptions(plugin.Metadata))
+                    {
+                        string suffix = option is null
+                            ? plugin.Metadata.Extension
+                            : $".{option.Name.ToLowerInvariant()}{plugin.Metadata.Extension}";
+
+                        string pluginPath = GetShaderPath(
+                            compiledCode,
+                            parameters,
+                            suffix,
+                            stage: null);
+
+                        try
+                        {
+                            byte[] bytes = plugin.Backend.Compile(compiledCode, option?.Value ?? 0);
+                            CreateParentDirectory(pluginPath);
+                            await File.WriteAllBytesAsync(pluginPath, bytes, token);
+                        }
+                        catch (Exception exception)
+                        {
+                            Console.Error.WriteLine(
+                                $"{compiledCode.CSharpFullClassName}{suffix}: {exception.Message}");
+                            Environment.ExitCode = 1;
+                        }
+                    }
+                }
+            }
+        }
+
         break;
 
     case Command.Add:
+        var loadedPlugins = new List<Plugin>();
+
+        if (parameters.PluginTargets.Count != 0)
+        {
+            using var addPluginManager = new PluginManager();
+
+            foreach (string pluginName in parameters.PluginTargets)
+            {
+                try
+                {
+                    loadedPlugins.Add(await addPluginManager.LoadAsync(pluginName, token));
+                }
+                catch (PluginException exception)
+                {
+                    Console.Error.WriteLine(exception.Message);
+                    Environment.ExitCode = 1;
+                }
+            }
+        }
+
         var stringBuilder = new StringBuilder();
 
         stringBuilder
@@ -232,14 +311,24 @@ switch (parameters.Command)
             .AppendLine("#nullable enable")
             .AppendLine()
             .AppendLine("namespace YotsubaShader;")
-            .AppendLine()
-            .AppendLine("public enum MonoGamePlatform")
-            .AppendLine("{")
-            .AppendLine(string.Join(
-                ",\n",
-                Enum.GetNames<MonoGamePlatform>().Select(name => "    " + name)))
-            .AppendLine("}")
-            .AppendLine()
+            .AppendLine();
+
+        foreach (PluginMetadata optionsMetadata in loadedPlugins
+                     .Select(plugin => plugin.Metadata)
+                     .Where(metadata => !string.IsNullOrEmpty(metadata.OptionsEnum) && metadata.Options.Length != 0)
+                     .DistinctBy(metadata => metadata.OptionsEnum))
+        {
+            stringBuilder
+                .AppendLine($"public enum {optionsMetadata.OptionsEnum}")
+                .AppendLine("{")
+                .AppendLine(string.Join(
+                    ",\n",
+                    optionsMetadata.Options.Select(option => $"    {option.Name} = {option.Value}")))
+                .AppendLine("}")
+                .AppendLine();
+        }
+
+        stringBuilder
             .AppendLine("[global::System.Runtime.CompilerServices.CompilerGenerated]")
             .AppendLine("[global::System.ComponentModel.EditorBrowsable(")
             .AppendLine("    global::System.ComponentModel.EditorBrowsableState.Never)]")
@@ -285,21 +374,10 @@ switch (parameters.Command)
                 "ToMSL",
                 stage => compiledCode.ToMsl(stage));
 
-            AppendToMgfxMethod(stringBuilder, shaderType, compiledCode);
-
-            AppendEngineMethod(
-                stringBuilder,
-                shaderType,
-                compiledCode,
-                "ToKNIWebGL_FX",
-                () => compiledCode.ToKNIWebGL_FX());
-
-            AppendEngineMethod(
-                stringBuilder,
-                shaderType,
-                compiledCode,
-                "ToFNA_FX",
-                () => compiledCode.ToFNA_FX());
+            foreach (Plugin plugin in loadedPlugins)
+            {
+                AppendPluginMethod(stringBuilder, shaderType, compiledCode, plugin);
+            }
         }
 
         stringBuilder.AppendLine("}");
@@ -368,10 +446,7 @@ static void CreateParentDirectory(string filePath)
 
 static bool IsBinaryTarget(ShaderTarget target)
 {
-    return target is ShaderTarget.SpirV
-        or ShaderTarget.MonoGame
-        or ShaderTarget.Kni
-        or ShaderTarget.Fna;
+    return target is ShaderTarget.SpirV;
 }
 
 // Cada binario se construye de forma diferida para poder reportar el error de un
@@ -380,36 +455,29 @@ static IEnumerable<(string Extension, Func<byte[]> Build)> GetBinaries(
     ShaderTarget target,
     CompiledCode compiledCode)
 {
-    switch (target)
+    if (target != ShaderTarget.SpirV)
     {
-        case ShaderTarget.SpirV:
-            yield return (".spv", () => compiledCode.SpirV);
-            break;
+        throw new ArgumentOutOfRangeException(
+            nameof(target),
+            target,
+            "Target binario no soportado.");
+    }
 
-        case ShaderTarget.MonoGame:
-            foreach (MonoGamePlatform platform in Enum.GetValues<MonoGamePlatform>())
-            {
-                MonoGamePlatform current = platform;
-                yield return (
-                    $".{current.ToString().ToLowerInvariant()}.mgfx",
-                    () => compiledCode.ToMGFX(current));
-            }
+    yield return (".spv", () => compiledCode.SpirV);
+}
 
-            break;
+// Un plugin sin opciones produce un solo archivo; con opciones, uno por cada una.
+static IEnumerable<PluginOption?> GetOptions(PluginMetadata metadata)
+{
+    if (metadata.Options.Length == 0)
+    {
+        yield return null;
+        yield break;
+    }
 
-        case ShaderTarget.Kni:
-            yield return (".knifx", () => compiledCode.ToKNIWebGL_FX());
-            break;
-
-        case ShaderTarget.Fna:
-            yield return (".fxb", () => compiledCode.ToFNA_FX());
-            break;
-
-        default:
-            throw new ArgumentOutOfRangeException(
-                nameof(target),
-                target,
-                "Target binario no soportado.");
+    foreach (PluginOption option in metadata.Options)
+    {
+        yield return option;
     }
 }
 
@@ -475,46 +543,46 @@ static string BuildEngineBody(string description, Func<byte[]> build, string ind
     }
 }
 
-static void AppendEngineMethod(
+static void AppendPluginMethod(
     StringBuilder builder,
     string shaderType,
     CompiledCode compiledCode,
-    string methodName,
-    Func<byte[]> build)
+    Plugin plugin)
 {
-    builder
-        .AppendLine($"    public static byte[] {methodName}(this {shaderType} _shader)")
-        .AppendLine("    {")
-        .AppendLine(BuildEngineBody(
-            $"{compiledCode.CSharpFullClassName}.{methodName}",
-            build,
-            "        ",
-            "return "))
-        .AppendLine("    }")
-        .AppendLine();
-}
+    PluginMetadata metadata = plugin.Metadata;
+    bool hasOptions = metadata.Options.Length != 0 && !string.IsNullOrEmpty(metadata.OptionsEnum);
 
-static void AppendToMgfxMethod(
-    StringBuilder builder,
-    string shaderType,
-    CompiledCode compiledCode)
-{
+    if (!hasOptions)
+    {
+        builder
+            .AppendLine($"    public static byte[] {metadata.MethodName}(this {shaderType} _shader)")
+            .AppendLine("    {")
+            .AppendLine(BuildEngineBody(
+                $"{compiledCode.CSharpFullClassName}.{metadata.MethodName}",
+                () => plugin.Backend.Compile(compiledCode, 0),
+                "        ",
+                "return "))
+            .AppendLine("    }")
+            .AppendLine();
+        return;
+    }
+
     builder
-        .AppendLine($"    public static byte[] ToMGFX(")
+        .AppendLine($"    public static byte[] {metadata.MethodName}(")
         .AppendLine($"        this {shaderType} _shader,")
-        .AppendLine("        global::YotsubaShader.MonoGamePlatform platform)")
+        .AppendLine($"        global::YotsubaShader.{metadata.OptionsEnum} {metadata.OptionsParameterName})")
         .AppendLine("    {")
-        .AppendLine("        switch (platform)")
+        .AppendLine($"        switch ({metadata.OptionsParameterName})")
         .AppendLine("        {");
 
-    // Las plataformas que producen exactamente los mismos bytes comparten un solo literal.
-    var bodies = new List<(string Body, List<MonoGamePlatform> Platforms)>();
+    // Las opciones que producen exactamente los mismos bytes comparten un solo literal.
+    var bodies = new List<(string Body, List<PluginOption> Options)>();
 
-    foreach (MonoGamePlatform platform in Enum.GetValues<MonoGamePlatform>())
+    foreach (PluginOption option in metadata.Options)
     {
         string body = BuildEngineBody(
-            $"{compiledCode.CSharpFullClassName}.ToMGFX({platform})",
-            () => compiledCode.ToMGFX(platform),
+            $"{compiledCode.CSharpFullClassName}.{metadata.MethodName}({option.Name})",
+            () => plugin.Backend.Compile(compiledCode, option.Value),
             "                ",
             "return ");
 
@@ -522,20 +590,20 @@ static void AppendToMgfxMethod(
 
         if (existing >= 0)
         {
-            bodies[existing].Platforms.Add(platform);
+            bodies[existing].Options.Add(option);
         }
         else
         {
-            bodies.Add((body, [platform]));
+            bodies.Add((body, [option]));
         }
     }
 
-    foreach ((string body, List<MonoGamePlatform> platforms) in bodies)
+    foreach ((string body, List<PluginOption> options) in bodies)
     {
-        foreach (MonoGamePlatform platform in platforms)
+        foreach (PluginOption option in options)
         {
             builder.AppendLine(
-                $"            case global::YotsubaShader.MonoGamePlatform.{platform}:");
+                $"            case global::YotsubaShader.{metadata.OptionsEnum}.{option.Name}:");
         }
 
         builder.AppendLine(body);
@@ -544,9 +612,9 @@ static void AppendToMgfxMethod(
     builder
         .AppendLine("            default:")
         .AppendLine("                throw new global::System.ArgumentOutOfRangeException(")
-        .AppendLine("                    nameof(platform),")
-        .AppendLine("                    platform,")
-        .AppendLine("                    \"Plataforma de MonoGame no soportada.\");")
+        .AppendLine($"                    nameof({metadata.OptionsParameterName}),")
+        .AppendLine($"                    {metadata.OptionsParameterName},")
+        .AppendLine($"                    \"Opción no soportada para {metadata.MethodName}.\");")
         .AppendLine("        }")
         .AppendLine("    }")
         .AppendLine();

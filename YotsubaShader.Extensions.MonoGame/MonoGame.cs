@@ -1,9 +1,10 @@
 using ShadowDusk.Compiler;
 using ShadowDusk.Core;
 using ShadowDusk.Core.Preprocessor;
+using YotsubaShader.Extensions;
 using YotsubaShader.IR.Intermediate;
 
-namespace YotsubaShader.Compiler.Library.CompileToGameEngines;
+namespace YotsubaShader.Extensions.MonoGame;
 
 public static class MonoGame
 {
@@ -91,13 +92,13 @@ public static class MonoGame
 
 }
 
-public enum MonoGamePlatform
+public enum MonoGamePlatform : uint
 {
-    DesktopGL,
-    WindowsDX11,
-    WindowsDirectX12,
-    DesktopVulkan,
-    iOS,
-    Android,
-    GL4
+    DesktopGL = 0,
+    WindowsDX11 = 1,
+    WindowsDirectX12 = 2,
+    DesktopVulkan = 3,
+    iOS = 4,
+    Android = 5,
+    GL4 = 6
 }

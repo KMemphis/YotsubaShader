@@ -68,6 +68,7 @@
 
 using Microsoft.CodeAnalysis;
 using YotsubaShader.Compiler.SpirV;
+using YotsubaShader.Extensions;
 using YotsubaShader.Roslyn;
 
 namespace YotsubaShader.Compiler.Library;

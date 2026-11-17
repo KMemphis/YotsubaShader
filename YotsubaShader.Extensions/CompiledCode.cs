@@ -71,7 +71,7 @@ using YotsubaShader.IR.Intermediate;
 using YotsubaShaderCross;
 using YotsubaShaderCross.Spv;
 
-namespace YotsubaShader.Compiler.Library;
+namespace YotsubaShader.Extensions;
 
 public record CompiledCode(
     ShaderReflection Reflection,

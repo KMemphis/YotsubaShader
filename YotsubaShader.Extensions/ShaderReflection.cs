@@ -68,7 +68,7 @@
 
 using YotsubaShader.IR.Intermediate;
 
-namespace YotsubaShader.Compiler.Library;
+namespace YotsubaShader.Extensions;
 
 public record ShaderReflection(
     Shader IntermediateLanguage);

@@ -81,10 +81,7 @@ public enum ShaderTarget
     Glsl,
     GlslEs,
     Msl,
-    Cpp,
-    MonoGame,
-    Kni,
-    Fna
+    Cpp
 }
 
 public sealed class Args
@@ -92,6 +89,9 @@ public sealed class Args
     public Command Command { get; }
     public string ProjectPath { get; }
     public IReadOnlyList<ShaderTarget> Targets { get; }
+
+    /// <summary>Destinos que resuelve un plugin (monogame, kni, fna...).</summary>
+    public IReadOnlyList<string> PluginTargets { get; }
     public string OutputDirectory { get; }
 
     public Args(string[] args)
@@ -106,6 +106,7 @@ public sealed class Args
         string? projectPath = null;
         string? outputDirectory = null;
         var targets = new List<ShaderTarget>();
+        var pluginTargets = new List<string>();
 
         for (int index = 1; index < args.Length; index++)
         {
@@ -114,7 +115,7 @@ public sealed class Args
             switch (argument)
             {
                 case "--target":
-                    targets.Add(ParseTarget(ReadValue(args, ref index, "--target")));
+                    AddTarget(ReadValue(args, ref index, "--target"), targets, pluginTargets);
                     break;
 
                 case "--output":
@@ -145,7 +146,7 @@ public sealed class Args
                 "Falta el proyecto .csproj.");
         }
 
-        if (targets.Count == 0)
+        if (targets.Count == 0 && pluginTargets.Count == 0)
         {
             throw new CliUsageException(
                 "Debes indicar al menos un --target.");
@@ -165,6 +166,10 @@ public sealed class Args
         Targets = targets
             .Distinct()
             .ToArray();
+
+        PluginTargets = pluginTargets
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     private static Command ParseCommand(string value) =>
@@ -174,7 +179,36 @@ public sealed class Args
                 Command.Add:
             throw new CliUsageException($"Comando desconocido '{value}'.");
 
-    private static ShaderTarget ParseTarget(string value) =>
+    private static void AddTarget(
+        string value,
+        List<ShaderTarget> targets,
+        List<string> pluginTargets)
+    {
+        if (TryParseBuiltInTarget(value, out ShaderTarget target))
+        {
+            targets.Add(target);
+            return;
+        }
+
+        string name = value.ToLowerInvariant() switch
+        {
+            "mgfx" => "monogame",
+            "kni-webgl" => "kni",
+            var other => other
+        };
+
+        if (name.Length == 0 ||
+            !name.All(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.'))
+        {
+            throw new CliUsageException($"Target desconocido '{value}'.");
+        }
+
+        pluginTargets.Add(name);
+    }
+
+    private static bool TryParseBuiltInTarget(string value, out ShaderTarget target)
+    {
+        ShaderTarget? parsed =
         value.ToLowerInvariant() switch
         {
             "spirv" or "spv" => ShaderTarget.SpirV,
@@ -183,12 +217,12 @@ public sealed class Args
             "gles" or "glsles" => ShaderTarget.GlslEs,
             "msl" or "metal" => ShaderTarget.Msl,
             "cpp" => ShaderTarget.Cpp,
-            "mgfx" or "monogame" => ShaderTarget.MonoGame,
-            "kni" or "kni-webgl" => ShaderTarget.Kni,
-            "fna" => ShaderTarget.Fna,
-            _ => throw new CliUsageException(
-                $"Target desconocido '{value}'.")
+            _ => null
         };
+
+        target = parsed.GetValueOrDefault();
+        return parsed is not null;
+    }
 
     private static string ReadValue(
         string[] args,

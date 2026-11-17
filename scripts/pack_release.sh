@@ -40,13 +40,21 @@ done
 restore_shadow_locks
 trap - EXIT
 
+# Every YotsubaShader.Extensions* project (the contract and each CLI plugin such as
+# .MonoGame, .KNI and .FNA) is packed and published; new plugins are picked up by name.
+extension_projects=()
+for directory in YotsubaShader.Extensions YotsubaShader.Extensions.*/; do
+  directory="${directory%/}"
+  [[ -f "$directory/$directory.csproj" ]] && extension_projects+=("$directory")
+done
+
 for name in \
   YotsubaShader.Concepts YotsubaShader.Language YotsubaShader.IR \
   YotsubaShader.Roslyn YotsubaShader.Compiler.SpirV \
   YotsubaShader.GlslSyntax YotsubaShader.HlslSyntax YotsubaShader.MslSyntax \
   YotsubaShader.SpirvSyntax YotsubaShader.WgslSyntax \
   YotsubaShader.Compiler.Library YotsubaShader.IDE.Analyzer \
-  YotsubaShader.Compiler.CLI; do
+  YotsubaShader.Compiler.CLI "${extension_projects[@]}"; do
   dotnet restore "$name/$name.csproj" -p:Version="$version" \
     -p:UseForkShadowDuskPackages=true \
     --source "$output" --source https://api.nuget.org/v3/index.json
