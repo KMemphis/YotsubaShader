@@ -92,7 +92,6 @@ public class BasicColorShader
     }
 
     [ShaderStage(Stage.Fragment)]
-    [return: SV_Target(0)]
     public Vector4 Fragment(VertexOutput input)
     {
         return input.Color;
