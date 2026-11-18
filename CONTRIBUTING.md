@@ -56,7 +56,7 @@ Write commit messages that say what the change does, in the present tense ("Add 
 
 ## Documentation and website
 
-The website lives in its own repository, [YotsubaShader-Web](https://github.com/KMemphis/YotsubaShader-Web), published at [yotsubashader.com](https://yotsubashader.com). It is a static site with no dependencies besides Node. Clone it as `Web/` inside this repository's folder: the build reads `../YotsubaShader.Language` to generate the attribute reference, and `Web/` is ignored by this repository's Git.
+The website lives in its own repository, [YotsubaShader-Web](https://github.com/KMemphis/YotsubaShader-Web), published at [yotsubashader.com](https://yotsubashader.com). It is a static site with no dependencies besides Node. Clone it as `Web/` inside this repository's folder: the build reads the `Core/Syntax/YotsubaShader.*Syntax` projects to generate the attribute reference, and `Web/` is ignored by this repository's Git.
 
 ```bash
 git clone https://github.com/KMemphis/YotsubaShader-Web.git Web

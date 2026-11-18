@@ -2,25 +2,25 @@
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Generator", "YotsubaShader.Generator\YotsubaShader.Generator.csproj", "{1F843514-4769-4385-8242-9F3F88C421F0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Generator", "Tools\YotsubaShader.Generator\YotsubaShader.Generator.csproj", "{1F843514-4769-4385-8242-9F3F88C421F0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Compiler.SpirV", "YotsubaShader.Compiler.SpirV\YotsubaShader.Compiler.SpirV.csproj", "{FFEC20B3-6D51-4143-8DC5-3A4C8027853F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Compiler.SpirV", "Core\Compilers\YotsubaShader.Compiler.SpirV\YotsubaShader.Compiler.SpirV.csproj", "{FFEC20B3-6D51-4143-8DC5-3A4C8027853F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Roslyn", "YotsubaShader.Roslyn\YotsubaShader.Roslyn.csproj", "{7E86EA39-8779-4676-A7A8-D0DD3F788E1A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Roslyn", "Core\Analyzers\YotsubaShader.Roslyn\YotsubaShader.Roslyn.csproj", "{7E86EA39-8779-4676-A7A8-D0DD3F788E1A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Example", "YotsubaShader.Example\YotsubaShader.Example.csproj", "{620E9153-0582-49E7-BB5E-BC1046611B89}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Example", "Examples\YotsubaShader.Example\YotsubaShader.Example.csproj", "{620E9153-0582-49E7-BB5E-BC1046611B89}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shaders", "examples\Shaders\Shaders.csproj", "{A1000001-5E4D-4C1B-9E00-0000000000A1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shaders", "Examples\Shaders\Shaders.csproj", "{A1000001-5E4D-4C1B-9E00-0000000000A1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MonoGame.LoadTest", "examples\MonoGame.LoadTest\MonoGame.LoadTest.csproj", "{A1000002-5E4D-4C1B-9E00-0000000000A2}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MonoGame.LoadTest", "Examples\MonoGame.LoadTest\MonoGame.LoadTest.csproj", "{A1000002-5E4D-4C1B-9E00-0000000000A2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KNI.LoadTest", "examples\KNI.LoadTest\KNI.LoadTest.csproj", "{A1000003-5E4D-4C1B-9E00-0000000000A3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KNI.LoadTest", "Examples\KNI.LoadTest\KNI.LoadTest.csproj", "{A1000003-5E4D-4C1B-9E00-0000000000A3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FNA.LoadTest", "examples\FNA.LoadTest\FNA.LoadTest.csproj", "{A1000004-5E4D-4C1B-9E00-0000000000A4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FNA.LoadTest", "Examples\FNA.LoadTest\FNA.LoadTest.csproj", "{A1000004-5E4D-4C1B-9E00-0000000000A4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.IR", "YotsubaShader.IR\YotsubaShader.IR.csproj", "{58507BDD-60D6-4ADF-A25C-64DD79F82695}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.IR", "Core\Representations\YotsubaShader.IR\YotsubaShader.IR.csproj", "{58507BDD-60D6-4ADF-A25C-64DD79F82695}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Language", "YotsubaShader.Language\YotsubaShader.Language.csproj", "{668A3BBD-6A31-49EA-A576-CBA2C89A22C6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Language", "Core\Representations\YotsubaShader.Language\YotsubaShader.Language.csproj", "{668A3BBD-6A31-49EA-A576-CBA2C89A22C6}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Core", "Core", "{95CB748C-AC7F-41E1-88B1-BD83C161E4A0}"
 EndProject
@@ -36,49 +36,49 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Analyzers", "Analyzers", "{
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Syntax", "Syntax", "{947AC75B-8408-481F-B8D7-F9BA55A27959}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.GlslSyntax", "YotsubaShader.GlslSyntax\YotsubaShader.GlslSyntax.csproj", "{B7BCCD2C-0388-4440-8B4B-82473D1BE1F3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.GlslSyntax", "Core\Syntax\YotsubaShader.GlslSyntax\YotsubaShader.GlslSyntax.csproj", "{B7BCCD2C-0388-4440-8B4B-82473D1BE1F3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.HlslSyntax", "YotsubaShader.HlslSyntax\YotsubaShader.HlslSyntax.csproj", "{CA17E026-C724-4E6F-B742-814D0F8FE2D5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.HlslSyntax", "Core\Syntax\YotsubaShader.HlslSyntax\YotsubaShader.HlslSyntax.csproj", "{CA17E026-C724-4E6F-B742-814D0F8FE2D5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.MslSyntax", "YotsubaShader.MslSyntax\YotsubaShader.MslSyntax.csproj", "{63AAE646-CBE9-4A53-AB4F-6256C979D1D7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.MslSyntax", "Core\Syntax\YotsubaShader.MslSyntax\YotsubaShader.MslSyntax.csproj", "{63AAE646-CBE9-4A53-AB4F-6256C979D1D7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.SpirvSyntax", "YotsubaShader.SpirvSyntax\YotsubaShader.SpirvSyntax.csproj", "{FCACC08C-B8AB-4EE6-AC26-C09C4200ED79}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.SpirvSyntax", "Core\Syntax\YotsubaShader.SpirvSyntax\YotsubaShader.SpirvSyntax.csproj", "{FCACC08C-B8AB-4EE6-AC26-C09C4200ED79}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.WgslSyntax", "YotsubaShader.WgslSyntax\YotsubaShader.WgslSyntax.csproj", "{3B30D117-829E-401E-BB40-42CA42B07691}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.WgslSyntax", "Core\Syntax\YotsubaShader.WgslSyntax\YotsubaShader.WgslSyntax.csproj", "{3B30D117-829E-401E-BB40-42CA42B07691}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Concepts", "YotsubaShader.Concepts\YotsubaShader.Concepts.csproj", "{A7A3276E-03C0-49AC-899A-E892C0FBA338}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Concepts", "Core\Syntax\YotsubaShader.Concepts\YotsubaShader.Concepts.csproj", "{A7A3276E-03C0-49AC-899A-E892C0FBA338}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Compiler.Library", "YotsubaShader.Compiler.Library\YotsubaShader.Compiler.Library.csproj", "{BDBEE72D-2285-4E1F-8A41-10FAE8663AF4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Compiler.Library", "Core\YotsubaShader.Compiler.Library\YotsubaShader.Compiler.Library.csproj", "{BDBEE72D-2285-4E1F-8A41-10FAE8663AF4}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ShaderCross", "ShaderCross", "{11B332DF-64F6-4697-8745-77990ACE51F5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShaderCross", "YotsubaShaderCross\src\YotsubaShaderCross\YotsubaShaderCross.csproj", "{D43673A5-F9CE-47AD-BD47-FE1A6817FD4F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShaderCross", "Core\ShaderCross\YotsubaShaderCross\src\YotsubaShaderCross\YotsubaShaderCross.csproj", "{D43673A5-F9CE-47AD-BD47-FE1A6817FD4F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Compiler.CLI", "YotsubaShader.Compiler.CLI\YotsubaShader.Compiler.CLI.csproj", "{F0D24D70-F8DF-438D-8E8F-8D9409C0A290}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Compiler.CLI", "Core\YotsubaShader.Compiler.CLI\YotsubaShader.Compiler.CLI.csproj", "{F0D24D70-F8DF-438D-8E8F-8D9409C0A290}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ThirdParty", "ThirdParty", "{2E1EB394-5976-49BD-A084-A353FD63BFAB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShadowDusk.Compiler", "ShadowDusk\src\ShadowDusk.Compiler\ShadowDusk.Compiler.csproj", "{89BF9AC8-092E-42FB-BB89-796E4DCCB39C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShadowDusk.Compiler", "ThirdParty\ShadowDusk\src\ShadowDusk.Compiler\ShadowDusk.Compiler.csproj", "{89BF9AC8-092E-42FB-BB89-796E4DCCB39C}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ShadowDusk", "ShadowDusk", "{ACD8B27F-9C5E-4868-B2CF-33D371CBB6C8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShadowDusk.Core", "ShadowDusk\src\ShadowDusk.Core\ShadowDusk.Core.csproj", "{565C3D5A-4DEB-405A-85FA-7E24467AC70B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShadowDusk.Core", "ThirdParty\ShadowDusk\src\ShadowDusk.Core\ShadowDusk.Core.csproj", "{565C3D5A-4DEB-405A-85FA-7E24467AC70B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShadowDusk.HLSL", "ShadowDusk\src\ShadowDusk.HLSL\ShadowDusk.HLSL.csproj", "{719865A9-11D6-4898-A4BD-6DBC753BC352}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShadowDusk.HLSL", "ThirdParty\ShadowDusk\src\ShadowDusk.HLSL\ShadowDusk.HLSL.csproj", "{719865A9-11D6-4898-A4BD-6DBC753BC352}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShadowDusk.GLSL", "ShadowDusk\src\ShadowDusk.GLSL\ShadowDusk.GLSL.csproj", "{980B14CA-A067-4322-9B8A-797F471F8040}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShadowDusk.GLSL", "ThirdParty\ShadowDusk\src\ShadowDusk.GLSL\ShadowDusk.GLSL.csproj", "{980B14CA-A067-4322-9B8A-797F471F8040}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.IDE.Analyzer", "YotsubaShader.IDE.Analyzer\YotsubaShader.IDE.Analyzer.csproj", "{A5D8A721-F753-4FB4-9AE9-3272C06A47B3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.IDE.Analyzer", "Core\Analyzers\YotsubaShader.IDE.Analyzer\YotsubaShader.IDE.Analyzer.csproj", "{A5D8A721-F753-4FB4-9AE9-3272C06A47B3}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Plugins", "Plugins", "{0D6C0C87-CB0E-4760-AB97-D864DC0680A0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Extensions.MonoGame", "YotsubaShader.Extensions.MonoGame\YotsubaShader.Extensions.MonoGame.csproj", "{C023BCE7-C7AC-4A58-90BD-0BFC56FE6804}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Extensions.MonoGame", "Plugins\YotsubaShader.Extensions.MonoGame\YotsubaShader.Extensions.MonoGame.csproj", "{C023BCE7-C7AC-4A58-90BD-0BFC56FE6804}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Extensions", "YotsubaShader.Extensions\YotsubaShader.Extensions.csproj", "{59D742BC-55A0-41F1-99BE-6FA3C081460A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Extensions", "Plugins\YotsubaShader.Extensions\YotsubaShader.Extensions.csproj", "{59D742BC-55A0-41F1-99BE-6FA3C081460A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Extensions.KNI", "YotsubaShader.Extensions.KNI\YotsubaShader.Extensions.KNI.csproj", "{A562F350-5847-4D4B-98A0-B2CBC90B2B5C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Extensions.KNI", "Plugins\YotsubaShader.Extensions.KNI\YotsubaShader.Extensions.KNI.csproj", "{A562F350-5847-4D4B-98A0-B2CBC90B2B5C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Extensions.FNA", "YotsubaShader.Extensions.FNA\YotsubaShader.Extensions.FNA.csproj", "{5C1F0176-3F9B-4AEE-A3A8-F4E9FC3F826C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Extensions.FNA", "Plugins\YotsubaShader.Extensions.FNA\YotsubaShader.Extensions.FNA.csproj", "{5C1F0176-3F9B-4AEE-A3A8-F4E9FC3F826C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

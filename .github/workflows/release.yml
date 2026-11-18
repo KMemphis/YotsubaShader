@@ -69,9 +69,9 @@ jobs:
             10.0.x
       - name: Build and test
         run: |
-          bash ShadowDusk/tools/restore.sh
-          dotnet build YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj -c Release
-          dotnet test YotsubaShader.Example/YotsubaShader.Example.csproj -c Release -p:CompileYotsubaShaders=false
+          bash ThirdParty/ShadowDusk/tools/restore.sh
+          dotnet build Core/YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj -c Release
+          dotnet test Examples/YotsubaShader.Example/YotsubaShader.Example.csproj -c Release -p:CompileYotsubaShaders=false
       - name: Pack every public and support package
         env:
           VERSION: ${{ needs.validate.outputs.version }}
@@ -106,7 +106,7 @@ jobs:
             | grep -F 'analyzers/dotnet/cs/YotsubaShader.IDE.Analyzer.dll'
           dotnet tool install YotsubaShader.Compiler.CLI --tool-path "$RUNNER_TEMP/tool" --add-source "$PWD/nupkg" --version "$VERSION"
           test -x "$RUNNER_TEMP/tool/yotsuba"
-          python3 scripts/verify_release.py smoke "$RUNNER_TEMP/tool/yotsuba" YotsubaShader.Example/YotsubaShader.Example.csproj
+          python3 scripts/verify_release.py smoke "$RUNNER_TEMP/tool/yotsuba" Examples/YotsubaShader.Example/YotsubaShader.Example.csproj
       - uses: actions/upload-artifact@v4
         with:
           name: nupkg
@@ -146,7 +146,7 @@ jobs:
           path: nupkg
       - name: Build example project for workspace smoke test
         shell: bash
-        run: dotnet build YotsubaShader.Example/YotsubaShader.Example.csproj -c Release -p:CompileYotsubaShaders=false
+        run: dotnet build Examples/YotsubaShader.Example/YotsubaShader.Example.csproj -c Release -p:CompileYotsubaShaders=false
       - name: Publish self-contained executable
         shell: bash
         run: |
@@ -161,17 +161,17 @@ jobs:
           ET.SubElement(sources, 'add', key='nuget.org', value='https://api.nuget.org/v3/index.json')
           ET.ElementTree(config).write('release.nuget.config', encoding='utf-8', xml_declaration=True)
           PY
-          dotnet restore YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj \
+          dotnet restore Core/YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj \
             -r '${{ matrix.rid }}' -p:Version='${{ needs.validate.outputs.version }}' \
             -p:UseForkShadowDuskPackages=true \
             --configfile release.nuget.config
-          dotnet publish YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj \
+          dotnet publish Core/YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj \
             -c Release -r '${{ matrix.rid }}' --self-contained --no-restore \
             -o 'publish/${{ matrix.rid }}' \
             -p:Version='${{ needs.validate.outputs.version }}' \
             -p:UseForkShadowDuskPackages=true
-          cp LICENSE NOTICE ShadowDusk/src/ShadowDusk.HLSL/THIRD-PARTY-NOTICES.txt 'publish/${{ matrix.rid }}/'
-          cp YotsubaShaderCross/LICENSE 'publish/${{ matrix.rid }}/LICENSE-YotsubaShaderCross'
+          cp LICENSE NOTICE ThirdParty/ShadowDusk/src/ShadowDusk.HLSL/THIRD-PARTY-NOTICES.txt 'publish/${{ matrix.rid }}/'
+          cp Core/ShaderCross/YotsubaShaderCross/LICENSE 'publish/${{ matrix.rid }}/LICENSE-YotsubaShaderCross'
       - name: Run outside checkout and verify all shader targets
         shell: bash
         run: |
@@ -183,7 +183,7 @@ jobs:
             exe="$RUNNER_TEMP/yotsuba-${{ matrix.rid }}/YotsubaShader.Compiler.CLI"
             chmod +x "$exe"
           fi
-          python scripts/verify_release.py smoke "$exe" YotsubaShader.Example/YotsubaShader.Example.csproj
+          python scripts/verify_release.py smoke "$exe" Examples/YotsubaShader.Example/YotsubaShader.Example.csproj
       - name: Archive Windows executable
         if: runner.os == 'Windows'
         shell: pwsh

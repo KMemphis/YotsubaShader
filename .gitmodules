@@ -1,7 +1,7 @@
 [submodule "YotsubaShaderCross"]
-	path = YotsubaShaderCross
+	path = Core/ShaderCross/YotsubaShaderCross
 	url = https://github.com/KMemphis/YotsubaShaderCross.git
 	branch = master
 [submodule "ShadowDusk"]
-	path = ShadowDusk
+	path = ThirdParty/ShadowDusk
 	url = https://github.com/KMemphis/YotsubaShader-ShadowDusk.git

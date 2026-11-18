@@ -38,7 +38,7 @@ otro Release, ejecuta manualmente `release.yml` desde `main` con el input
 Para comprobar los paquetes localmente, con los binarios nativos ya restaurados:
 
 ```sh
-bash ShadowDusk/tools/restore.sh
+bash ThirdParty/ShadowDusk/tools/restore.sh
 bash scripts/pack_release.sh 0.1.0 /tmp/yotsuba-nupkg
 python3 scripts/verify_release.py packages /tmp/yotsuba-nupkg 0.1.0
 ```

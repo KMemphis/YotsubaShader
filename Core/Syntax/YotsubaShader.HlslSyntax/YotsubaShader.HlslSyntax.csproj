@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Using Include="YotsubaShader.Concepts" />
+        <Using Include="YotsubaShader.Concepts.Vertex" />
+        <Using Include="YotsubaShader.Concepts.Fragment" />
+        <Using Include="YotsubaShader.Concepts.Compute" />
+    </ItemGroup>
+    
+
+    <ItemGroup>
+        <ProjectReference Include="..\YotsubaShader.Concepts\YotsubaShader.Concepts.csproj" />
+        <ProjectReference Include="..\..\Representations\YotsubaShader.Language\YotsubaShader.Language.csproj" />
+    </ItemGroup>
+    
+
+    <ItemGroup>
+      <PackageReference Include="System.Memory" Version="4.6.3" />
+    </ItemGroup>
+
+    <Import Project="..\..\..\build\Intrinsics\Intrinsics.targets" />
+
+</Project>

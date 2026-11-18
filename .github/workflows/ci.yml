@@ -41,23 +41,23 @@ jobs:
       # They must be restored BEFORE building so the build copies them next to the CLI
       # (the mgfx / kni / fna targets need them).
       - name: Restore ShadowDusk natives
-        run: bash ShadowDusk/tools/restore.sh
+        run: bash ThirdParty/ShadowDusk/tools/restore.sh
 
       - name: Restore
-        run: dotnet restore YotsubaShader.Example/YotsubaShader.Example.csproj
+        run: dotnet restore Examples/YotsubaShader.Example/YotsubaShader.Example.csproj
 
       # The Example project's post-build step also runs the CLI (`add`); it is
       # disabled here so the CLI is exercised explicitly in the next steps.
       - name: Build
-        run: dotnet build YotsubaShader.Example/YotsubaShader.Example.csproj --configuration Release --no-restore -p:CompileYotsubaShaders=false
+        run: dotnet build Examples/YotsubaShader.Example/YotsubaShader.Example.csproj --configuration Release --no-restore -p:CompileYotsubaShaders=false
 
       - name: Build CLI
-        run: dotnet build YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj --configuration Release
+        run: dotnet build Core/YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj --configuration Release
 
       - name: Run CLI against the example (compile)
         run: >
-          dotnet run --project YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj --configuration Release --no-build --
-          compile YotsubaShader.Example/YotsubaShader.Example.csproj
+          dotnet run --project Core/YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj --configuration Release --no-build --
+          compile Examples/YotsubaShader.Example/YotsubaShader.Example.csproj
           --target spirv --target hlsl --target glsl --target gles --target msl --target cpp
           --output "$RUNNER_TEMP/compiled-shaders"
 
@@ -69,17 +69,17 @@ jobs:
 
       - name: Run CLI against the example (add)
         run: >
-          dotnet run --project YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj --configuration Release --no-build --
-          add YotsubaShader.Example/YotsubaShader.Example.csproj
+          dotnet run --project Core/YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj --configuration Release --no-build --
+          add Examples/YotsubaShader.Example/YotsubaShader.Example.csproj
           --target spirv --target hlsl --target glsl --target gles --target msl --target cpp
           --output "$RUNNER_TEMP/compiled-shaders-add"
 
       - name: Test
-        run: dotnet test YotsubaShader.Example/YotsubaShader.Example.csproj --configuration Release --no-restore -p:CompileYotsubaShaders=false --logger "trx;LogFileName=test-results.trx" --results-directory test-results
+        run: dotnet test Examples/YotsubaShader.Example/YotsubaShader.Example.csproj --configuration Release --no-restore -p:CompileYotsubaShaders=false --logger "trx;LogFileName=test-results.trx" --results-directory test-results
 
       - name: Build every Extensions project
         run: |
-          for project in YotsubaShader.Extensions*/YotsubaShader.Extensions*.csproj; do
+          for project in Plugins/YotsubaShader.Extensions*/YotsubaShader.Extensions*.csproj; do
             dotnet build "$project" --configuration Release
           done
 
@@ -118,7 +118,7 @@ jobs:
           dotnet tool install YotsubaShader.Compiler.CLI --tool-path "$RUNNER_TEMP/yotsuba-tool" \
             --add-source "$RUNNER_TEMP/nupkg" --version 0.1.0
           python3 scripts/verify_release.py smoke "$RUNNER_TEMP/yotsuba-tool/yotsuba" \
-            YotsubaShader.Example/YotsubaShader.Example.csproj
+            Examples/YotsubaShader.Example/YotsubaShader.Example.csproj
 
       # Load tests: each compiles a HLSL shader to the engine's effect format, loads it as a
       # real Effect and renders a triangle (software OpenGL under Xvfb). Verified on linux-x64.
@@ -130,16 +130,16 @@ jobs:
           sudo apt-get install -y --no-install-recommends xvfb xauth libgl1 libgl1-mesa-dri libglx-mesa0 libegl1 libopenal1 libsdl2-2.0-0
 
       - name: Build MonoGame example
-        run: dotnet build examples/MonoGame.LoadTest/MonoGame.LoadTest.csproj --configuration Release
+        run: dotnet build Examples/MonoGame.LoadTest/MonoGame.LoadTest.csproj --configuration Release
 
       - name: Run MonoGame example (load MGFX)
-        run: xvfb-run -a -s "-screen 0 1280x720x24" dotnet run --no-build --configuration Release --project examples/MonoGame.LoadTest/MonoGame.LoadTest.csproj
+        run: xvfb-run -a -s "-screen 0 1280x720x24" dotnet run --no-build --configuration Release --project Examples/MonoGame.LoadTest/MonoGame.LoadTest.csproj
 
       - name: Build KNI example
-        run: dotnet build examples/KNI.LoadTest/KNI.LoadTest.csproj --configuration Release
+        run: dotnet build Examples/KNI.LoadTest/KNI.LoadTest.csproj --configuration Release
 
       - name: Run KNI example (load effect)
-        run: xvfb-run -a -s "-screen 0 1280x720x24" dotnet run --no-build --configuration Release --project examples/KNI.LoadTest/KNI.LoadTest.csproj
+        run: xvfb-run -a -s "-screen 0 1280x720x24" dotnet run --no-build --configuration Release --project Examples/KNI.LoadTest/KNI.LoadTest.csproj
 
       - name: Cache FNA native libraries
         id: fnalibs
@@ -165,10 +165,10 @@ jobs:
           cp -a "$RUNNER_TEMP"/fna3d-build/libFNA3D.so* "$HOME/fnalibs/lib/"
 
       - name: Build FNA example
-        run: dotnet build examples/FNA.LoadTest/FNA.LoadTest.csproj --configuration Release
+        run: dotnet build Examples/FNA.LoadTest/FNA.LoadTest.csproj --configuration Release
 
       - name: Run FNA example (load effect)
-        run: LD_LIBRARY_PATH="$HOME/fnalibs/lib" xvfb-run -a -s "-screen 0 1280x720x24" dotnet run --no-build --configuration Release --project examples/FNA.LoadTest/FNA.LoadTest.csproj
+        run: LD_LIBRARY_PATH="$HOME/fnalibs/lib" xvfb-run -a -s "-screen 0 1280x720x24" dotnet run --no-build --configuration Release --project Examples/FNA.LoadTest/FNA.LoadTest.csproj
 
       - name: Upload compiled shaders
         if: always()
@@ -215,17 +215,17 @@ jobs:
       - name: Restore native dependencies on Unix
         if: runner.os != 'Windows'
         shell: bash
-        run: bash ShadowDusk/tools/restore.sh
+        run: bash ThirdParty/ShadowDusk/tools/restore.sh
       - name: Restore native dependencies on Windows
         if: runner.os == 'Windows'
         shell: pwsh
-        run: ./ShadowDusk/tools/restore.ps1
+        run: ./ThirdParty/ShadowDusk/tools/restore.ps1
       - name: Publish and run outside checkout
         shell: bash
         run: |
-          dotnet build YotsubaShader.Example/YotsubaShader.Example.csproj \
+          dotnet build Examples/YotsubaShader.Example/YotsubaShader.Example.csproj \
             -c Release -p:CompileYotsubaShaders=false
-          dotnet publish YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj \
+          dotnet publish Core/YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj \
             -c Release -r '${{ matrix.rid }}' --self-contained \
             -p:RestoreLockedMode=false -o 'publish/${{ matrix.rid }}'
           mkdir -p "$RUNNER_TEMP/yotsuba-${{ matrix.rid }}"
@@ -236,4 +236,4 @@ jobs:
             exe="$RUNNER_TEMP/yotsuba-${{ matrix.rid }}/YotsubaShader.Compiler.CLI"
             chmod +x "$exe"
           fi
-          python scripts/verify_release.py smoke "$exe" YotsubaShader.Example/YotsubaShader.Example.csproj
+          python scripts/verify_release.py smoke "$exe" Examples/YotsubaShader.Example/YotsubaShader.Example.csproj

@@ -37,7 +37,7 @@ PACKAGES = (
 # Every YotsubaShader.Extensions* project is packed by pack_release.sh.
 PACKAGES += tuple(sorted(
     path.name
-    for path in pathlib.Path(__file__).resolve().parent.parent.glob("YotsubaShader.Extensions*")
+    for path in pathlib.Path(__file__).resolve().parent.parent.joinpath("Plugins").glob("YotsubaShader.Extensions*")
     if (path / f"{path.name}.csproj").is_file()
 ))
 
@@ -114,28 +114,24 @@ def check_packages(feed: pathlib.Path, version: str, require_six_natives: bool) 
                 if "analyzers/dotnet/cs/YotsubaShader.IDE.Analyzer.dll" not in files:
                     raise ValueError("analyzer assembly is not in analyzers/dotnet/cs")
             if package_id == "YotsubaShader.Compiler.CLI":
+                # The engine backends (ShadowDusk and its native libraries) are no longer inside the tool:
+                # the MonoGame / KNI / FNA plugins pull them in as the YotsubaShader.ShadowDusk.* packages,
+                # which are verified above.
                 tool_root = "tools/net10.0/any/"
                 for path_part in (
                     "DotnetToolSettings.xml",
                     "THIRD-PARTY-NOTICES.txt",
                     "LICENSE",
                     "YotsubaShader.Compiler.CLI.dll",
-                    "ShadowDusk.Compiler.dll",
-                    "ShadowDusk.HLSL.dll",
-                    "ShadowDusk.GLSL.dll",
                 ):
                     if tool_root + path_part not in files:
                         raise ValueError(f"tool package missing {path_part}")
-                if require_six_natives:
-                    for rid, natives in RIDS.items():
-                        for native in natives:
-                            asset = f"{tool_root}runtimes/{rid}/native/{native}"
-                            if asset not in files:
-                                raise ValueError(f"tool package missing {asset}")
-                            if "vkd3d" in native:
-                                check_native_hash(package, asset, VKD3D_SHA256[rid])
-                            elif rid == "linux-arm64" and native == "libdxcompiler.so":
-                                check_native_hash(package, asset, LINUX_ARM64_DXC_SHA256)
+                if any(name.startswith(tool_root + "ShadowDusk.") for name in files):
+                    raise ValueError("tool package still bundles ShadowDusk assemblies; they belong to the plugins")
+            if package_id.startswith("YotsubaShader.Extensions.") and package_id != "YotsubaShader.Extensions":
+                dependencies = {node.attrib["id"] for node in metadata.iter() if node.tag.endswith("dependency")}
+                if "YotsubaShader.ShadowDusk.Compiler" not in dependencies:
+                    raise ValueError(f"{package_id}: must depend on YotsubaShader.ShadowDusk.Compiler")
     print(f"Verified {len(PACKAGES)} packages" + (" and native assets for all six RIDs" if require_six_natives else ""))
 
 
