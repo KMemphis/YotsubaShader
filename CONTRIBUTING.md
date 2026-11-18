@@ -20,7 +20,6 @@ You need the **.NET 8 SDK** (`global.json` asks for 8.0 and rolls forward to the
 git clone https://github.com/KMemphis/YotsubaShader.git
 cd YotsubaShader
 dotnet build YotsubaShader.sln
-dotnet test YotsubaShader.Frontend.Tests
 ```
 
 ## How the repository is organised
