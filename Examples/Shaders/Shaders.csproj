@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+        <RootNamespace>Examples.Shaders</RootNamespace>
+        <AssemblyName>Examples.Shaders</AssemblyName>
+        <LangVersion>latest</LangVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Core\Analyzers\YotsubaShader.IDE.Analyzer\YotsubaShader.IDE.Analyzer.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false"
+        />
+        <ProjectReference Include="..\..\Core\Syntax\YotsubaShader.HlslSyntax\YotsubaShader.HlslSyntax.csproj" />
+    </ItemGroup>
+
+    <!-- Genera YotsubaShader.g.cs (ToMGFX / ToKNIWebGL_FX / ToFNA_FX ...) con la CLI.
+         Requiere los nativos de ShadowDusk: bash ThirdParty/ShadowDusk/tools/restore.sh -->
+    <PropertyGroup>
+        <CompileYotsubaShaders>true</CompileYotsubaShaders>
+        <YotsubaCliProject>$(MSBuildThisFileDirectory)../../Core/YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj</YotsubaCliProject>
+    </PropertyGroup>
+
+    <Target Name="CompileYotsubaShaders"
+            AfterTargets="Build"
+            Condition="'$(CompileYotsubaShaders)' == 'true'
+                   And '$(DesignTimeBuild)' != 'true'">
+        <Exec Command="dotnet run --project &quot;$(YotsubaCliProject)&quot; -- add &quot;$(MSBuildProjectFullPath)&quot; --target spirv" />
+    </Target>
+
+</Project>

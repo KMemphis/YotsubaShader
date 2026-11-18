@@ -255,7 +255,7 @@ Here the input semantics use the HLSL-style names, and `Lighting.Material` is bo
 The repository includes a CLI for builds, CI, and content tools. It opens the supplied `.csproj`, discovers shader entry points marked with `[ShaderStage]`, compiles them, and writes the selected targets to the output directory.
 
 ```bash
-dotnet run --project YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj -- \
+dotnet run --project Core/YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj -- \
   compile Game.Graphics.csproj \
   --target spirv \
   --output artifacts/
@@ -275,16 +275,16 @@ YotsubaShader is backend-agnostic: the same C# shader can be compiled to every t
 | `kni` (`kni-webgl`) | `Shader.knifx`, one binary per shader | `ToKNIWebGL_FX()` |
 | `fna` | `Shader.fxb`, one binary per shader | `ToFNA_FX()` |
 
-The `spirv`, `hlsl`, `glsl`, `gles`, `msl`, and `cpp` targets come from the SPIR-V module through YotsubaShaderCross. The `mgfx`, `kni`, and `fna` targets produce a compiled effect for the MonoGame, KNI, and FNA content pipelines through [ShadowDusk](ShadowDusk/): they write one binary per shader instead of one file per stage.
+The `spirv`, `hlsl`, `glsl`, `gles`, `msl`, and `cpp` targets come from the SPIR-V module through YotsubaShaderCross. The `mgfx`, `kni`, and `fna` targets produce a compiled effect for the MonoGame, KNI, and FNA content pipelines through [ShadowDusk](ThirdParty/ShadowDusk): they write one binary per shader instead of one file per stage.
 
-The `mgfx`, `kni`, and `fna` targets compile the vertex and fragment stages through ShadowDusk, which needs its native DXC and vkd3d-shader libraries. They are not in the repository: run `ShadowDusk/tools/restore.sh` once (it downloads them and verifies their SHA-256) before using them. If one binary fails to compile, the CLI reports the reason, keeps going with the others, and exits with code 1. Loading and rendering the generated effects is exercised by the load tests in `examples/` (MonoGame, KNI, and FNA); CI runs the MonoGame and KNI ones on Linux. The current compiler path covers the `Vertex`, `Fragment`, and `Compute` stages and the supported subset of shader-body operations.
+The `mgfx`, `kni`, and `fna` targets compile the vertex and fragment stages through ShadowDusk, which needs its native DXC and vkd3d-shader libraries. They are not in the repository: run `ThirdParty/ShadowDusk/tools/restore.sh` once (it downloads them and verifies their SHA-256) before using them. If one binary fails to compile, the CLI reports the reason, keeps going with the others, and exits with code 1. Loading and rendering the generated effects is exercised by the load tests in `Examples/` (MonoGame, KNI, and FNA); CI runs the MonoGame and KNI ones on Linux. The current compiler path covers the `Vertex`, `Fragment`, and `Compute` stages and the supported subset of shader-body operations.
 
 ### Generated project accessors
 
 Use the `add` command when the project should contain a visible generated C# file instead of only external shader artifacts:
 
 ```bash
-dotnet run --project YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj -- \
+dotnet run --project Core/YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj -- \
   add Game.Graphics.csproj \
   --target spirv
 ```
@@ -346,7 +346,7 @@ dotnet build YotsubaShader.sln
 The example project contains `BasicColorShader`, a representative vertex, fragment, and compute shader. Building the project also invokes the current CLI `add` hook and regenerates its project-local `YotsubaShader.g.cs` file:
 
 ```bash
-dotnet build YotsubaShader.Example/YotsubaShader.Example.csproj
+dotnet build Examples/YotsubaShader.Example/YotsubaShader.Example.csproj
 ```
 
 To create external `.spv`, HLSL, GLSL, GLSL ES, MSL, or C++ artifacts, invoke the CLI with `compile` and the targets you need. The low-level `SpirVModule` API remains available for explicit module construction; it is separate from the C# shader compilation path.

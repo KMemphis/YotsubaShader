@@ -12,9 +12,9 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)NOTICE" Pack="true" PackagePath="" Visible="false" />
-    <None Include="$(MSBuildThisFileDirectory)YotsubaShaderCross/LICENSE" Pack="true" PackagePath="" Visible="false"
+    <None Include="$(MSBuildThisFileDirectory)Core/ShaderCross/YotsubaShaderCross/LICENSE" Pack="true" PackagePath="" Visible="false"
           Condition="$([System.String]::Copy('$(MSBuildProjectName)').StartsWith('YotsubaShaderCross'))" />
-    <None Include="$(MSBuildThisFileDirectory)YotsubaShaderCross/LICENSES/*.txt" Pack="true" PackagePath="LICENSES/" Visible="false"
+    <None Include="$(MSBuildThisFileDirectory)Core/ShaderCross/YotsubaShaderCross/LICENSES/*.txt" Pack="true" PackagePath="LICENSES/" Visible="false"
           Condition="$([System.String]::Copy('$(MSBuildProjectName)').StartsWith('YotsubaShaderCross'))" />
   </ItemGroup>
 </Project>

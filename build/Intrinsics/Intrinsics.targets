@@ -3,14 +3,14 @@
     Genera Math, Intrinsic y los tipos de relleno a partir del JSON de la sintaxis, antes de compilar.
 
     Uso en el .csproj de cada sintaxis (una sola línea):
-        <Import Project="..\build\Intrinsics\Intrinsics.targets" />
+        <Import Project="..\..\..\build\Intrinsics\Intrinsics.targets" />
 
     Por defecto usa el único *.json que haya en la carpeta del proyecto. Para indicar otro:
         <PropertyGroup><IntrinsicsJson>ruta\al\archivo.json</IntrinsicsJson></PropertyGroup>
   -->
 
   <PropertyGroup>
-    <IntrinsicsEnumFile Condition="'$(IntrinsicsEnumFile)' == ''">$(MSBuildThisFileDirectory)..\..\YotsubaShader.Concepts\Methods\Intrinsic.cs</IntrinsicsEnumFile>
+    <IntrinsicsEnumFile Condition="'$(IntrinsicsEnumFile)' == ''">$(MSBuildThisFileDirectory)..\..\Core\Syntax\YotsubaShader.Concepts\Methods\Intrinsic.cs</IntrinsicsEnumFile>
     <IntrinsicsOutputDir>$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)Intrinsics\</IntrinsicsOutputDir>
   </PropertyGroup>
 
