@@ -66,9 +66,24 @@
 */
 #endregion
 
+using System;
 using YotsubaShader.Concepts.BindingSlotsAndResources;
 
 namespace YotsubaShader.HlslSyntax.Resources;
 
+/// <summary>
+/// Buffer de solo lectura con un array de <typeparamref name="T"/> de longitud variable (HLSL StructuredBuffer).
+/// En la GPU es un storage buffer <c>{ T data[]; }</c>. Se declara como campo del shader con su binding.
+/// </summary>
 [ReadOnlyStorageBuffer]
-public struct StructuredBuffer<T>;
+public struct StructuredBuffer<T>
+{
+    /// <summary>El elemento <paramref name="index"/>.</summary>
+    public T this[int index] => throw new InvalidOperationException();
+
+    /// <summary>El elemento <paramref name="index"/>.</summary>
+    public T this[uint index] => throw new InvalidOperationException();
+
+    /// <summary>Cuántos elementos tiene el buffer enlazado (se calcula en la GPU).</summary>
+    public int Length => throw new InvalidOperationException();
+}

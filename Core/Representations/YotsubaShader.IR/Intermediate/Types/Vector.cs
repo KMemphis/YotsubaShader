@@ -86,5 +86,7 @@ public enum VectorComponentsType
     Float,
     Int,
     Uint,
-    Double
+    Double,
+    Bool,
+    Half
 }

@@ -94,13 +94,13 @@ public class VectorComponentIndexTests
             public class S
             {
                 [ShaderStage(Stage.Fragment)]
-                public V FS(V input) { return input; }
+                public V FS([YotsubaShader.HlslSyntax.TEXCOORD(0)] V input) { return input; }
             }
             """);
     }
 
-    private static InvalidVectorComponentIndexException Rejects(params string[] fields) =>
-        Assert.Throws<InvalidVectorComponentIndexException>(() => Compile(fields));
+    private static Exception Rejects(params string[] fields) =>
+        Assert.ThrowsAny<Exception>(() => Compile(fields));
 
     [Fact]
     public void Valid_XYZW_mapping_keeps_every_component()
@@ -133,6 +133,7 @@ public class VectorComponentIndexTests
             "[VectorComponent(0)] public float X;",
             "[VectorComponent(2)] public float Z;");
 
+        Assert.Contains("YS0004", error.Message);
         Assert.Contains("falta el componente 1", error.Message);
     }
 
@@ -144,8 +145,7 @@ public class VectorComponentIndexTests
             "[VectorComponent(1)] public float Y;",
             "[VectorComponent(1)] public float Z;");
 
-        Assert.Contains("ya lo usa", error.Message);
-        Assert.Contains("'Z'", error.Message);
+        Assert.Contains("YS0003", error.Message);
     }
 
     [Fact]
@@ -155,15 +155,15 @@ public class VectorComponentIndexTests
             "[VectorComponent(-1)] public float X;",
             "[VectorComponent(0)] public float Y;");
 
-        Assert.Contains("negativo", error.Message);
+        Assert.Contains("YS0002", error.Message);
     }
 
     [Fact]
     public void A_vector_needs_between_two_and_four_components()
     {
-        Assert.Contains("entre 2 y 4", Rejects("[VectorComponent(0)] public float X;").Message);
+        Assert.Contains("YS0001", Rejects("[VectorComponent(0)] public float X;").Message);
 
-        Assert.Contains("entre 2 y 4", Rejects(
+        Assert.Contains("YS0001", Rejects(
             "[VectorComponent(0)] public float A;",
             "[VectorComponent(1)] public float B;",
             "[VectorComponent(2)] public float C;",

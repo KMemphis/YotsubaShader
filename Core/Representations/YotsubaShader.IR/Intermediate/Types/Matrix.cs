@@ -82,5 +82,6 @@ public record class Matrix(string HumanName, StorageKind Kind, InterfaceSlot? Sl
 public enum MatrixComponentType
 {
     Float,
-    Double
+    Double,
+    Half
 }

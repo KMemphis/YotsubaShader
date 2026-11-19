@@ -123,6 +123,12 @@ internal static class BufferLayout
             case IRTypes.Double:
                 return (8, 8);
 
+            case IRTypes.Half:
+                return (2, 2);
+
+            case IRTypes.Int { Bits: 16 }:
+                return (2, 2);
+
             case IRTypes.Int { Bits: 32 }:
                 return (4, 4);
 
@@ -131,7 +137,8 @@ internal static class BufferLayout
 
             case IRTypes.Vector vector:
             {
-                int component = vector.ComponentsType == IRTypes.VectorComponentsType.Double ? 8 : 4;
+                int component = vector.ComponentsType == IRTypes.VectorComponentsType.Double ? 8
+                    : vector.ComponentsType == IRTypes.VectorComponentsType.Half ? 2 : 4;
                 int length = vector.ComponentsLength;
 
                 if (length is < 2 or > 4)
@@ -151,11 +158,19 @@ internal static class BufferLayout
             case IRTypes.Bool:
                 throw Unsupported(path, "a bool, which is not allowed in a shared buffer; use a uint");
 
-            case IRTypes.Matrix:
-                throw Unsupported(path, "a matrix");
+            case IRTypes.Matrix matrix:
+            {
+                // Columna a columna (ColMajor). std140 redondea el paso de cada columna a 16 bytes.
+                int stride = MatrixStride(matrix, policy);
+                return (stride, stride * (int)matrix.Columns);
+            }
 
-            case IRTypes.Array:
-                throw Unsupported(path, "an array");
+            case IRTypes.Array array:
+            {
+                var (_, stride, alignment) = ArrayLayout(array, policy, path);
+                // Sin longitud: array sin tamaño, ocupa el resto del buffer (solo como último miembro).
+                return (alignment, array.Length is uint length ? stride * (int)length : 0);
+            }
 
             default:
                 throw Unsupported(path, $"the type {storage.GetType().Name}");
@@ -258,11 +273,70 @@ internal static class BufferLayout
                 SpirVInstructionParameter.Enumerant(SpirVDecoration.Offset),
                 new(offsets[index].ToString(CultureInfo.InvariantCulture), SpirVInstructionType.UIntValue));
 
-            if (structure.Properties[index] is IRTypes.CustomStruct nested)
+            Storage member = structure.Properties[index];
+            string memberPath = $"{path}.{member.HumanName}";
+
+            // Arrays: ArrayStride en su tipo. Matrices (sueltas o dentro de un array): ColMajor y MatrixStride en el miembro.
+            Storage inner = member;
+            while (inner is IRTypes.Array array)
             {
-                DecorateMembers(module, nested, policy, $"{path}.{nested.HumanName}", decorated);
+                string arrayTypeId = module.DeclareType(array, Stage.None);
+                var (_, stride, _) = ArrayLayout(array, policy, memberPath);
+                if (!decorated.ContainsKey(arrayTypeId))
+                {
+                    decorated[arrayTypeId] = (policy, [stride]);
+                    module.AddLine(SpirVOpTable.OpDecorate, SpirVModuleHelpers.Id(arrayTypeId),
+                        SpirVInstructionParameter.Enumerant(SpirVDecoration.ArrayStride),
+                        new(stride.ToString(CultureInfo.InvariantCulture), SpirVInstructionType.UIntValue));
+                }
+
+                inner = array.ElementType;
+            }
+
+            if (inner is IRTypes.Matrix matrix)
+            {
+                module.AddLine(SpirVOpTable.OpMemberDecorate, SpirVModuleHelpers.Id(structId),
+                    new(index.ToString(CultureInfo.InvariantCulture), SpirVInstructionType.UIntValue),
+                    SpirVInstructionParameter.Enumerant(SpirVDecoration.ColMajor));
+                module.AddLine(SpirVOpTable.OpMemberDecorate, SpirVModuleHelpers.Id(structId),
+                    new(index.ToString(CultureInfo.InvariantCulture), SpirVInstructionType.UIntValue),
+                    SpirVInstructionParameter.Enumerant(SpirVDecoration.MatrixStride),
+                    new(MatrixStride(matrix, policy).ToString(CultureInfo.InvariantCulture), SpirVInstructionType.UIntValue));
+            }
+
+            if (inner is IRTypes.CustomStruct nested)
+            {
+                DecorateMembers(module, nested, policy, memberPath, decorated);
             }
         }
+    }
+
+    /// <summary>Paso entre columnas de una matriz (decoración MatrixStride).</summary>
+    public static int MatrixStride(IRTypes.Matrix matrix, BufferLayoutPolicy policy)
+    {
+        int component = matrix.ComponentsType switch
+        {
+            IRTypes.MatrixComponentType.Double => 8,
+            IRTypes.MatrixComponentType.Half => 2,
+            _ => 4
+        };
+        int columnAlignment = matrix.Rows == 2 ? 2 * component : 4 * component;
+        return policy == BufferLayoutPolicy.Std140 ? RoundUp(columnAlignment, 16) : columnAlignment;
+    }
+
+    /// <summary>Paso entre elementos (ArrayStride) y alineación de un array según la política.</summary>
+    public static (int ElementSize, int Stride, int Alignment) ArrayLayout(IRTypes.Array array, BufferLayoutPolicy policy, string path)
+    {
+        var (elementAlignment, elementSize) = Measure(array.ElementType, policy, path + "[]");
+        int stride = RoundUp(elementSize, elementAlignment);
+        int alignment = elementAlignment;
+        if (policy == BufferLayoutPolicy.Std140)
+        {
+            stride = RoundUp(stride, 16);
+            alignment = RoundUp(alignment, 16);
+        }
+
+        return (elementSize, stride, alignment);
     }
 
     private static int RoundUp(int value, int multiple) => (value + multiple - 1) / multiple * multiple;

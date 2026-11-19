@@ -76,8 +76,26 @@ public readonly record struct Function(
     IReadOnlyList<Storage> Inputs,
     IReadOnlyList<Storage> Outputs,
     IReadOnlyList<Statement> Body,
-    FunctionExtraParams? ExtraParams = null
-    );
+    FunctionExtraParams? ExtraParams = null,
+    IReadOnlyList<ParameterMode>? ParameterModes = null
+    )
+{
+    /// <summary>Cómo recibe la función auxiliar su parámetro <paramref name="index"/> (por defecto, por valor).</summary>
+    public ParameterMode ModeOf(int index) =>
+        ParameterModes is { } modes && index < modes.Count ? modes[index] : ParameterMode.Value;
+}
+
+/// <summary>
+/// Paso de un parámetro de una función auxiliar. <see cref="Ref"/>, <see cref="In"/> y <see cref="Out"/> son
+/// los de C#: la función recibe un puntero a una variable del llamador.
+/// </summary>
+public enum ParameterMode
+{
+    Value,
+    In,
+    Ref,
+    Out
+}
 
 public abstract record FunctionExtraParams;
 public record ComputeParams(uint X, uint Y, uint Z) : FunctionExtraParams;

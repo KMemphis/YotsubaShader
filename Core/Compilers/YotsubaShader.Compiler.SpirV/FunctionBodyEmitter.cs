@@ -85,6 +85,9 @@ internal sealed partial class FunctionBodyEmitter
     private int _nextTemporaryValue;
     
     private readonly Stack<(string Merge, string Continue)> _loops = new();
+
+    /// <summary>Destino de <c>break</c>: el merge del bucle o del switch más interno.</summary>
+    private readonly Stack<string> _breakTargets = new();
     private bool _terminated;   // el bloque actual ya terminó (OpBranch/OpReturn/...)
     private int _nextLabel;
     private IReadOnlyList<Function> _otherFuncs = [];
@@ -108,9 +111,29 @@ internal sealed partial class FunctionBodyEmitter
     {
         _functionsById = otherFuncs.ToDictionary(d => d.Id);
         _otherFuncs = otherFuncs;
+        SpillArrayParameters(function);
         foreach (var statement in statements)
         {
             EmitStatement(statement, function, otherFuncs);
+        }
+    }
+
+    /// <summary>
+    /// Un array recibido por valor es un valor SPIR-V: para indexarlo con un índice variable hace falta una
+    /// variable. Se copia una vez al entrar en la función.
+    /// </summary>
+    private void SpillArrayParameters(Function function)
+    {
+        foreach (var (storage, valueId) in _values.Where(p => p.Key is IR.Intermediate.Types.Array).ToList())
+        {
+            string typeId = _module.DeclareType(storage, function.Stage);
+            string pointerTypeId = _module.DeclarePointer(YS_Types.SpirVStorageClass.Function, typeId);
+            string pointerId = $"%param_copy_{storage.HumanName}_{function.HumanName}_{function.Id.Value}";
+            _module.AddResultLine(pointerId, SpirVOpTable.OpVariable, SpirVModuleHelpers.Id(pointerTypeId),
+                SpirVInstructionParameter.Enumerant(YS_Types.SpirVStorageClass.Function));
+            _module.AddLine(SpirVOpTable.OpStore, SpirVModuleHelpers.Id(pointerId), SpirVModuleHelpers.Id(valueId));
+            _values.Remove(storage);
+            _pointers[storage] = pointerId;
         }
     }
 
@@ -150,6 +173,12 @@ internal sealed partial class FunctionBodyEmitter
                     function,
                     requiresValue: false);
                 break;
+            case IntrinsicCallStatement intrinsicStatement:
+                EmitIntrinsicStatement(intrinsicStatement, ref function);
+                break;
+            case Switch switchStatement:
+                EmitSwitch(switchStatement, function, otherFuncs);
+                break;
             case If ifStatement:
                 EmitIf(ifStatement, function, otherFuncs);
                 break;
@@ -159,8 +188,8 @@ internal sealed partial class FunctionBodyEmitter
                 break;
 
             case Break:
-                if (_loops.Count == 0) throw new InvalidOperationException("'break' outside of a loop.");
-                Branch(_loops.Peek().Merge);
+                if (_breakTargets.Count == 0) throw new InvalidOperationException("'break' outside of a loop or switch.");
+                Branch(_breakTargets.Peek());
                 break;
 
             case Continue:

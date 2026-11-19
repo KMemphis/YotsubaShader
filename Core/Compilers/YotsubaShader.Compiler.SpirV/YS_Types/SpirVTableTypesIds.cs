@@ -99,12 +99,17 @@ public class SpirVTableTypesIds
     public static string VectorID(int components, VectorComponentsType type) => "%v" + components + 
         (type == VectorComponentsType.Int ? "int" :
             type == VectorComponentsType.Float ? "float"
-                : type == VectorComponentsType.Uint ? "uint" : throw new NotSupportedException("Vector have to be Int, UInt, float or Double"));
+                : type == VectorComponentsType.Uint ? "uint"
+                    : type == VectorComponentsType.Double ? "double"
+                        : type == VectorComponentsType.Half ? "half"
+                        : type == VectorComponentsType.Bool ? "bool"
+                            : throw new NotSupportedException("Vector have to be Int, UInt, float, Double or Bool"));
     
 
-    public static string MatrixID(int components, MatrixComponentType type) => "%mat" + components + 
+    /// <summary>%mat4x3float: 4 columnas de 3 filas.</summary>
+    public static string MatrixID(int columns, int rows, MatrixComponentType type) => "%mat" + columns + "x" + rows + 
     (type == MatrixComponentType.Float ? "float"
-    : type == MatrixComponentType.Double ? "double" : throw new NotSupportedException("Vector have to be Int, UInt, float or Double"));
+    : type == MatrixComponentType.Double ? "double" : type == MatrixComponentType.Half ? "half" : throw new NotSupportedException("Vector have to be Int, UInt, float or Double"));
 
     
     public static string TextureID(Texture texture) =>

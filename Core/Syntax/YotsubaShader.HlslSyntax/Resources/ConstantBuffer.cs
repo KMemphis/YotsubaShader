@@ -66,9 +66,18 @@
 */
 #endregion
 
+using System;
 using YotsubaShader.Concepts.BindingSlotsAndResources;
 
 namespace YotsubaShader.HlslSyntax.Resources;
 
+/// <summary>
+/// Uniform buffer cuyo contenido es <typeparamref name="T"/> (HLSL ConstantBuffer). Los campos se leen con
+/// <see cref="Value"/>: <c>Camera.Value.ViewProjection</c>.
+/// </summary>
 [UniformBuffer]
-public struct ConstantBuffer<T>;
+public struct ConstantBuffer<T>
+{
+    /// <summary>El contenido del buffer.</summary>
+    public T Value => throw new InvalidOperationException();
+}

@@ -71,9 +71,13 @@ namespace YotsubaShader.IR.Intermediate.Slot.Types;
 public enum BuiltIn
 {
     // Vertex
-    Position, PointSize, VertexIndex, InstanceIndex,
+    Position, PointSize, VertexIndex, InstanceIndex, BaseVertex, BaseInstance,
     // Fragment
-    FragCoord, FrontFacing, FragDepth,
+    FragCoord, FrontFacing, FragDepth, SampleId, SamplePosition, PrimitiveId, HelperInvocation,
+    /// <summary>SV_DepthGreaterEqual: FragDepth con la promesa de no acercar el fragmento (DepthGreater).</summary>
+    FragDepthGreater,
+    /// <summary>SV_DepthLessEqual: FragDepth con la promesa de no alejar el fragmento (DepthLess).</summary>
+    FragDepthLess,
     // Compute
     GlobalInvocationId, LocalInvocationId, LocalInvocationIndex, WorkgroupId, NumWorkgroups,
 }

@@ -141,9 +141,10 @@ internal static class InterfaceValidator
         (builtIn, stage, kind) switch
         {
             (BuiltIn.Position or BuiltIn.PointSize, Stage.Vertex, StorageKind.Output) => true,
-            (BuiltIn.VertexIndex or BuiltIn.InstanceIndex, Stage.Vertex, StorageKind.Input) => true,
-            (BuiltIn.FragCoord or BuiltIn.FrontFacing, Stage.Fragment, StorageKind.Input) => true,
-            (BuiltIn.FragDepth, Stage.Fragment, StorageKind.Output) => true,
+            (BuiltIn.VertexIndex or BuiltIn.InstanceIndex or BuiltIn.BaseVertex or BuiltIn.BaseInstance, Stage.Vertex, StorageKind.Input) => true,
+            (BuiltIn.FragCoord or BuiltIn.FrontFacing or BuiltIn.SampleId or BuiltIn.SamplePosition or BuiltIn.PrimitiveId or
+                BuiltIn.HelperInvocation, Stage.Fragment, StorageKind.Input) => true,
+            (BuiltIn.FragDepth or BuiltIn.FragDepthGreater or BuiltIn.FragDepthLess, Stage.Fragment, StorageKind.Output) => true,
             (BuiltIn.GlobalInvocationId or BuiltIn.LocalInvocationId or BuiltIn.LocalInvocationIndex or
                 BuiltIn.WorkgroupId or BuiltIn.NumWorkgroups, Stage.Compute, StorageKind.Input) => true,
             _ => false
@@ -152,9 +153,10 @@ internal static class InterfaceValidator
     private static string ValidUse(BuiltIn builtIn) => builtIn switch
     {
         BuiltIn.Position or BuiltIn.PointSize => "a vertex shader output",
-        BuiltIn.VertexIndex or BuiltIn.InstanceIndex => "a vertex shader input",
-        BuiltIn.FragCoord or BuiltIn.FrontFacing => "a fragment shader input",
-        BuiltIn.FragDepth => "a fragment shader output",
+        BuiltIn.VertexIndex or BuiltIn.InstanceIndex or BuiltIn.BaseVertex or BuiltIn.BaseInstance => "a vertex shader input",
+        BuiltIn.FragCoord or BuiltIn.FrontFacing or BuiltIn.SampleId or BuiltIn.SamplePosition or BuiltIn.PrimitiveId or
+            BuiltIn.HelperInvocation => "a fragment shader input",
+        BuiltIn.FragDepth or BuiltIn.FragDepthGreater or BuiltIn.FragDepthLess => "a fragment shader output",
         _ => "a compute shader input"
     };
 }

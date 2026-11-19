@@ -1,6 +1,6 @@
-namespace YotsubaShader.Concepts.Methods
-{
-    /// <summary>
+namespace YotsubaShader.Concepts.Methods;
+
+/// <summary>
     /// Operaciones intrínsecas de hardware: solo se llaman, no se definen.
     /// Cada sobrecarga es un elemento distinto.
     /// </summary>
@@ -108,5 +108,22 @@ namespace YotsubaShader.Concepts.Methods
         AtomicCompareExchangeInt, AtomicCompareExchangeUint,
         AtomicLoadInt, AtomicLoadUint,
         AtomicStoreInt, AtomicStoreUint,
+
+        // ── Matemática escalar y vectorial adicional ──
+        Fract, Mod, Remainder, Lerp, Step, SmoothStep, Saturate, Radians, Degrees, Exp2, Exp10, Reciprocal, RoundEven, Ldexp, Frexp, Modf, SinCos, SinPi, CosPi, TanPi, MultiplyExtended, IsNaN, IsInfinity, IsFinite,
+
+        // ── Geometría y álgebra lineal ──
+        Dot, Cross, Length, LengthSquared, Distance, DistanceSquared, Normalize, Reflect, Refract, FaceForward, OuterProduct, Transpose, Determinant, MatrixInverse, MatrixMultiply, MatrixComponentMultiply,
+
+        // ── Comparación y lógica por componente ──
+        Equal, NotEqual, LessThan, LessThanEqual, GreaterThan, GreaterThanEqual, Any, All, Not, Select,
+
+        // ── Bits y enteros ──
+        CountOneBits, CountLeadingZeros, CountTrailingZeros, FindLeastSignificantBit, FindMostSignificantBit, ReverseBits, ExtractBits, InsertBits, AddCarry, SubtractBorrow, FloatBitsToInt, IntBitsToFloat,
+
+        // ── Empaquetado ──
+        PackHalf2x16, UnpackHalf2x16, PackSnorm2x16, UnpackSnorm2x16, PackUnorm2x16, UnpackUnorm2x16, PackSnorm4x8, UnpackSnorm4x8, PackUnorm4x8, UnpackUnorm4x8,
+
+        // ── Texturas adicionales ──
+        SampleCompareLevel2DArray, SampleCompareLevelCube, SampleCompareLevelCubeArray, TexelFetchCube,
     }
-}

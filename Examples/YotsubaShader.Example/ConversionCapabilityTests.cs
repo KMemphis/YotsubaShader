@@ -101,9 +101,10 @@ public class ConversionCapabilityTests
     }
 
     [Fact]
-    public void A_double_literal_converted_to_float_needs_Float64()
+    public void A_double_constant_converted_to_float_is_folded_and_needs_no_Float64()
     {
-        Assert.Equal(["Shader", "Float64"], Capabilities("float f = (float)1.5; return f;"));
+        // C# pliega (float)1.5 a la constante 1.5f: no queda ningún double en el shader.
+        Assert.Equal(["Shader"], Capabilities("float f = (float)1.5; return f;"));
     }
 
     [Fact]

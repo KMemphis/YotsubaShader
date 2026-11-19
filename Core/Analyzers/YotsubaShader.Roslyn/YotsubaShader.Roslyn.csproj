@@ -5,11 +5,24 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
+        <!-- Los descriptores de YotsubaShader.Rules se publican en el analizador del IDE, no aquí. -->
+        <NoWarn>$(NoWarn);RS2008</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="ICSharpCode.Decompiler" Version="11.2.0.10050" />
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+    </ItemGroup>
+
+    <!-- Código C# que se añade a la compilación del shader (Math sin instrucción de GPU). No es parte de esta DLL. -->
+    <ItemGroup>
+        <Compile Remove="Polyfills\**\*.cs" />
+        <EmbeddedResource Include="Polyfills\**\*.cs" LogicalName="YotsubaShader.Polyfills.%(Filename).cs" />
+    </ItemGroup>
+
+    <!-- Las mismas reglas que el analizador del IDE (YotsubaShader.IDE.Analyzer). -->
+    <ItemGroup>
+        <Compile Include="..\YotsubaShader.Rules\**\*.cs" LinkBase="Rules" />
     </ItemGroup>
 
     <ItemGroup>

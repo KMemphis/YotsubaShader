@@ -66,9 +66,25 @@
 */
 #endregion
 
+using System;
 using YotsubaShader.Concepts.BindingSlotsAndResources;
 
 namespace YotsubaShader.HlslSyntax.Resources;
 
+/// <summary>
+/// Buffer de lectura y escritura con un array de <typeparamref name="T"/> de longitud variable (HLSL
+/// RWStructuredBuffer). En la GPU es un storage buffer <c>{ T data[]; }</c>. El indexador devuelve una
+/// referencia: <c>Items[i].X = 1</c> y <c>InterlockedAdd(ref Items[i].Count, 1)</c> escriben en el buffer.
+/// </summary>
 [RWStorageBuffer]
-public struct RWStructuredBuffer<T>;
+public struct RWStructuredBuffer<T>
+{
+    /// <summary>El elemento <paramref name="index"/>, por referencia.</summary>
+    public ref T this[int index] => throw new InvalidOperationException();
+
+    /// <summary>El elemento <paramref name="index"/>, por referencia.</summary>
+    public ref T this[uint index] => throw new InvalidOperationException();
+
+    /// <summary>Cuántos elementos tiene el buffer enlazado (se calcula en la GPU).</summary>
+    public int Length => throw new InvalidOperationException();
+}

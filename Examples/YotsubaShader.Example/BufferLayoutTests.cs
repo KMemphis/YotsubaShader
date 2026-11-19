@@ -184,7 +184,9 @@ public class BufferLayoutTests
             $"{Uniform} public P Data;");
 
         Assert.Equal([0, 16, 32], Offsets(text, "%struct_P_Uniform"));
-        Assert.Equal([0], Offsets(text, "%struct_Inner"));
+        // Dentro del uniform, Inner es su propio tipo con layout (el Inner de las variables locales no lo lleva).
+        Assert.Equal([0], Offsets(text, "%struct_Inner_Uniform"));
+        Assert.Empty(Offsets(text, "%struct_Inner"));
     }
 
     [Fact]
@@ -225,20 +227,24 @@ public class BufferLayoutTests
     }
 
     [Fact]
-    public void A_nested_struct_with_the_same_offsets_in_both_layouts_can_be_shared()
+    public void A_nested_struct_used_in_two_buffer_kinds_gets_one_laid_out_type_per_kind()
     {
         string text = Spirv("public struct Inner { public float X; } public struct A { public Inner I; } public struct B { public Inner I; }",
             $"{Uniform} public A First; {Storage} public B Second;");
 
-        Assert.Single(Regex.Matches(text, @"OpMemberDecorate %struct_Inner 0 Offset"));
+        Assert.Single(Regex.Matches(text, @"OpMemberDecorate %struct_Inner_Uniform 0 Offset"));
+        Assert.Single(Regex.Matches(text, @"OpMemberDecorate %struct_Inner_StorageBuffer 0 Offset"));
     }
 
     [Fact]
-    public void A_nested_struct_that_needs_two_different_layouts_is_rejected()
+    public void A_nested_struct_with_different_std140_and_std430_layouts_is_accepted()
     {
-        Rejects("public struct Inner { public float X; } public struct Mid { public float A; public Inner I; } public struct A { public Mid M; } public struct B { public Mid M; }",
-            $"{Uniform} public A First; {Storage} public B Second;",
-            "two different buffer layouts");
+        // Antes un mismo tipo no podía tener dos layouts; ahora cada clase de buffer tiene su tipo.
+        string text = Spirv("public struct Inner { public float X; } public struct Mid { public float A; public Inner I; } public struct A { public Mid M; } public struct B { public Mid M; }",
+            $"{Uniform} public A First; {Storage} public B Second;");
+
+        Assert.Equal([0, 16], Offsets(text, "%struct_Mid_Uniform"));
+        Assert.Equal([0, 4], Offsets(text, "%struct_Mid_StorageBuffer"));
     }
 
     [Fact]
@@ -256,6 +262,6 @@ public class BufferLayoutTests
     [Fact]
     public void A_buffer_that_is_not_a_struct_is_rejected_with_advice()
     {
-        Rejects("", $"{Uniform} public float Time;", "must be a struct");
+        Rejects("", $"{Uniform} public float Time;", "YS0305");
     }
 }

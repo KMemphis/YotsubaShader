@@ -77,9 +77,26 @@ public enum SpirVCapability : uint
 {
     Matrix = 0,
     Shader = 1,
+    Geometry = 2,
+    Float16 = 9,
     Float64 = 10,
     Int64 = 11,
     Int16 = 22,
+    StorageInputOutput16 = 4436,
+    ImageGatherExtended = 25,
+    StorageImageMultisample = 27,
+    ImageCubeArray = 34,
+    SampleRateShading = 35,
+    Sampled1D = 43,
+    Image1D = 44,
+    SampledCubeArray = 45,
+    ImageMSArray = 48,
+    ImageQuery = 50,
+    DerivativeControl = 51,
+    InterpolationFunction = 52,
+    StorageImageReadWithoutFormat = 55,
+    StorageImageWriteWithoutFormat = 56,
+    DrawParameters = 4427,
 }
 
 public enum SpirVAddressingModel : uint
@@ -109,6 +126,9 @@ public enum SpirVExecutionModel : uint
 public enum SpirVExecutionMode : uint
 {
     OriginUpperLeft = 7,
+    DepthReplacing = 12,
+    DepthGreater = 14,
+    DepthLess = 15,
     LocalSize = 17,
 }
 
@@ -119,6 +139,7 @@ public enum SpirVDecoration : uint
     ArrayStride = 6,
     MatrixStride = 7,
     BuiltIn = 11,
+    Flat = 14,
     Location = 30,
     Binding = 33,
     DescriptorSet = 34,
@@ -142,10 +163,14 @@ public enum SpirVBuiltIn : uint
 {
     Position = 0,
     PointSize = 1,
+    PrimitiveId = 7,
 
     FragCoord = 15,
     FrontFacing = 17,
+    SampleId = 18,
+    SamplePosition = 19,
     FragDepth = 22,
+    HelperInvocation = 23,
 
     NumWorkgroups = 24,
     WorkgroupId = 26,
@@ -155,4 +180,6 @@ public enum SpirVBuiltIn : uint
 
     VertexIndex = 42,
     InstanceIndex = 43,
+    BaseVertex = 4424,
+    BaseInstance = 4425,
 }
