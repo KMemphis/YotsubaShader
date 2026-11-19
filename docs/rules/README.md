@@ -84,3 +84,4 @@ Generado por `scripts/generate-rule-docs.py` desde `ShaderRules.cs`.
 | [YS0707](YS0707.md) | Operación con derivadas en control de flujo no uniforme | Warning | Portabilidad |
 | [YS0708](YS0708.md) | NaN e infinito no fiables | Warning | Portabilidad |
 | [YS0709](YS0709.md) | División entera por cero | Warning | Portabilidad |
+| [YS0710](YS0710.md) | No disponible en Godot | Warning | Portabilidad |

@@ -35,6 +35,7 @@ internal static class DeclarationRules
         }
 
         LinkStages(signatures, report);
+        GodotSupport.AnalyzeSignatures(signatures, targets, report);
         ResourceRules.Analyze(type, targets, report);
     }
 

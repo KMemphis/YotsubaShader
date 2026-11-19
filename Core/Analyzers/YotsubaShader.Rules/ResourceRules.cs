@@ -152,6 +152,8 @@ internal static class ResourceRules
                 }
             }
 
+            GodotSupport.AnalyzeResource(member, kind, targets, report);
+
             switch (kind)
             {
                 case ResourceKind.SampledTexture:

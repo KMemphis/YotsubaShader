@@ -25,6 +25,7 @@
       <ProjectReference Include="..\..\Core\Syntax\YotsubaShader.HlslSyntax\YotsubaShader.HlslSyntax.csproj" />
       <ProjectReference Include="..\..\Core\Syntax\YotsubaShader.SpirvSyntax\YotsubaShader.SpirvSyntax.csproj" />
       <ProjectReference Include="..\..\Core\Compilers\YotsubaShader.Compiler.SpirV\YotsubaShader.Compiler.SpirV.csproj" />
+      <ProjectReference Include="..\..\Plugins\YotsubaShader.Extensions.Godot\YotsubaShader.Extensions.Godot.csproj" />
     </ItemGroup>
 
     <PropertyGroup>

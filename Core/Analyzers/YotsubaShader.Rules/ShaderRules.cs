@@ -206,6 +206,8 @@ internal static class ShaderRules
         "'{0}' puede devolver siempre false con las optimizaciones de coma flotante de {1}.");
     public static readonly DiagnosticDescriptor IntegerDivisionByZero = Warning("YS0709", "División entera por cero",
         "La división entera por cero da un resultado indefinido en la GPU (en C# lanza una excepción).");
+    public static readonly DiagnosticDescriptor NotInGodot = Portability("YS0710", "No disponible en Godot",
+        "'{0}' {1}. Afecta a: Godot.");
 
     /// <summary>Todos los descriptores, para <c>SupportedDiagnostics</c>.</summary>
     public static IReadOnlyList<DiagnosticDescriptor> All { get; } = typeof(ShaderRules)

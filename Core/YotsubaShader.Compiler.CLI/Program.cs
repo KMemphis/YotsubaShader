@@ -86,7 +86,7 @@ const string usage = """
                        yotsuba plugin list | install <nombre> | update [nombre] | remove <nombre>
 
                      Destinos incluidos: spirv, hlsl, glsl, gles, msl, cpp.
-                     Destinos por plugin (se instalan solos desde NuGet, última versión): monogame, kni, fna.
+                     Destinos por plugin (se instalan solos desde NuGet, última versión): monogame, kni, fna, godot.
                      Ver más con: yotsuba plugin list
                      Usa --help para mostrar esta ayuda.
                      Ejecutable del Release: ./YotsubaShader.Compiler.CLI (Linux/macOS) o YotsubaShader.Compiler.CLI.exe (Windows).
@@ -524,11 +524,21 @@ static string GetExtension(ShaderTarget target)
 
 // Si ShadowDusk no puede compilar un target, el método generado lanza con el motivo
 // en lugar de abortar todo el comando "add".
-static string BuildEngineBody(string description, Func<byte[]> build, string indentation, string returnPrefix)
+static string BuildEngineBody(string description, Func<byte[]> build, string indentation, string returnPrefix, bool text = false)
 {
     try
     {
-        string base64 = Convert.ToBase64String(build());
+        byte[] bytes = build();
+
+        if (text)
+        {
+            string literal = Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(
+                System.Text.Encoding.UTF8.GetString(bytes),
+                quote: true);
+            return $"{indentation}{returnPrefix}{literal};";
+        }
+
+        string base64 = Convert.ToBase64String(bytes);
         return $"{indentation}{returnPrefix}global::System.Convert.FromBase64String(\"{base64}\");";
     }
     catch (Exception exception)
@@ -551,24 +561,26 @@ static void AppendPluginMethod(
 {
     PluginMetadata metadata = plugin.Metadata;
     bool hasOptions = metadata.Options.Length != 0 && !string.IsNullOrEmpty(metadata.OptionsEnum);
+    string returnType = metadata.Text ? "string" : "byte[]";
 
     if (!hasOptions)
     {
         builder
-            .AppendLine($"    public static byte[] {metadata.MethodName}(this {shaderType} _shader)")
+            .AppendLine($"    public static {returnType} {metadata.MethodName}(this {shaderType} _shader)")
             .AppendLine("    {")
             .AppendLine(BuildEngineBody(
                 $"{compiledCode.CSharpFullClassName}.{metadata.MethodName}",
                 () => plugin.Backend.Compile(compiledCode, 0),
                 "        ",
-                "return "))
+                "return ",
+                metadata.Text))
             .AppendLine("    }")
             .AppendLine();
         return;
     }
 
     builder
-        .AppendLine($"    public static byte[] {metadata.MethodName}(")
+        .AppendLine($"    public static {returnType} {metadata.MethodName}(")
         .AppendLine($"        this {shaderType} _shader,")
         .AppendLine($"        global::YotsubaShader.{metadata.OptionsEnum} {metadata.OptionsParameterName})")
         .AppendLine("    {")
@@ -584,7 +596,8 @@ static void AppendPluginMethod(
             $"{compiledCode.CSharpFullClassName}.{metadata.MethodName}({option.Name})",
             () => plugin.Backend.Compile(compiledCode, option.Value),
             "                ",
-            "return ");
+            "return ",
+            metadata.Text);
 
         int existing = bodies.FindIndex(entry => entry.Body == body);
 

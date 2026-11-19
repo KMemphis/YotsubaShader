@@ -69,3 +69,16 @@ for name in YotsubaShaderCross.Runtime YotsubaShaderCross; do
   dotnet pack "Core/ShaderCross/YotsubaShaderCross/src/$name/$name.csproj" \
     -c Release -p:Version="$version" -o "$output"
 done
+
+# The Godot editor addon also ships as a zip to unpack into a project (addons/yotsubashader), next to its NuGet package.
+python3 - "$version" "$output" <<'PY'
+import sys
+import zipfile
+from pathlib import Path
+version, output = sys.argv[1], Path(sys.argv[2])
+root = Path('Plugins/YotsubaShader.Extensions.Godot/addon')
+with zipfile.ZipFile(output / f'YotsubaShader.Godot.Addon-{version}.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
+    for file in sorted(root.rglob('*')):
+        if file.is_file():
+            archive.write(file, file.relative_to(root).as_posix())
+PY
