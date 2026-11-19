@@ -6,7 +6,7 @@
     <RepositoryUrl>https://github.com/KMemphis/YotsubaShader</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MS-PL</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/KMemphis/YotsubaShader</PackageProjectUrl>
+    <PackageProjectUrl>https://yotsubashader.com</PackageProjectUrl>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
   </PropertyGroup>
