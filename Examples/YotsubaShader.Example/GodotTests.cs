@@ -98,7 +98,10 @@ public class GodotTests
             }
             """, GodotShaderType.Spatial);
 
-        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(gdshader, "ALBEDO = ys_color.rgb;").Count);
+        // Godot no admite `return` en fragment(): el cuerpo va en un for de una vuelta y las salidas se escriben una vez.
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(gdshader, "ALBEDO = ys_color.rgb;"));
+        Assert.DoesNotContain("return;", gdshader);
+        Assert.Contains("ys_once", gdshader);
         Assert.Contains("FRAGCOORD", gdshader);
         Assert.DoesNotContain("gl_FragCoord", gdshader);
     }
@@ -129,7 +132,7 @@ public class GodotTests
         { "render targets múltiples", "public class S { [ShaderStage(Stage.Fragment)] public void FS([SV_Target(0)] out float4 a, [SV_Target(1)] out float4 b) { a = new float4(); b = a; } }", GodotShaderType.Spatial },
         { "NORMAL0", """
             public struct VsIn { [POSITION] public float4 Pos; [NORMAL] public float3 N; }
-            public class S { [ShaderStage(Stage.Vertex)] [return: SV_Position] public float4 VS(VsIn i) { return i.Pos; } }
+            public class S { [ShaderStage(Stage.Vertex)] [return: SV_Position] public float4 VS(VsIn i) { float4 r = i.Pos; r.X = i.N.X; return r; } }
             """, GodotShaderType.CanvasItem },
         { "vertex no la escribe", """
             public struct FsIn { [TEXCOORD(0)] public float2 Uv; }
