@@ -92,6 +92,7 @@ using YotsubaShader.Language.Native.Types.Vector.Exceptions;
 using YotsubaShader.Roslyn.Model;
 using YotsubaShader.Roslyn.Sources;
 using Double = YotsubaShader.IR.Intermediate.Types.Double;
+using Half = YotsubaShader.IR.Intermediate.Types.Half;
 using LanguageStage = YotsubaShader.Language.Stage;
 using IRStage = YotsubaShader.IR.Intermediate.Stage;
 using TextureDepth = YotsubaShader.Language.Native.Types.Texture.TextureDepth;
@@ -116,8 +117,23 @@ public class ShaderProcessor
     private static Dictionary<SymbolKey, string> structTypeNames =
         new();
     
+    /// <summary>La compilación que se está traduciendo (con los polyfills de Math).</summary>
+    [ThreadStatic] internal static Compilation? Compilation;
+
     public (string, Shader)[] Process(Compilation compilation, CancellationToken token)
     {
+        // Las mismas reglas que el analizador del IDE: un shader con errores YS no llega a traducirse.
+        var validation = YotsubaShader.Rules.ShaderValidator.Validate(compilation, YotsubaShader.Rules.ShaderTargets.All, token);
+        var errors = validation.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        if (errors.Count > 0)
+        {
+            throw new ShaderValidationException(errors);
+        }
+
+        // Math sin instrucción de GPU: su implementación en C# entra en la compilación como código del shader.
+        compilation = MathPolyfillResolver.AddTo(compilation);
+        Compilation = compilation;
+
         Sources = new SourceGraph(compilation,
             new DecompiledSourceProvider(compilation));
         
@@ -159,8 +175,13 @@ public class ShaderProcessor
 
     private static void ProcessShaderFunction(Compilation compilation, FunctionsInfo shaderInfoEntryPoint, List<Function> shaderFunction, List<FunctionsInfo> extraMethods, Dictionary<ISymbol, Storage> globals)
     {
+        FunctionId functionId;
         SymbolKey key = SymbolKey.Of(shaderInfoEntryPoint.Method);
-        if (!functionIds.TryGetValue(key, out var functionId))
+        if (shaderInfoEntryPoint.Id is { } assigned)
+        {
+            functionId = assigned;
+        }
+        else if (!functionIds.TryGetValue(key, out functionId))
         {
             functionId = new FunctionId((uint)functionIds.Count);
             functionIds[key] = functionId;
@@ -180,8 +201,43 @@ public class ShaderProcessor
         var bodyFunc = new List<Statement>();
                 
         //Process Inputs
+        var parameterModes = new List<ParameterMode>();
+
+        // Un método de instancia de un struct recibe 'this' por referencia como primer parámetro.
+        if (stage == IRStage.None && StatementOperationProcessor.IsStructInstanceMethod(shaderInfoEntryPoint.Method))
+        {
+            IMethodSymbol method = shaderInfoEntryPoint.Method;
+            Storage thisStorage = GetStorage(method.ContainingType, "this", null, StorageKind.Local, compilation, stage);
+            parameterModes.Add(StatementOperationProcessor.IsReadOnlyInstance(method) ? ParameterMode.In : ParameterMode.Ref);
+            inputs.Add(method.ContainingType, thisStorage);
+            processor.ThisStorage = thisStorage;
+        }
+
         foreach (var parameterInfo in shaderInfoEntryPoint.Parameters)
         {
+            // Una función auxiliar recibe todos sus parámetros en orden; ref/in/out llegan como punteros.
+            if (stage == IRStage.None)
+            {
+                ParameterMode mode = parameterInfo.RefKind switch
+                {
+                    RefKind.Ref => ParameterMode.Ref,
+                    RefKind.Out => ParameterMode.Out,
+                    RefKind.In or RefKind.RefReadOnlyParameter => ParameterMode.In,
+                    _ => ParameterMode.Value
+                };
+                parameterModes.Add(mode);
+
+                Storage helperParameter = parameterInfo.Type is IArrayTypeSymbol
+                    ? processor.CreateArrayParameter(parameterInfo.Symbol,
+                        shaderInfoEntryPoint.ArrayLengths.TryGetValue(parameterInfo.Symbol.Ordinal, out uint arrayLength) ? arrayLength : null,
+                        compilation, stage)
+                    : mode == ParameterMode.Value
+                        ? ProcessParameter(parameterInfo, compilation, stage)
+                        : GetStorage(parameterInfo.Type, parameterInfo.Name, null, StorageKind.Local, compilation, stage);
+                inputs.Add(parameterInfo.Symbol, helperParameter);
+                continue;
+            }
+
             var param = ProcessParameter(parameterInfo, compilation, stage);
             switch (parameterInfo.RefKind)
             {
@@ -198,6 +254,13 @@ public class ShaderProcessor
             }
         }
                 
+
+        // Variables capturadas por una función local: parámetros extra por referencia, después de los suyos.
+        foreach (CaptureInfo capture in shaderInfoEntryPoint.Captures)
+        {
+            parameterModes.Add(capture.Written ? ParameterMode.Ref : ParameterMode.In);
+            inputs.Add(capture.Symbol, GetStorage(capture.Type, capture.Name, null, StorageKind.Local, compilation, stage));
+        }
 
         bool isConstructor = shaderInfoEntryPoint.Method.MethodKind == MethodKind.Constructor;
         Storage? self = null;
@@ -221,7 +284,17 @@ public class ShaderProcessor
         var operations = semanticModel.GetOperation(syntax);
 
         
-        if (operations is IMethodBodyBaseOperation body)
+        if (operations is ILocalFunctionOperation localFunction)
+        {
+            IBlockOperation localBody = localFunction.Body ?? localFunction.IgnoredBody
+                ?? throw new NotSupportedException($"La función local '{localFunction.Symbol.Name}' no tiene cuerpo.");
+            foreach (IOperation op in localBody.Operations)
+            {
+                ProcessStatement(op, inputs, outputs, processor, compilation, stage, out var statement);
+                if (statement is not null) bodyFunc.Add(statement);
+            }
+        }
+        else if (operations is IMethodBodyBaseOperation body)
         {
             
             if (body is IConstructorBodyOperation { Initializer: not null })
@@ -244,7 +317,8 @@ public class ShaderProcessor
         FunctionExtraParams? extraParams = GetStageExtraParams(shaderInfoEntryPoint.Method, stage);
 
        
-        Function fn = new Function(functionId, shaderInfoEntryPoint.Name, stage, [.. inputs.Values], [.. outputs.Values], bodyFunc, extraParams);
+        Function fn = new Function(functionId, shaderInfoEntryPoint.Name, stage, [.. inputs.Values], [.. outputs.Values], bodyFunc, extraParams,
+            parameterModes.Any(m => m != ParameterMode.Value) ? parameterModes : null);
         shaderFunction.Add(fn);
     }
 
@@ -333,14 +407,35 @@ public class ShaderProcessor
                 $"Symbol '{symbol.ToDisplayString()}' cannot be represented as shader storage.");
         }
 
+        // T[] en un struct o en la interfaz: la longitud la da [ArrayLength(n)]; sin ella, es un array sin tamaño
+        // (solo válido como último miembro de un storage buffer).
+        if (type is IArrayTypeSymbol { Rank: 1 } arrayType)
+        {
+            Storage element = GetStorage(arrayType.ElementType, "element", null, StorageKind.Local, compilation, stage);
+            AttributeData? lengthAttribute = symbol.GetAttributes().FirstOrDefault(a =>
+                a.AttributeClass?.ToDisplayString() == "YotsubaShader.Language.ArrayLengthAttribute");
+            uint? length = lengthAttribute?.ConstructorArguments is [{ Value: int declared }] && declared > 0 ? (uint)declared : null;
+            return new IR.Intermediate.Types.Array(symbol.Name, isLocal ? StorageKind.Local : GetStorageKind(symbol, compilation), slot)
+            {
+                ElementType = element,
+                Length = length
+            };
+        }
+
         var parameter = symbol as IParameterSymbol;
         StorageKind storageKind;
 
         if (isLocal) storageKind = StorageKind.Local;
         else storageKind = GetStorageKind(symbol, compilation);
         
-        switch (type.SpecialType)
+        switch (SpecialOf(type))
         {
+            case SpecialType.System_Int16:
+                storage = new Int(symbol.Name, storageKind, slot) { Bits = 16, Signed = true, InitialValue = null };
+                break;
+            case SpecialType.System_UInt16:
+                storage = new Int(symbol.Name, storageKind, slot) { Bits = 16, Signed = false, InitialValue = null };
+                break;
             case SpecialType.System_Int32:
                 storage = new Int(symbol.Name, storageKind, slot)
                 {
@@ -360,6 +455,9 @@ public class ShaderProcessor
                         ? new IntLiteral(defaultUInt.ToString(CultureInfo.InvariantCulture), false)
                         : null
                 };
+                break;
+            case HalfSpecial:
+                storage = new Half(symbol.Name, storageKind, slot) { InitialValue = null };
                 break;
             case SpecialType.System_Double:
                 storage = new Double(symbol.Name, storageKind, slot)
@@ -436,11 +534,14 @@ public class ShaderProcessor
 
                 ValidateVectorComponents(components, type);
 
-                VectorComponentsType vectorComponentsType = componentsType?.SpecialType switch
+                VectorComponentsType vectorComponentsType = (componentsType is null ? (SpecialType?)null : SpecialOf(componentsType)) switch
                 {
                     SpecialType.System_Int32 => VectorComponentsType.Int,
                     SpecialType.System_UInt32 => VectorComponentsType.Uint,
                     SpecialType.System_Single => VectorComponentsType.Float,
+                    SpecialType.System_Double => VectorComponentsType.Double,
+                    SpecialType.System_Boolean => VectorComponentsType.Bool,
+                    HalfSpecial => VectorComponentsType.Half,
                     _ => throw new VectorComponentTypeNotValidException(
                         componentsType?.ToDisplayString() ?? "<missing>")
                 };
@@ -460,6 +561,12 @@ public class ShaderProcessor
                                 new IntLiteral(value, true),
                             VectorComponentsType.Uint =>
                                 new IntLiteral(value, false),
+                            VectorComponentsType.Double =>
+                                new DoubleLiteral(double.Parse(value, CultureInfo.InvariantCulture)),
+                            VectorComponentsType.Half =>
+                                new HalfLiteral(float.Parse(value, CultureInfo.InvariantCulture)),
+                            VectorComponentsType.Bool =>
+                                new BoolLiteral(bool.Parse(value)),
                             _ => throw new NotSupportedException(
                                 $"Unsupported vector component type '{vectorComponentsType}'.")
                         };
@@ -469,6 +576,9 @@ public class ShaderProcessor
                         VectorComponentsType.Float => new FloatLiteral(0f),
                         VectorComponentsType.Int => new IntLiteral("0", true),
                         VectorComponentsType.Uint => new IntLiteral("0", false),
+                        VectorComponentsType.Double => new DoubleLiteral(0d),
+                        VectorComponentsType.Half => new HalfLiteral(0f),
+                        VectorComponentsType.Bool => new BoolLiteral(false),
                         _ => throw new NotSupportedException(
                             $"Unsupported vector component type '{vectorComponentsType}'.")
                     };
@@ -484,6 +594,8 @@ public class ShaderProcessor
 
                 storage = vector;
             }    
+
+            storage ??= TryCreateMatrix(type, symbol.Name, storageKind, slot);
         }
 
         if (!isLocal)
@@ -518,7 +630,7 @@ public class ShaderProcessor
                     if (compType == IR.Intermediate.Types.TextureComponentTypes.GenericDefine &&
                         type is INamedTypeSymbol
                         {
-                            TypeArguments: [var typeArg]
+                            TypeArguments: [var typeArg, ..]
                         })
                     {
                         compType = typeArg.SpecialType switch
@@ -565,7 +677,8 @@ public class ShaderProcessor
                         Multisampled = multisampled,
                         Depth = irDepth,
                         Usage = irUsage,
-                        Format = irFormat
+                        Format = irFormat,
+                        CombinedSampler = HasSamplerAttribute(type)
                     };
                 }
             }
@@ -600,6 +713,30 @@ public class ShaderProcessor
         throw new NotImplementedException("Enum is not supported yet");
     }
 
+    /// <summary>
+    /// Los structs y arrays dentro de un buffer llevan el layout del buffer (Offset, ArrayStride): en SPIR-V son
+    /// tipos distintos de los mismos structs usados como variables locales, que no pueden tener layout.
+    /// </summary>
+    private static Storage WithLayoutKind(Storage storage, StorageKind kind) => storage switch
+    {
+        CustomStruct structure => structure with
+        {
+            Kind = kind,
+            Properties = structure.Properties.Select(p => WithLayoutKind(p, kind)).ToList()
+        },
+        IR.Intermediate.Types.Array array => array with { Kind = kind, ElementType = WithLayoutKind(array.ElementType, kind) },
+        _ => storage
+    };
+
+    /// <summary>
+    /// Los campos de un struct en orden. Una tupla (ValueTuple) solo tiene Item1..ItemN: sus nombres con alias
+    /// (t.Seno) y sus miembros de interfaz no son datos.
+    /// </summary>
+    internal static IEnumerable<ISymbol> StructMembers(INamedTypeSymbol structType) =>
+        structType.IsTupleType
+            ? structType.TupleElements.Select(element => (ISymbol)(element.CorrespondingTupleField ?? element))
+            : structType.GetMembers();
+
     private static Storage? ProcessClass(ISymbol symbol, InterfaceSlot? slot, Compilation compilation, IRStage stage, bool isLocal, INamedTypeSymbol classType, StorageKind storageKind)
     {
         throw new NotImplementedException("Class is not supported yet");
@@ -611,9 +748,9 @@ public class ShaderProcessor
         Storage storage;
         var properties = new List<Storage>();
 
-        foreach (ISymbol member in structType.GetMembers())
+        foreach (ISymbol member in StructMembers(structType))
         {
-            if (member.IsStatic || member.IsImplicitlyDeclared)
+            if (member.IsStatic || (member.IsImplicitlyDeclared && !structType.IsTupleType))
             {
                 continue;
             }
@@ -739,8 +876,14 @@ public class ShaderProcessor
         StorageKind storageKind = kind;
 
         string symbolName = name;
-        switch (symbol.SpecialType)
+        switch (SpecialOf(symbol))
         {
+            case SpecialType.System_Int16:
+                storage = new Int(symbolName, storageKind, slot) { Bits = 16, Signed = true, InitialValue = null };
+                break;
+            case SpecialType.System_UInt16:
+                storage = new Int(symbolName, storageKind, slot) { Bits = 16, Signed = false, InitialValue = null };
+                break;
             case SpecialType.System_Int32:
                 storage = new Int(symbolName, storageKind, slot)
                 {
@@ -756,6 +899,9 @@ public class ShaderProcessor
                     Signed = false,
                     InitialValue = null
                 };
+                break;
+            case HalfSpecial:
+                storage = new Half(symbolName, storageKind, slot) { InitialValue = null };
                 break;
             case SpecialType.System_Double:
                 storage = new Double(symbolName, storageKind, slot)
@@ -826,11 +972,14 @@ public class ShaderProcessor
 
                 components = components.OrderBy(x => x.Key).ToDictionary();
                 
-                VectorComponentsType vectorComponentsType = componentsType?.SpecialType switch
+                VectorComponentsType vectorComponentsType = (componentsType is null ? (SpecialType?)null : SpecialOf(componentsType)) switch
                 {
                     SpecialType.System_Int32 => VectorComponentsType.Int,
                     SpecialType.System_UInt32 => VectorComponentsType.Uint,
                     SpecialType.System_Single => VectorComponentsType.Float,
+                    SpecialType.System_Double => VectorComponentsType.Double,
+                    SpecialType.System_Boolean => VectorComponentsType.Bool,
+                    HalfSpecial => VectorComponentsType.Half,
                     _ => throw new VectorComponentTypeNotValidException(
                         componentsType?.ToDisplayString() ?? "<missing>")
                 };
@@ -848,6 +997,12 @@ public class ShaderProcessor
                                 new IntLiteral(value, true),
                             VectorComponentsType.Uint =>
                                 new IntLiteral(value, false),
+                            VectorComponentsType.Double =>
+                                new DoubleLiteral(double.Parse(value, CultureInfo.InvariantCulture)),
+                            VectorComponentsType.Half =>
+                                new HalfLiteral(float.Parse(value, CultureInfo.InvariantCulture)),
+                            VectorComponentsType.Bool =>
+                                new BoolLiteral(bool.Parse(value)),
                             _ => throw new NotSupportedException(
                                 $"Unsupported vector component type '{vectorComponentsType}'.")
                         };
@@ -857,6 +1012,9 @@ public class ShaderProcessor
                         VectorComponentsType.Float => new FloatLiteral(0f),
                         VectorComponentsType.Int => new IntLiteral("0", true),
                         VectorComponentsType.Uint => new IntLiteral("0", false),
+                        VectorComponentsType.Double => new DoubleLiteral(0d),
+                        VectorComponentsType.Half => new HalfLiteral(0f),
+                        VectorComponentsType.Bool => new BoolLiteral(false),
                         _ => throw new NotSupportedException(
                             $"Unsupported vector component type '{vectorComponentsType}'.")
                     };
@@ -872,6 +1030,8 @@ public class ShaderProcessor
 
                 storage = vector;
             }    
+
+            storage ??= TryCreateMatrix(symbol, symbolName, storageKind, slot);
         }
 
         if (storage is null && storageKind == StorageKind.Sampler)
@@ -903,7 +1063,7 @@ public class ShaderProcessor
 
                 if (compType == IR.Intermediate.Types.TextureComponentTypes.GenericDefine && symbol is INamedTypeSymbol
                     {
-                        TypeArguments: [var typeArg]
+                        TypeArguments: [var typeArg, ..]
                     })
                 {
                     compType = typeArg.SpecialType switch
@@ -946,7 +1106,8 @@ public class ShaderProcessor
                     Multisampled = multisampled,
                     Depth = irDepth,
                     Usage = irUsage,
-                    Format = irFormat
+                    Format = irFormat,
+                    CombinedSampler = HasSamplerAttribute(symbol)
                 };
             }
         }
@@ -955,9 +1116,9 @@ public class ShaderProcessor
         {
             var properties = new List<Storage>();
 
-            foreach (ISymbol member in structType.GetMembers())
+            foreach (ISymbol member in StructMembers(structType))
             {
-                if (member.IsStatic || member.IsImplicitlyDeclared)
+                if (member.IsStatic || (member.IsImplicitlyDeclared && !structType.IsTupleType))
                 {
                     continue;
                 }
@@ -1117,6 +1278,139 @@ public class ShaderProcessor
             );
     }
 
+    /// <summary>
+    /// Un struct [Matrix] cuyas columnas son vectores [Vector] de float o double se convierte en <see cref="Matrix"/>.
+    /// Las matrices de bool, int o uint no existen en SPIR-V (OpTypeMatrix solo admite floats): devuelven null
+    /// y se tratan como un struct normal de vectores.
+    /// </summary>
+    internal static Matrix? TryCreateMatrix(ITypeSymbol type, string name, StorageKind kind, InterfaceSlot? slot)
+    {
+        string matrixAttribute = typeof(YotsubaShader.Language.Native.Types.Matrix.MatrixAttribute).FullName!;
+        if (!type.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == matrixAttribute))
+        {
+            return null;
+        }
+
+        string columnAttribute = typeof(YotsubaShader.Language.Native.Types.Matrix.MatrixColumnAttribute).FullName!;
+        var columns = new SortedDictionary<int, ITypeSymbol>();
+
+        foreach (ISymbol member in type.GetMembers())
+        {
+            if (member.IsStatic || member.IsImplicitlyDeclared) continue;
+
+            ITypeSymbol? memberType = member switch
+            {
+                IFieldSymbol field => field.Type,
+                IPropertySymbol { IsIndexer: false } property => property.Type,
+                _ => null
+            };
+            if (memberType is null) continue;
+
+            AttributeData? attribute = member.GetAttributes()
+                .FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == columnAttribute);
+            if (attribute is null) continue;
+
+            int index = (int)attribute.ConstructorArguments[0].Value!;
+            if (!columns.TryAdd(index, memberType))
+            {
+                throw new InvalidOperationException(
+                    $"The matrix '{type.ToDisplayString()}' declares the column {index} more than once.");
+            }
+        }
+
+        if (columns.Count == 0) return null;
+
+        for (int i = 0; i < columns.Count; i++)
+        {
+            if (!columns.ContainsKey(i))
+            {
+                throw new InvalidOperationException(
+                    $"The matrix '{type.ToDisplayString()}' is missing the column {i}: " +
+                    "the [MatrixColumn] indices must be contiguous from 0.");
+            }
+        }
+
+        VectorComponentsType? componentsType = null;
+        int rows = -1;
+        foreach (ITypeSymbol column in columns.Values)
+        {
+            if (GetVectorInfo(column) is not var (columnType, length)) return null;
+            if (componentsType is not null && (componentsType != columnType || rows != length)) return null;
+            componentsType = columnType;
+            rows = length;
+        }
+
+        if (componentsType is not (VectorComponentsType.Float or VectorComponentsType.Double or VectorComponentsType.Half)) return null;
+        if (columns.Count is < 2 or > 4 || rows is < 2 or > 4) return null;
+
+        return new Matrix(name, kind, slot)
+        {
+            ComponentsType = componentsType == VectorComponentsType.Double
+                ? MatrixComponentType.Double
+                : componentsType == VectorComponentsType.Half ? MatrixComponentType.Half : MatrixComponentType.Float,
+            Rows = (uint)rows,
+            Columns = (uint)columns.Count
+        };
+    }
+
+    /// <summary>System.Half no tiene SpecialType: se le da un valor propio para poder usarlo en los switch.</summary>
+    internal const SpecialType HalfSpecial = unchecked((SpecialType)200);
+
+    internal static SpecialType SpecialOf(ITypeSymbol type) =>
+        type.ToDisplayString() == "System.Half" ? HalfSpecial : type.SpecialType;
+
+    private static (VectorComponentsType Type, int Length)? GetVectorInfo(ITypeSymbol type)
+    {
+        if (!type.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == typeof(VectorAttribute).FullName))
+        {
+            return null;
+        }
+
+        ITypeSymbol? componentType = null;
+        int length = 0;
+        foreach (ISymbol member in type.GetMembers())
+        {
+            if (member.IsStatic || member.IsImplicitlyDeclared) continue;
+
+            ITypeSymbol? memberType = member switch
+            {
+                IFieldSymbol field => field.Type,
+                IPropertySymbol { IsIndexer: false } property => property.Type,
+                _ => null
+            };
+            if (memberType is null) continue;
+
+            bool isComponent = member.GetAttributes()
+                .Any(a => a.AttributeClass?.ToDisplayString() == typeof(VectorComponentAttribute).FullName);
+            if (!isComponent) continue;
+
+            componentType ??= memberType;
+            if (!SymbolEqualityComparer.Default.Equals(componentType, memberType)) return null;
+            length++;
+        }
+
+        VectorComponentsType? result = (componentType is null ? (SpecialType?)null : SpecialOf(componentType)) switch
+        {
+            SpecialType.System_Single => VectorComponentsType.Float,
+            SpecialType.System_Double => VectorComponentsType.Double,
+            SpecialType.System_Int32 => VectorComponentsType.Int,
+            SpecialType.System_UInt32 => VectorComponentsType.Uint,
+            SpecialType.System_Boolean => VectorComponentsType.Bool,
+            HalfSpecial => VectorComponentsType.Half,
+            _ => null
+        };
+
+        return result is { } r && length > 0 ? (r, length) : null;
+    }
+
+    /// <summary>Un tipo con [Sampler] y [Texture] a la vez es un sampler combinado (sampler2D de GLSL).</summary>
+    private static bool HasSamplerAttribute(ITypeSymbol type)
+    {
+        ITypeSymbol target = type is INamedTypeSymbol { IsGenericType: true } named ? named.OriginalDefinition : type;
+        string samplerAttribute = typeof(SamplerAttribute).FullName!;
+        return target.GetAttributes().Any(a => a.AttributeClass?.ToDisplayString() == samplerAttribute);
+    }
+
     internal static string GetComponentInitialValue(ISymbol member, Compilation compilation)
     {
         if (member is IFieldSymbol { HasConstantValue: true } constantField)
@@ -1260,39 +1554,8 @@ public class ShaderProcessor
             }
             else
             {
-                BuiltIn? builtIn = null;
-
-                if (HasConcept<ClipSpacePosition>(attributeData) || 
-                    HasConcept<FragmentCoordinate>(attributeData))
-                {
-                    if (stage == Stage.Vertex)
-                    {
-                        builtIn = BuiltIn.Position;
-                    }
-                    else if(stage == Stage.Fragment)
-                    {
-                        builtIn = BuiltIn.FragCoord;
-                    }
-                }
-                else if (HasConcept<FrontFacingFlag>(attributeData))
-                {
-                    builtIn = BuiltIn.FrontFacing;
-                }
-                else if (
-                    HasConcept<VertexIndex>(attributeData))
-                {
-                    builtIn = BuiltIn.VertexIndex;
-                } else if (HasConcept<GlobalInvocationId>(attributeData))
-                {
-                    if (stage != IRStage.Compute)
-                    {
-                        throw new NotSupportedException(
-                            "SV_DispatchThreadID solo puede usarse en un compute shader.");
-                    }
-
-                    builtIn = BuiltIn.GlobalInvocationId;
-                }
-
+                // La misma tabla que usa el analizador del IDE (YotsubaShader.Rules.BuiltInTable).
+                BuiltIn? builtIn = ResolveBuiltIn(attributeData, stage);
                 if (builtIn != null)
                     slot = new BuiltInSlot(builtIn.Value);
             }
@@ -1301,6 +1564,58 @@ public class ShaderProcessor
         return slot;
     }
     
+    /// <summary>El built-in de IR que representa un atributo (SV_Position, gl_FragDepth...) en una etapa.</summary>
+    private static BuiltIn? ResolveBuiltIn(AttributeData attribute, IRStage stage)
+    {
+        YotsubaShader.Rules.ShaderStageKind? kind = stage switch
+        {
+            IRStage.Vertex => YotsubaShader.Rules.ShaderStageKind.Vertex,
+            IRStage.Fragment => YotsubaShader.Rules.ShaderStageKind.Fragment,
+            IRStage.Compute => YotsubaShader.Rules.ShaderStageKind.Compute,
+            _ => null
+        };
+        if (kind is null) return null;
+
+        var concept = YotsubaShader.Rules.ShaderSymbols.GetConceptAttributes([attribute]).FirstOrDefault();
+        if (concept is null || YotsubaShader.Rules.BuiltInTable.Resolve(concept, kind.Value) is not { Supported: true } rule)
+        {
+            return null;
+        }
+
+        string name = attribute.AttributeClass?.Name ?? "";
+        return rule.SpirvName switch
+        {
+            "Position" => BuiltIn.Position,
+            "VertexIndex" => BuiltIn.VertexIndex,
+            "InstanceIndex" => BuiltIn.InstanceIndex,
+            "BaseVertex" => BuiltIn.BaseVertex,
+            "BaseInstance" => BuiltIn.BaseInstance,
+            "FragCoord" => BuiltIn.FragCoord,
+            "FrontFacing" => BuiltIn.FrontFacing,
+            "FragDepth" when rule.Concept == "ConservativeDepth" || attribute.AttributeClass?.Name == "depth" =>
+                name.Contains("Greater") || DepthMode(attribute) == "greater" ? BuiltIn.FragDepthGreater
+                : name.Contains("Less") || DepthMode(attribute) == "less" ? BuiltIn.FragDepthLess
+                : BuiltIn.FragDepth,
+            "FragDepth" => BuiltIn.FragDepth,
+            "SampleId" => BuiltIn.SampleId,
+            "SamplePosition" => BuiltIn.SamplePosition,
+            "PrimitiveId" => BuiltIn.PrimitiveId,
+            "HelperInvocation" => BuiltIn.HelperInvocation,
+            "GlobalInvocationId" => BuiltIn.GlobalInvocationId,
+            "LocalInvocationId" => BuiltIn.LocalInvocationId,
+            "LocalInvocationIndex" => BuiltIn.LocalInvocationIndex,
+            "WorkgroupId" => BuiltIn.WorkgroupId,
+            "NumWorkgroups" => BuiltIn.NumWorkgroups,
+            _ => null
+        };
+    }
+
+    /// <summary>MSL depth(greater|less|any): el nombre del valor del enum, en minúsculas.</summary>
+    private static string? DepthMode(AttributeData attribute) =>
+        attribute.ConstructorArguments is [{ Type: INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType, Value: { } value }]
+            ? enumType.GetMembers().OfType<IFieldSymbol>().FirstOrDefault(f => Equals(f.ConstantValue, value))?.Name.ToLowerInvariant()
+            : null;
+
     private static bool HasConcept<TConcept>(AttributeData attribute) 
         where TConcept : YotsubaShaderConcept
     {
@@ -1315,6 +1630,84 @@ public class ShaderProcessor
             .Any(a => a.AttributeClass?.ToDisplayString() == conceptFullName) == true;
     }
     
+    /// <summary>StructuredBuffer&lt;T&gt;, RWStructuredBuffer&lt;T&gt;, ConstantBuffer&lt;T&gt;: buffers declarados como tipo envoltorio.</summary>
+    internal static bool IsBufferWrapper(ITypeSymbol? type) =>
+        type is INamedTypeSymbol { IsGenericType: true, TypeArguments.Length: 1 } wrapper &&
+        (TypeHasConcept<UniformBuffer>(wrapper) || TypeHasConcept<RWStorageBuffer>(wrapper) || TypeHasConcept<ReadOnlyStorageBuffer>(wrapper) ||
+         CollectionElement(wrapper, out _) is not null);
+
+    /// <summary>
+    /// Colecciones de .NET que en un campo del shader son un storage buffer <c>{ T Items[]; }</c>:
+    /// T[] y List&lt;T&gt; de lectura y escritura; ImmutableArray&lt;T&gt; e ImmutableList&lt;T&gt; de solo lectura.
+    /// </summary>
+    internal static ITypeSymbol? CollectionElement(ITypeSymbol type, out bool readOnly)
+    {
+        readOnly = false;
+        if (type is IArrayTypeSymbol { Rank: 1 } array) return array.ElementType;
+        if (type is not INamedTypeSymbol { IsGenericType: true, TypeArguments.Length: 1 } named) return null;
+
+        switch (named.OriginalDefinition.ToDisplayString())
+        {
+            case "System.Collections.Generic.List<T>":
+                return named.TypeArguments[0];
+            case "System.Collections.Immutable.ImmutableArray<T>":
+            case "System.Collections.Immutable.ImmutableList<T>":
+                readOnly = true;
+                return named.TypeArguments[0];
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>¿El buffer del campo es un array de elementos (StructuredBuffer, T[], List...)? Si no, es un bloque (ConstantBuffer).</summary>
+    internal static bool IsElementBuffer(ITypeSymbol type) =>
+        CollectionElement(type, out _) is not null ||
+        type is INamedTypeSymbol { IsGenericType: true } wrapper && (TypeHasConcept<RWStorageBuffer>(wrapper) || TypeHasConcept<ReadOnlyStorageBuffer>(wrapper));
+
+    /// <summary>
+    /// El bloque de un buffer envoltorio. ConstantBuffer&lt;T&gt; es un uniform cuyo bloque es T;
+    /// (RW)StructuredBuffer&lt;T&gt; es un storage buffer <c>{ T Items[]; }</c>.
+    /// </summary>
+    private static Storage? TryBuildBufferWrapper(IFieldSymbol field, InterfaceSlot? slot, Compilation compilation)
+    {
+        if (CollectionElement(field.Type, out _) is { } collectionElement)
+        {
+            return ElementBlock(field, slot, compilation, field.Type, collectionElement);
+        }
+
+        if (!IsBufferWrapper(field.Type)) return null;
+        var wrapper = (INamedTypeSymbol)field.Type;
+        ITypeSymbol element = wrapper.TypeArguments[0];
+
+        if (TypeHasConcept<UniformBuffer>(wrapper))
+        {
+            Storage block = GetStorage(element, field.Name, slot, StorageKind.Uniform, compilation, Stage.None);
+            return block as CustomStruct ?? throw new NotSupportedException(
+                $"ConstantBuffer<{element.Name}> '{field.Name}' necesita un struct como contenido.");
+        }
+
+        return ElementBlock(field, slot, compilation, wrapper, element);
+    }
+
+    /// <summary>El bloque <c>{ T Items[]; }</c> de un buffer de elementos.</summary>
+    private static Storage ElementBlock(IFieldSymbol field, InterfaceSlot? slot, Compilation compilation, ITypeSymbol container, ITypeSymbol element)
+    {
+        Storage elementStorage = GetStorage(element, "element", null, StorageKind.Local, compilation, Stage.None);
+        string containerName = container is IArrayTypeSymbol ? "Array" : container.Name;
+        return new CustomStruct(field.Name, StorageKind.StorageBuffer, slot)
+        {
+            TypeName = UniqueStructTypeName(container, $"{containerName}_{element.Name}"),
+            Properties =
+            [
+                new IR.Intermediate.Types.Array("Items", StorageKind.StorageBuffer, null)
+                {
+                    ElementType = elementStorage,
+                    Length = null
+                }
+            ]
+        };
+    }
+
     private static bool TypeHasConcept<TConcept>(INamedTypeSymbol type) 
         where TConcept : YotsubaShaderConcept
     {
@@ -1337,6 +1730,13 @@ public class ShaderProcessor
             if (member is not (IFieldSymbol or IPropertySymbol)) continue;
 
             StorageKind kind = GetStorageKind(member, compilation);
+
+            // T[], List<T>, ImmutableArray<T>, ImmutableList<T> como campo del shader: un storage buffer.
+            if (kind is not StorageKind.Uniform && member is IFieldSymbol { Type: var collectionType } &&
+                CollectionElement(collectionType, out _) is not null)
+            {
+                kind = StorageKind.StorageBuffer;
+            }
 
             bool isBuffer = kind is StorageKind.Uniform or StorageKind.StorageBuffer;
 
@@ -1364,14 +1764,17 @@ public class ShaderProcessor
                     "Give it a set and a binding, for example [DescriptorSet(0)] [Binding(0)].");
             }
 
-            if (isBuffer && ((IFieldSymbol)member).Type.TypeKind != TypeKind.Struct)
+            if (isBuffer && ((IFieldSymbol)member).Type.TypeKind != TypeKind.Struct &&
+                CollectionElement(((IFieldSymbol)member).Type, out _) is null)
             {
                 throw new NotSupportedException(
                     $"The {kind} resource '{member.Name}' has type " +
                     $"'{((IFieldSymbol)member).Type.ToDisplayString()}'. Only scalars, vectors and structs are supported.");
             }
 
-            Storage resource = GetStorage(member, null, slot, compilation, Stage.None);
+            Storage resource = TryBuildBufferWrapper((IFieldSymbol)member, slot, compilation)
+                               ?? GetStorage(member, null, slot, compilation, Stage.None);
+            if (isBuffer) resource = WithLayoutKind(resource, kind);
             inputs.TryAdd(member, resource);
         }
     }
@@ -1447,6 +1850,9 @@ public class ShaderProcessor
     
     internal static string UniqueStructTypeName(ITypeSymbol type, string preferredName)
     {
+        // (float s, float c) y (float, float) son el mismo tipo en la GPU: los nombres de una tupla son alias.
+        if (type is INamedTypeSymbol { IsTupleType: true, TupleUnderlyingType: { } underlying }) type = underlying;
+
         SymbolKey key = SymbolKey.OfType(type);
         if (structTypeNames.TryGetValue(key, out string? existing))
         {

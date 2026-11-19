@@ -97,6 +97,24 @@ public sealed record FunctionsInfo(
         : Method.Name;
     
     public FunctionsInfo? CalledFrom { get; init; }
+
+    /// <summary>Variables del método que la contiene que usa una función local: llegan como parámetros extra.</summary>
+    public ImmutableArray<CaptureInfo> Captures { get; init; } = [];
+
+    /// <summary>El ID ya asignado en la llamada (una función con parámetros array tiene uno por longitud).</summary>
+    public IR.Intermediate.FunctionBody.FunctionId? Id { get; init; }
+
+    /// <summary>Longitud de cada parámetro array (por ordinal), tomada de los argumentos de la llamada.</summary>
+    public ImmutableDictionary<int, uint> ArrayLengths { get; init; } = ImmutableDictionary<int, uint>.Empty;
+}
+
+/// <summary>
+/// Una variable capturada por una función local. Se pasa por referencia (como en C#, la función local ve y
+/// modifica la variable original); si solo se lee, como <c>in</c>.
+/// </summary>
+public sealed record CaptureInfo(ISymbol Symbol, ITypeSymbol Type, bool Written)
+{
+    public string Name => Symbol.Name;
 }
 
 /// <summary>La "ficha" de un shader: la clase y las etapas que declara.</summary>

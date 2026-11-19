@@ -103,6 +103,10 @@ public partial class IRToSpirvModule
                 "SPV_GOOGLE_hlsl_functionality1",
                 SpirVInstructionType.StringLiteral));
         
+        // Las intrínsecas matemáticas (sin, pow, normalize...) son instrucciones del conjunto GLSL.std.450.
+        module.AddResultLine("%glsl_std_450", SpirVOpTable.OpExtInstImport,
+            new SpirVInstructionParameter("GLSL.std.450", SpirVInstructionType.StringLiteral));
+
         module.AddLine(SpirVOpTable.OpMemoryModel, new []
         {
             SpirVInstructionParameter.Enumerant(SpirVAddressingModel.Logical),
@@ -121,6 +125,22 @@ public partial class IRToSpirvModule
         
         foreach (var shaderFunction in shader.Functions)
         {
+            foreach (BuiltIn builtIn in BuiltInsOf(shaderFunction))
+            {
+                switch (builtIn)
+                {
+                    case BuiltIn.SampleId or BuiltIn.SamplePosition:
+                        AddCapability(SpirVCapability.SampleRateShading, emittedCapabilities);
+                        break;
+                    case BuiltIn.BaseVertex or BuiltIn.BaseInstance:
+                        AddCapability(SpirVCapability.DrawParameters, emittedCapabilities);
+                        break;
+                    case BuiltIn.PrimitiveId when shaderFunction.Stage == Stage.Fragment:
+                        AddCapability(SpirVCapability.Geometry, emittedCapabilities);
+                        break;
+                }
+            }
+
             foreach (var shaderFunctionInput in shaderFunction.Inputs)
             {
                 AddCapabilityForStorage(shaderFunctionInput, emittedCapabilities);
@@ -179,11 +199,31 @@ public partial class IRToSpirvModule
                     CheckStatementCapabilities(ifStatement.Else, emittedCapabilities);
                 }
                 break;
+            case Switch switchStatement:
+                AddCapabilityForExpression(switchStatement.Selector, emittedCapabilities);
+                foreach (SwitchSection section in switchStatement.Sections)
+                {
+                    CheckStatementCapabilities(section.Body, emittedCapabilities);
+                }
+                break;
             case Loop loop:
                 AddCapabilityForExpression(loop.Condition, emittedCapabilities);
                 AddCapabilityForExpression(loop.BottomCondition, emittedCapabilities);
                 CheckStatementCapabilities(loop.Body, emittedCapabilities);
                 CheckStatementCapabilities(loop.Continuing, emittedCapabilities);
+                break;
+            case FunctionCallStatement functionCall:
+                foreach (Expression argument in functionCall.Arguments)
+                {
+                    AddCapabilityForExpression(argument, emittedCapabilities);
+                }
+                break;
+            case IntrinsicCallStatement intrinsicCall:
+                AddIntrinsicCapabilities(intrinsicCall.Intrinsic, intrinsicCall.ArgumentTypes, null, emittedCapabilities);
+                foreach (Expression argument in intrinsicCall.Arguments)
+                {
+                    AddCapabilityForExpression(argument, emittedCapabilities);
+                }
                 break;
         }
     }
@@ -198,6 +238,9 @@ public partial class IRToSpirvModule
         {
             case DoubleLiteral:
                 AddCapability(SpirVCapability.Float64, emittedCapabilities);
+                break;
+            case HalfLiteral:
+                AddHalfCapabilities(emittedCapabilities);
                 break;
             
             case IntLiteral { Bits: 16 }:
@@ -229,6 +272,14 @@ public partial class IRToSpirvModule
                     AddCapabilityForExpression(argument, emittedCapabilities);
                 }
                 break;
+            case IntrinsicCallExpression intrinsicCall:
+                AddIntrinsicCapabilities(intrinsicCall.Intrinsic, intrinsicCall.ArgumentTypes, intrinsicCall.ResultType,
+                    emittedCapabilities);
+                foreach (Expression argument in intrinsicCall.Arguments)
+                {
+                    AddCapabilityForExpression(argument, emittedCapabilities);
+                }
+                break;
             case StorageArrayElementReference arrayElement:
                 AddCapabilityForExpression(arrayElement.ArrayReference, emittedCapabilities);
                 AddCapabilityForExpression(arrayElement.Index, emittedCapabilities);
@@ -249,6 +300,9 @@ public partial class IRToSpirvModule
                 {
                     AddCapabilityForExpression(value, emittedCapabilities);
                 }
+                break;
+            case ZeroValue zero:
+                AddCapabilityForStorage(zero.Type, emittedCapabilities);
                 break;
             case MatrixLiteral matrixLiteral:
                 AddCapability(SpirVCapability.Matrix, emittedCapabilities);
@@ -292,9 +346,33 @@ public partial class IRToSpirvModule
                 break; 
             case Int { Bits: 16 } int16:
                 AddCapability(SpirVCapability.Int16, emittedCapabilities);
+                AddCapability(SpirVCapability.StorageInputOutput16, emittedCapabilities);
                 break;
             case Int { Bits: 64 } int16:
                 AddCapability(SpirVCapability.Int64, emittedCapabilities);
+                break;
+            case Texture texture:
+                if (texture.Dimensions == TextureDimensions.Texture_1D)
+                {
+                    AddCapability(texture.Usage == TextureUsage.Storage
+                        ? SpirVCapability.Image1D
+                        : SpirVCapability.Sampled1D, emittedCapabilities);
+                }
+
+                if (texture.Dimensions == TextureDimensions.Cube && texture.Arrayed)
+                {
+                    AddCapability(texture.Usage == TextureUsage.Storage
+                        ? SpirVCapability.ImageCubeArray
+                        : SpirVCapability.SampledCubeArray, emittedCapabilities);
+                }
+
+                if (texture.Multisampled && texture.Usage == TextureUsage.Storage)
+                {
+                    AddCapability(SpirVCapability.StorageImageMultisample, emittedCapabilities);
+                }
+                break;
+            case IR.Intermediate.Types.Half:
+                AddHalfCapabilities(emittedCapabilities);
                 break;
             case Matrix matrix:
                 AddCapability(SpirVCapability.Matrix, emittedCapabilities);
@@ -303,6 +381,9 @@ public partial class IRToSpirvModule
                     case MatrixComponentType.Double:
                         AddCapability(SpirVCapability.Float64, emittedCapabilities);
                         break;
+                    case MatrixComponentType.Half:
+                        AddHalfCapabilities(emittedCapabilities);
+                        break;
                 }
                 break;
             case Vector vector:
@@ -310,6 +391,9 @@ public partial class IRToSpirvModule
                 {
                     case VectorComponentsType.Double:
                         AddCapability(SpirVCapability.Float64, emittedCapabilities);
+                        break;
+                    case VectorComponentsType.Half:
+                        AddHalfCapabilities(emittedCapabilities);
                         break;
                 }
                 if(vector.ComponentsDefaultValues is not null)
@@ -390,6 +474,25 @@ public partial class IRToSpirvModule
                 module.AddLine(SpirVOpTable.OpExecutionMode,
                     new SpirVInstructionParameter(functionId, SpirVInstructionType.IdRef),
                     SpirVInstructionParameter.Enumerant(SpirVExecutionMode.OriginUpperLeft));
+
+                // Escribir la profundidad exige DepthReplacing; la profundidad conservadora añade su promesa.
+                var builtIns = BuiltInsOf(shaderFunction, outputsOnly: true).ToList();
+                if (builtIns.Any(b => b is BuiltIn.FragDepth or BuiltIn.FragDepthGreater or BuiltIn.FragDepthLess))
+                {
+                    module.AddLine(SpirVOpTable.OpExecutionMode, SpirVModuleHelpers.Id(functionId),
+                        SpirVInstructionParameter.Enumerant(SpirVExecutionMode.DepthReplacing));
+                }
+
+                if (builtIns.Contains(BuiltIn.FragDepthGreater))
+                {
+                    module.AddLine(SpirVOpTable.OpExecutionMode, SpirVModuleHelpers.Id(functionId),
+                        SpirVInstructionParameter.Enumerant(SpirVExecutionMode.DepthGreater));
+                }
+                else if (builtIns.Contains(BuiltIn.FragDepthLess))
+                {
+                    module.AddLine(SpirVOpTable.OpExecutionMode, SpirVModuleHelpers.Id(functionId),
+                        SpirVInstructionParameter.Enumerant(SpirVExecutionMode.DepthLess));
+                }
             }
 
             if (shaderFunction.Stage is Stage.Compute)
@@ -490,6 +593,13 @@ public partial class IRToSpirvModule
                     DeclareStatementConstants(module, ifStatement.Else, stage);
                 }
                 break;
+            case Switch switchStatement:
+                DeclareExpressionConstants(module, switchStatement.Selector, stage);
+                foreach (SwitchSection section in switchStatement.Sections)
+                {
+                    DeclareStatementConstants(module, section.Body, stage);
+                }
+                break;
             case Loop loop:
                 if (loop.Condition is not null)
                 {
@@ -502,7 +612,18 @@ public partial class IRToSpirvModule
                 DeclareStatementConstants(module, loop.Body, stage);
                 DeclareStatementConstants(module, loop.Continuing, stage);
                 break;
-            
+            case FunctionCallStatement functionCall:
+                foreach (Expression argument in functionCall.Arguments)
+                {
+                    DeclareExpressionConstants(module, argument, stage);
+                }
+                break;
+            case IntrinsicCallStatement intrinsicCall:
+                foreach (Expression argument in intrinsicCall.Arguments)
+                {
+                    DeclareExpressionConstants(module, argument, stage);
+                }
+                break;
         }
     }
 
@@ -524,6 +645,9 @@ public partial class IRToSpirvModule
             case DoubleLiteral literal:
                 module.DeclareDoubleConstant(literal.Value);
                 break;
+            case HalfLiteral literal:
+                module.DeclareHalfConstant(literal.Value);
+                break;
             case BinaryExpression binaryExpression:
                 DeclareExpressionConstants(module, binaryExpression.Left, stage);
                 DeclareExpressionConstants(module, binaryExpression.Right, stage);
@@ -534,6 +658,8 @@ public partial class IRToSpirvModule
                 // El tipo del resultado se usa en la instrucción de conversión aunque nada más lo declare.
                 module.DeclareType(conversion.TargetType switch
                 {
+                    ScalarType.Int16 => typeof(short),
+                    ScalarType.UInt16 => typeof(ushort),
                     ScalarType.Int32 => typeof(int),
                     ScalarType.UInt32 => typeof(uint),
                     ScalarType.Float32 => typeof(float),
@@ -581,6 +707,12 @@ public partial class IRToSpirvModule
             }
             case FunctionCallExpression call:
                 foreach (Expression argument in call.Arguments)
+                {
+                    DeclareExpressionConstants(module, argument, stage);
+                }
+                break;
+            case IntrinsicCallExpression intrinsicCall:
+                foreach (Expression argument in intrinsicCall.Arguments)
                 {
                     DeclareExpressionConstants(module, argument, stage);
                 }
@@ -634,9 +766,13 @@ public partial class IRToSpirvModule
         // Solo las funciones auxiliares tienen parámetros SPIR-V.
         if (function.Stage == Stage.None)
         {
-            foreach (Storage input in function.Inputs)
+            for (int i = 0; i < function.Inputs.Count; i++)
             {
-                string inputTypeId = module.DeclareType(input, Stage.None);
+                string inputTypeId = module.DeclareType(function.Inputs[i], Stage.None);
+                if (function.ModeOf(i) != ParameterMode.Value)
+                {
+                    inputTypeId = module.DeclarePointer(SpirVStorageClass.Function, inputTypeId);
+                }
 
                 parameters.Add(new SpirVInstructionParameter(inputTypeId, SpirVInstructionType.IdRef));
             }
@@ -683,10 +819,17 @@ public partial class IRToSpirvModule
             
             if (shaderFunction.Stage == Stage.None)
             {
-                foreach (Storage input in shaderFunction.Inputs)
+                for (int parameterIndex = 0; parameterIndex < shaderFunction.Inputs.Count; parameterIndex++)
                 {
+                    Storage input = shaderFunction.Inputs[parameterIndex];
+                    bool byReference = shaderFunction.ModeOf(parameterIndex) != ParameterMode.Value;
                     string inputTypeId =
                         module.DeclareType(input, Stage.None);
+                    if (byReference)
+                    {
+                        inputTypeId = module.DeclarePointer(SpirVStorageClass.Function, inputTypeId);
+                    }
+
                     string parameterId =
                         FunctionParameterId(shaderFunction, input);
 
@@ -701,7 +844,9 @@ public partial class IRToSpirvModule
                         parameterId,
                         input.HumanName);
                     
-                    values[input] = parameterId;
+                    // ref/in/out: el parámetro es un puntero y se lee/escribe como una variable.
+                    if (byReference) pointers[input] = parameterId;
+                    else values[input] = parameterId;
                 }
             }
             
@@ -784,6 +929,15 @@ public partial class IRToSpirvModule
                     }
 
                     DecorateVariable(module, variableId, leaf.Slot);
+
+                    // Vulkan: una entrada de fragment entera o double no se interpola, debe llevar Flat.
+                    if (shaderFunction.Stage == Stage.Fragment && storage.Kind == StorageKind.Input &&
+                        NeedsFlat(leaf))
+                    {
+                        module.AddLine(SpirVOpTable.OpDecorate,
+                            SpirVModuleHelpers.Id(variableId),
+                            SpirVInstructionParameter.Enumerant(SpirVDecoration.Flat));
+                    }
                 }
             }
         }
@@ -808,6 +962,15 @@ public partial class IRToSpirvModule
             new(descriptor.Binding.ToString(System.Globalization.CultureInfo.InvariantCulture), 
                 SpirVInstructionType.UIntValue));
     }
+
+    private static bool NeedsFlat(Storage storage) => storage switch
+    {
+        Int or Double => true,
+        Vector { ComponentsType: VectorComponentsType.Int or VectorComponentsType.Uint or VectorComponentsType.Double } => true,
+        Matrix { ComponentsType: MatrixComponentType.Double } => true,
+        IR.Intermediate.Types.Array array => NeedsFlat(array.ElementType),
+        _ => false
+    };
 
     private void DecorateVariable(SpirVModule module, string variableId, InterfaceSlot storageSlot)
     {
@@ -840,6 +1003,20 @@ public partial class IRToSpirvModule
         }
     }
     
+    /// <summary>Los built-ins de la interfaz de una función (también los miembros de structs de interfaz).</summary>
+    private static IEnumerable<BuiltIn> BuiltInsOf(Function function, bool outputsOnly = false)
+    {
+        IEnumerable<Storage> Leaves(Storage storage) => storage is CustomStruct structure
+            ? structure.Properties.SelectMany(Leaves)
+            : [storage];
+
+        var storages = outputsOnly ? function.Outputs : function.Inputs.Concat(function.Outputs);
+        foreach (Storage leaf in storages.SelectMany(Leaves))
+        {
+            if (leaf.Slot is BuiltInSlot builtIn) yield return builtIn.BuiltIn;
+        }
+    }
+
     private static SpirVBuiltIn ToSpirVBuiltIn(BuiltIn builtIn) =>
         builtIn switch
         {
@@ -855,6 +1032,13 @@ public partial class IRToSpirvModule
             BuiltIn.LocalInvocationIndex => SpirVBuiltIn.LocalInvocationIndex,
             BuiltIn.WorkgroupId => SpirVBuiltIn.WorkgroupId,
             BuiltIn.NumWorkgroups => SpirVBuiltIn.NumWorkgroups,
+            BuiltIn.BaseVertex => SpirVBuiltIn.BaseVertex,
+            BuiltIn.BaseInstance => SpirVBuiltIn.BaseInstance,
+            BuiltIn.SampleId => SpirVBuiltIn.SampleId,
+            BuiltIn.SamplePosition => SpirVBuiltIn.SamplePosition,
+            BuiltIn.PrimitiveId => SpirVBuiltIn.PrimitiveId,
+            BuiltIn.HelperInvocation => SpirVBuiltIn.HelperInvocation,
+            BuiltIn.FragDepthGreater or BuiltIn.FragDepthLess => SpirVBuiltIn.FragDepth,
             _ => throw new NotSupportedException(
                 $"El built-in '{builtIn}' aún no está soportado por SPIR-V."),
         };

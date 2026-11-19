@@ -114,27 +114,55 @@ public partial class StatementOperationProcessor
         Dictionary<ISymbol, Storage> outputs, 
         Compilation compilation, Stage stage)
     {
+        // Una constante de C# (const, expresión plegada) es un literal, venga de donde venga.
+        if (initializerOperationValue is not ILiteralOperation &&
+            initializerOperationValue.ConstantValue is { HasValue: true, Value: not null } &&
+            ConstantLiteral(initializerOperationValue) is { } folded)
+        {
+            return folded;
+        }
+
         switch (initializerOperationValue)
         {
             case ILiteralOperation literalOperation:
                 return ProcessLiteral(literalOperation);
+            case IDeclarationExpressionOperation { Expression: ILocalReferenceOperation { Local: var declared } }:
+            {
+                // out var x / out float x: la variable se declara justo antes de la llamada.
+                Storage local = CreateLocalStorage(declared, compilation, stage);
+                local = local with { HumanName = UniqueLocalName(declared.Name) };
+                _locals[declared] = local;
+                return new SequenceExpression([new VariableDeclaration(local, null)], new StorageReference(local));
+            }
+            case ITupleOperation tuple:
+                return ProcessTupleExpression(tuple, inputs, outputs, compilation, stage);
+            case ISwitchExpressionOperation switchExpression:
+                return ProcessSwitchExpression(switchExpression, inputs, outputs, compilation, stage);
+            case IDefaultValueOperation { Type: { } defaultType }:
+                return new ZeroValue(CreateStorageFor(new StorageSource(defaultType, "default"), compilation, stage));
             case ILocalReferenceOperation localReferenceOperation:
                 return new StorageReference(GetStorage(localReferenceOperation.Local, inputs, outputs));
             case IParameterReferenceOperation parameterReferenceOperation:
                 return new StorageReference(GetStorage(parameterReferenceOperation.Parameter, inputs, outputs));
             case IFieldReferenceOperation { Instance: IInstanceReferenceOperation } resourceField
                 when Globals is not null && Globals.TryGetValue(resourceField.Field, out Storage? resource):
-                return new StorageReference(resource);
+                // Un buffer de elementos (T[], List, StructuredBuffer...) se usa como su array Items.
+                return ShaderProcessor.IsElementBuffer(resourceField.Field.Type)
+                    ? new StorageStructPropertyReference(new StorageReference(resource), "Items")
+                    : new StorageReference(resource);
             case IFieldReferenceOperation { Instance: IInstanceReferenceOperation } interfaceField
                 when TryGetInterfaceField(interfaceField.Field, inputs, compilation, stage, out Storage? interfaceStorage):
                 return new StorageReference(interfaceStorage);
             case IFieldReferenceOperation fieldReferenceOperation:
                 return ProcessMemberReference(fieldReferenceOperation.Instance,
-                    fieldReferenceOperation.Field.Name,
+                    FieldName(fieldReferenceOperation.Field),
                     inputs,
                     outputs, compilation, stage);
             case IPropertyReferenceOperation { Instance: not null, Property: { Name: "Length", ContainingType.SpecialType: SpecialType.System_Array } } arrayLength:
                 return ProcessArrayLength(arrayLength, inputs, outputs, compilation, stage);
+            case IPropertyReferenceOperation { Instance: { } wrapperInstance } wrapperAccess
+                when ShaderProcessor.IsBufferWrapper(wrapperAccess.Property.ContainingType):
+                return ProcessBufferWrapperAccess(wrapperAccess, wrapperInstance, inputs, outputs, compilation, stage);
             case IPropertyReferenceOperation propertyReferenceOperation:
                 return ProcessMemberReference(propertyReferenceOperation.Instance, propertyReferenceOperation.Property.Name,
                     inputs, outputs, compilation, stage);
@@ -219,6 +247,12 @@ public partial class StatementOperationProcessor
 {
     IMethodSymbol method = operation.TargetMethod;
 
+    // Math.Cbrt, Math.Round(x, dígitos)...: se llama a su implementación en C#.
+    if (ShaderProcessor.Compilation is { } current && MathPolyfillResolver.Resolve(method, current) is { } polyfill)
+    {
+        method = polyfill;
+    }
+
     IOperation[] orderedArguments = operation.Arguments
         .OrderBy(argument =>
             argument.Parameter?.Ordinal
@@ -228,8 +262,68 @@ public partial class StatementOperationProcessor
         .Select(argument => argument.Value)
         .ToArray();
 
-    return ProcessMethodCall(method, orderedArguments, inputs, outputs, compilation, stage);
+    Expression? instance = null;
+    if (IsStructInstanceMethod(method) && operation.Instance is { } instanceOperation)
+    {
+        instance = ProcessExpression(instanceOperation, inputs, outputs, compilation, stage)
+                   ?? throw new NotSupportedException($"La instancia de '{method.Name}' no produjo una expresión.");
+    }
+
+    return ProcessMethodCall(method, orderedArguments, inputs, outputs, compilation, stage, instance: instance);
 }
+
+    /// <summary>
+    /// Buffers envoltorio: <c>Items[i]</c> es el elemento i del array del bloque, <c>Items.Length</c> su longitud
+    /// en la GPU y <c>Camera.Value</c> el bloque del uniform.
+    /// </summary>
+    private Expression ProcessBufferWrapperAccess(IPropertyReferenceOperation access, IOperation instance,
+        Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage)
+    {
+        Expression buffer = ProcessExpression(instance, inputs, outputs, compilation, stage)
+                            ?? throw new NotSupportedException($"El buffer de '{access.Property.Name}' no produjo una expresión.");
+
+        if (access.Property.Name == "Value") return buffer;
+
+        var items = buffer as StorageStructPropertyReference is { PropertyName: "Items" } itemsReference
+            ? itemsReference
+            : new StorageStructPropertyReference(buffer, "Items");
+        if (access.Property.IsIndexer)
+        {
+            IOperation indexOperation = access.Arguments.Single().Value;
+            Expression index = ProcessExpression(indexOperation, inputs, outputs, compilation, stage)
+                               ?? throw new NotSupportedException("The buffer index did not produce an expression.");
+            return new StorageArrayElementReference(items, index);
+        }
+
+        if (access.Property.Name is "Length" or "Count") return new RuntimeArrayLength(items);
+
+        throw new NotSupportedException($"'{access.Property.Name}' no está soportado en un buffer.");
+    }
+
+    /// <summary>La Storage a la que apunta una expresión de acceso (variable, campo de struct, elemento de array).</summary>
+    internal static Storage? ResolveStorage(Expression expression) => expression switch
+    {
+        StorageReference reference => reference.Storage,
+        StorageStructPropertyReference property => ResolveStorage(property.Reference) is IRTypes.CustomStruct structure
+            ? structure.Properties.FirstOrDefault(p => p.HumanName == property.PropertyName)
+            : null,
+        StorageArrayElementReference element => (ResolveStorage(element.ArrayReference) as IRTypes.Array)?.ElementType,
+        SequenceExpression sequence => ResolveStorage(sequence.Value),
+        _ => null
+    };
+
+    /// <summary>Un parámetro array de una función auxiliar, con la longitud que trae el argumento.</summary>
+    internal Storage CreateArrayParameter(IParameterSymbol parameter, uint? length, Compilation compilation, Stage stage)
+    {
+        var array = (IRTypes.Array)CreateStorageFor(new StorageSource(parameter.Type, parameter.Name), compilation, stage);
+        return array with { Length = length };
+    }
+
+    /// <summary>Un método de instancia de un struct (no del shader): recibe 'this' como parámetro.</summary>
+    internal static bool IsStructInstanceMethod(IMethodSymbol method) =>
+        method is { IsStatic: false, MethodKind: MethodKind.Ordinary, ContainingType.IsValueType: true };
+
+    internal static bool IsReadOnlyInstance(IMethodSymbol method) => method.IsReadOnly || method.ContainingType.IsReadOnly;
 
     /// <summary>
     /// Llama a un método del shader (ordinario u operador definido por el usuario) con sus argumentos
@@ -245,9 +339,10 @@ public partial class StatementOperationProcessor
         Dictionary<ISymbol, Storage> outputs,
         Compilation compilation,
         Stage stage,
-        IReadOnlyList<Expression>? preparedArguments = null)
+        IReadOnlyList<Expression>? preparedArguments = null,
+        Expression? instance = null)
 {
-    if (targetMethod.MethodKind is not (MethodKind.Ordinary or MethodKind.UserDefinedOperator or MethodKind.Constructor))
+    if (targetMethod.MethodKind is not (MethodKind.Ordinary or MethodKind.UserDefinedOperator or MethodKind.Constructor or MethodKind.LocalFunction))
     {
         throw new NotSupportedException(
             $"El método '{targetMethod.ToDisplayString()}' no tiene un cuerpo de shader compilable.");
@@ -260,12 +355,11 @@ public partial class StatementOperationProcessor
             "aún no está soportado.");
     }
 
-    if (targetMethod.Parameters.Any(parameter =>
+    if (targetMethod.MethodKind == MethodKind.Constructor && targetMethod.Parameters.Any(parameter =>
             parameter.RefKind != RefKind.None))
     {
         throw new NotSupportedException(
-            $"El método '{targetMethod.Name}' no puede usar " +
-            "parámetros ref, in u out todavía.");
+            $"El constructor '{targetMethod.Name}' no puede usar parámetros ref, in u out.");
     }
 
     if (targetMethod.Parameters.Any(parameter => parameter.IsParams))
@@ -284,7 +378,7 @@ public partial class StatementOperationProcessor
     }
 
     var arguments = new List<Expression>(
-        preparedArguments?.Count ?? argumentOperations.Count);
+        (preparedArguments?.Count ?? argumentOperations.Count) + 1);
 
     // Los argumentos ya pueden venir convertidos a expresiones (asignación compuesta con operador del usuario).
     if (preparedArguments is not null)
@@ -308,7 +402,37 @@ public partial class StatementOperationProcessor
         arguments.Add(argument);
     }
 
+    // Un parámetro array toma la longitud del argumento: hay una versión de la función por longitud.
+    var arrayLengths = new Dictionary<int, uint>();
+    for (int i = 0; i < targetMethod.Parameters.Length && i < arguments.Count; i++)
+    {
+        if (targetMethod.Parameters[i].Type is IArrayTypeSymbol &&
+            ResolveStorage(arguments[i]) is IRTypes.Array { Length: { } argumentLength })
+        {
+            arrayLengths[i] = argumentLength;
+        }
+    }
+
+    if (IsStructInstanceMethod(targetMethod))
+    {
+        arguments.Insert(0, instance ?? new StorageReference(ThisStorage
+            ?? throw new NotSupportedException($"'{targetMethod.Name}' necesita una instancia de '{targetMethod.ContainingType.Name}'.")));
+    }
+
+    // Una función local recibe además las variables que captura, por referencia.
+    ImmutableArray<CaptureInfo> captures = targetMethod.MethodKind == MethodKind.LocalFunction
+        ? CapturesOf(targetMethod)
+        : [];
+    foreach (CaptureInfo capture in captures)
+    {
+        arguments.Add(new StorageReference(GetStorage(capture.Symbol, inputs, outputs)));
+    }
+
     var key = SymbolKey.Of(targetMethod);
+    if (arrayLengths.Count > 0)
+    {
+        key = key with { DocId = key.DocId + "[" + string.Join(",", arrayLengths.OrderBy(p => p.Key).Select(p => p.Key + ":" + p.Value)) + "]" };
+    }
     if (!ShaderProcessor.functionIds.TryGetValue(
             key,
             out FunctionId functionId))
@@ -340,7 +464,10 @@ public partial class StatementOperationProcessor
             parameters,
             returnType)
         {
-            CalledFrom = CurrentFunction
+            CalledFrom = CurrentFunction,
+            Id = functionId,
+            Captures = captures,
+            ArrayLengths = arrayLengths.ToImmutableDictionary()
         };
 
         ShaderProcessor.PendingFunctionsInfos.Add(functionInfo);
@@ -350,6 +477,21 @@ public partial class StatementOperationProcessor
 }
     private Expression? ProcessInvocationExpression(IInvocationOperation invocationOperation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage)
     {
+        if (TryProcessIntrinsicCall(invocationOperation, inputs, outputs, compilation, stage, asFloat: false,
+                out GPUIntrinsic intrinsic, out var intrinsicArguments, out var intrinsicArgumentTypes,
+                out var intrinsicResultType))
+        {
+            if (invocationOperation.TargetMethod.ReturnsVoid)
+            {
+                throw new NotSupportedException(
+                    $"La intrínseca '{invocationOperation.TargetMethod.Name}' no retorna un valor " +
+                    "y no puede usarse como expresión.");
+            }
+
+            return BuildIntrinsicExpression(invocationOperation.TargetMethod, intrinsic, intrinsicArguments,
+                intrinsicArgumentTypes, intrinsicResultType);
+        }
+
         if (invocationOperation.TargetMethod.ReturnsVoid)
         {
             throw new NotSupportedException(
@@ -418,6 +560,25 @@ public partial class StatementOperationProcessor
 
     private Expression? ProcessConversionExpression(IConversionOperation conversionOperation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage)
     {
+        if (TryProcessFloatMathConversion(conversionOperation, inputs, outputs, compilation, stage) is { } floatMath)
+        {
+            return floatMath;
+        }
+
+        // float f = default: el literal default toma el tipo del destino.
+        if (conversionOperation.Operand is IDefaultValueOperation && conversionOperation.Type is { } defaultTarget)
+        {
+            return new ZeroValue(CreateStorageFor(new StorageSource(defaultTarget, "default"), compilation, stage));
+        }
+
+        // short s = 3: una constante que cabe en 16 bits es directamente un literal de 16 bits.
+        if (conversionOperation.ConstantValue is { HasValue: true, Value: short or ushort } constant16)
+        {
+            return constant16.Value is short signed16
+                ? new IntLiteral(signed16.ToString(CultureInfo.InvariantCulture), true, 16)
+                : new IntLiteral(((ushort)constant16.Value!).ToString(CultureInfo.InvariantCulture), false, 16);
+        }
+
         Expression operand = ProcessExpression(conversionOperation.Operand, inputs, outputs, compilation, stage)
             ?? throw new NotSupportedException(
             "The conversion did not produce an expression.");
@@ -433,6 +594,8 @@ public partial class StatementOperationProcessor
         {
             SpecialType.System_UInt32 => ScalarType.UInt32,
             SpecialType.System_Int32 => ScalarType.Int32,
+            SpecialType.System_Int16 => ScalarType.Int16,
+            SpecialType.System_UInt16 => ScalarType.UInt16,
             SpecialType.System_Single => ScalarType.Float32,
             SpecialType.System_Double => ScalarType.Float64,
             _ => throw new NotSupportedException(
@@ -466,10 +629,10 @@ public partial class StatementOperationProcessor
                 Expression created;
                 if (ctor.IsImplicitlyDeclared)
                 {
+                    // new T() sin constructor propio es el valor cero; el inicializador asigna después.
                     created = storageType is IRTypes.CustomStruct customStruct
                         ? new CustomStructExpression(customStruct, [])
-                        : throw new NotSupportedException(
-                            $"'new {objectCreationOperation.Type}()' sin constructor declarado no está soportado para vectores.");
+                        : new ZeroValue(storageType);
                 }
                 else
                 {
@@ -497,7 +660,7 @@ public partial class StatementOperationProcessor
                                        ?? throw new NotSupportedException($"El inicializador de '{field.Field.Name}' no produjo una expresión.");
 
                     prelude.Add(new Assignment(
-                        new StorageStructPropertyReference(tempRef, field.Field.Name),
+                        new StorageStructPropertyReference(tempRef, FieldName(field.Field)),
                         value));
                 }
 
@@ -554,6 +717,26 @@ public partial class StatementOperationProcessor
             new StorageStructPropertyReference(reference, propertyName);
     }
     
+    /// <summary>El literal de una constante plegada por C#, si su tipo es un escalar de la GPU.</summary>
+    private static Expression? ConstantLiteral(IOperation operation) =>
+        operation.ConstantValue.Value switch
+        {
+            short or ushort or int or uint or float or double or bool => LiteralOf(operation.ConstantValue.Value),
+            _ => null
+        };
+
+    private static Expression LiteralOf(object? value) => value switch
+    {
+        short v => new IntLiteral(v.ToString(CultureInfo.InvariantCulture), true, 16),
+        ushort v => new IntLiteral(v.ToString(CultureInfo.InvariantCulture), false, 16),
+        int v => new IntLiteral(v.ToString(CultureInfo.InvariantCulture), true),
+        uint v => new IntLiteral(v.ToString(CultureInfo.InvariantCulture), false),
+        float v => new FloatLiteral(v),
+        double v => new DoubleLiteral(v),
+        bool v => new BoolLiteral(v),
+        _ => throw new NotSupportedException($"Constant '{value}' is not supported.")
+    };
+
     private Expression ProcessLiteral(
         ILiteralOperation literalOperation)
     {
@@ -562,6 +745,10 @@ public partial class StatementOperationProcessor
 
         switch (constantValue.Value)
         {
+            case short value:
+                return new IntLiteral(value.ToString(CultureInfo.InvariantCulture), true, 16);
+            case ushort value:
+                return new IntLiteral(value.ToString(CultureInfo.InvariantCulture), false, 16);
             case int value:
                 return new IntLiteral(value.ToString(CultureInfo.InvariantCulture), true);
             case uint value:
@@ -633,8 +820,17 @@ public partial class StatementOperationProcessor
 
         Storage? storage = null;
         var storageKind = StorageKind.Local;
-        switch (symbol.Type.SpecialType)
+        switch (ShaderProcessor.SpecialOf(symbol.Type))
         {
+            case ShaderProcessor.HalfSpecial:
+                storage = new IRTypes.Half(symbol.Name, storageKind, null);
+                break;
+            case SpecialType.System_Int16:
+                storage = new IRTypes.Int(symbol.Name, storageKind, null) { Bits = 16, Signed = true };
+                break;
+            case SpecialType.System_UInt16:
+                storage = new IRTypes.Int(symbol.Name, storageKind, null) { Bits = 16, Signed = false };
+                break;
             case SpecialType.System_Int32:
                 storage = new IRTypes.Int(symbol.Name, storageKind, null)
                 {
@@ -745,11 +941,14 @@ public partial class StatementOperationProcessor
                 ShaderProcessor.ValidateVectorComponents(components, type);
                 components = components.OrderBy(x => x.Key).ToDictionary();
                 
-                IRTypes.VectorComponentsType vectorComponentsType = componentsType?.SpecialType switch
+                IRTypes.VectorComponentsType vectorComponentsType = (componentsType is null ? (SpecialType?)null : ShaderProcessor.SpecialOf(componentsType)) switch
                 {
                     SpecialType.System_Int32 => IRTypes.VectorComponentsType.Int,
                     SpecialType.System_UInt32 => IRTypes.VectorComponentsType.Uint,
                     SpecialType.System_Single => IRTypes.VectorComponentsType.Float,
+                    SpecialType.System_Double => IRTypes.VectorComponentsType.Double,
+                    SpecialType.System_Boolean => IRTypes.VectorComponentsType.Bool,
+                    ShaderProcessor.HalfSpecial => IRTypes.VectorComponentsType.Half,
                     _ => throw new VectorComponentTypeNotValidException(
                         componentsType?.ToDisplayString() ?? "<missing>")
                 };
@@ -767,6 +966,12 @@ public partial class StatementOperationProcessor
                                 new IntLiteral(value, true),
                             IRTypes.VectorComponentsType.Uint =>
                                 new IntLiteral(value, false),
+                            IRTypes.VectorComponentsType.Double =>
+                                new DoubleLiteral(double.Parse(value, CultureInfo.InvariantCulture)),
+                            IRTypes.VectorComponentsType.Half =>
+                                new HalfLiteral(float.Parse(value, CultureInfo.InvariantCulture)),
+                            IRTypes.VectorComponentsType.Bool =>
+                                new BoolLiteral(bool.Parse(value)),
                             _ => throw new NotSupportedException(
                                 $"Unsupported vector component type '{vectorComponentsType}'.")
                         };
@@ -776,6 +981,9 @@ public partial class StatementOperationProcessor
                         IRTypes.VectorComponentsType.Float => new FloatLiteral(0f),
                         IRTypes.VectorComponentsType.Int => new IntLiteral("0", true),
                         IRTypes.VectorComponentsType.Uint => new IntLiteral("0", false),
+                        IRTypes.VectorComponentsType.Double => new DoubleLiteral(0d),
+                        IRTypes.VectorComponentsType.Half => new HalfLiteral(0f),
+                        IRTypes.VectorComponentsType.Bool => new BoolLiteral(false),
                         _ => throw new NotSupportedException(
                             $"Unsupported vector component type '{vectorComponentsType}'.")
                     };
@@ -791,15 +999,17 @@ public partial class StatementOperationProcessor
 
                 storage = vector;
             }    
+
+            storage ??= ShaderProcessor.TryCreateMatrix(type, symbol.Name, storageKind, null);
         }
         
         if (storage is null && type is INamedTypeSymbol { TypeKind: TypeKind.Struct } structType)
         {
             var properties = new List<Storage>();
 
-            foreach (ISymbol member in structType.GetMembers())
+            foreach (ISymbol member in ShaderProcessor.StructMembers(structType))
             {
-                if (member.IsStatic || member.IsImplicitlyDeclared)
+                if (member.IsStatic || (member.IsImplicitlyDeclared && !structType.IsTupleType))
                 {
                     continue;
                 }
@@ -896,7 +1106,7 @@ public partial class StatementOperationProcessor
             case IFieldReferenceOperation { Instance: not null } field:
                 return new StorageStructPropertyReference(
                     ProcessAssignableTarget(field.Instance, prelude, inputs, outputs, compilation, stage),
-                    field.Field.Name);
+                    FieldName(field.Field));
 
             case IPropertyReferenceOperation { Instance: not null } property:
                 return new StorageStructPropertyReference(
@@ -951,6 +1161,7 @@ public partial class StatementOperationProcessor
         StorageArrayElementReference element => ContainsSequence(element.ArrayReference) || ContainsSequence(element.Index),
         StorageStructPropertyReference property => ContainsSequence(property.Reference),
         FunctionCallExpression call => call.Arguments.Any(ContainsSequence),
+        IntrinsicCallExpression intrinsic => intrinsic.Arguments.Any(ContainsSequence),
         VectorExpression vector => vector.Values.Any(ContainsSequence),
         _ => false
     };
@@ -1060,6 +1271,7 @@ public partial class StatementOperationProcessor
     {
         FunctionCallExpression => true,
         SequenceExpression => true,
+        IntrinsicCallExpression intrinsic => intrinsic.Intrinsic.ToString().StartsWith("Atomic") || intrinsic.Arguments.Any(HasSideEffects),
         BinaryExpression binary => HasSideEffects(binary.Left) || HasSideEffects(binary.Right),
         UnaryExpression unary => HasSideEffects(unary.Operand),
         NumericConversion conversion => HasSideEffects(conversion.Operand),
@@ -1072,6 +1284,8 @@ public partial class StatementOperationProcessor
     {
         SpecialType.System_Int32 => ScalarType.Int32,
         SpecialType.System_UInt32 => ScalarType.UInt32,
+        SpecialType.System_Int16 => ScalarType.Int16,
+        SpecialType.System_UInt16 => ScalarType.UInt16,
         SpecialType.System_Single => ScalarType.Float32,
         SpecialType.System_Double => ScalarType.Float64,
         _ => null
@@ -1090,8 +1304,11 @@ public partial class StatementOperationProcessor
 
     private static Storage? CreateScalarStorage(ITypeSymbol type, string name, StorageKind kind)
 {
-    return type.SpecialType switch
+    return ShaderProcessor.SpecialOf(type) switch
     {
+        ShaderProcessor.HalfSpecial => new IRTypes.Half(name, kind, null),
+        SpecialType.System_Int16 => new IRTypes.Int(name, kind, null) { Bits = 16, Signed = true },
+        SpecialType.System_UInt16 => new IRTypes.Int(name, kind, null) { Bits = 16, Signed = false },
         SpecialType.System_Int32 => new IRTypes.Int(name, kind, null) { Bits = 32, Signed = true },
         SpecialType.System_UInt32 => new IRTypes.Int(name, kind, null) { Bits = 32, Signed = false },
         SpecialType.System_Single => new IRTypes.Float(name, kind, null),
@@ -1112,9 +1329,15 @@ private Expression ProcessArrayLength(
     Expression array = ProcessExpression(operation.Instance!, inputs, outputs, compilation, stage)
         ?? throw new NotSupportedException("The array reference did not produce an expression.");
 
-    if (array is StorageReference { Storage: IRTypes.Array { Length: { } length } })
+    if (ResolveStorage(array) is IRTypes.Array { Length: { } length })
     {
         return new IntLiteral(length.ToString(CultureInfo.InvariantCulture), true);
+    }
+
+    // Array sin tamaño de un storage buffer: su longitud se calcula en la GPU.
+    if (array is StorageStructPropertyReference runtimeArray && ResolveStorage(array) is IRTypes.Array { Length: null })
+    {
+        return new RuntimeArrayLength(runtimeArray);
     }
 
     throw new NotSupportedException("'Length' is only supported on local arrays with a known length.");

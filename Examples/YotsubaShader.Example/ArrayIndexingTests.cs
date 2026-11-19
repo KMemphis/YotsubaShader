@@ -107,8 +107,8 @@ public class ArrayIndexingTests
     private static Assignment[] Assignments(Function function) =>
         ShaderIr.Flatten(function.Body).OfType<Assignment>().ToArray();
 
-    private static NotSupportedException Rejects(string body, string parameters = "") =>
-        Assert.Throws<NotSupportedException>(() => Compile(body, parameters));
+    private static Exception Rejects(string body, string parameters = "") =>
+        Assert.ThrowsAny<Exception>(() => Compile(body, parameters));
 
     [Fact]
     public void Array_with_initializer_gets_its_length_and_one_assignment_per_element()
@@ -171,7 +171,7 @@ public class ArrayIndexingTests
     {
         Function fs = Compile(
             "int[] a = new int[4]; uint u = 2u; int x = a[i]; int y = a[u]; return x + y;",
-            "int i");
+            "[YotsubaShader.HlslSyntax.TEXCOORD(0)] int i");
 
         Assert.IsType<StorageReference>(Assert.IsType<StorageArrayElementReference>(fs.InitializerOf("x")).Index);
         Assert.IsType<StorageReference>(Assert.IsType<StorageArrayElementReference>(fs.InitializerOf("y")).Index);
@@ -236,7 +236,7 @@ public class ArrayIndexingTests
     [Fact]
     public void Array_length_must_be_a_compile_time_constant()
     {
-        Assert.Contains("compile-time constant", Rejects("int[] a = new int[n]; return 0;", "int n").Message);
+        Assert.Contains("YS0507", Rejects("int[] a = new int[n]; return 0;", "[YotsubaShader.HlslSyntax.TEXCOORD(0)] int n").Message);
     }
 
     [Fact]

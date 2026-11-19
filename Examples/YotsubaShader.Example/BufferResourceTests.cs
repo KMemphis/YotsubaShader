@@ -100,20 +100,20 @@ public class BufferResourceTests
     [Fact]
     public void A_buffer_without_a_binding_is_rejected()
     {
-        Rejects("[Uniform] public Params Globals;", "has no descriptor binding");
+        Rejects("[Uniform] public Params Globals;", "YS0301");
     }
 
     [Fact]
     public void A_buffer_declared_as_a_property_is_rejected()
     {
-        Rejects("[Uniform] [DescriptorSet(0)] [Binding(0)] public Params Globals { get; set; }", "Declare it as a field");
+        Rejects("[Uniform] [DescriptorSet(0)] [Binding(0)] public Params Globals { get; set; }", "YS0306");
     }
 
     [Fact]
     public void A_buffer_of_an_array_type_is_rejected()
     {
         Rejects("[Uniform] [DescriptorSet(0)] [Binding(0)] public float[] Values;",
-            "Only scalars, vectors and structs are supported");
+            "YS0305");
     }
 
     [Fact]
@@ -126,6 +126,6 @@ public class BufferResourceTests
     [Fact]
     public void A_plain_field_is_still_not_a_resource()
     {
-        Assert.Empty(Process("public float Plain;").GlobalResources);
+        Rejects("public float Plain;", "YS0310");
     }
 }

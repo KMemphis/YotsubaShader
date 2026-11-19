@@ -122,7 +122,7 @@ public class InterfaceValidationTests
                 [return: SV_Target(-1)]
                 public float FS() { return 1f; }
             }
-            """, "negative location -1", "__return", "'FS'");
+            """, "YS0211", "SV_Target", "-1");
     }
 
     [Fact]
@@ -135,7 +135,7 @@ public class InterfaceValidationTests
                 [return: SV_Position]
                 public V4 VS([TEXCOORD(-1)] V4 p) { return p; }
             }
-            """, "negative semantic index -1", "TextureCoordinate", "'p'");
+            """, "YS0211", "TEXCOORD", "'p'");
     }
 
     [Fact]
@@ -147,7 +147,7 @@ public class InterfaceValidationTests
                 [ShaderStage(Stage.Fragment)]
                 public void FS([SV_Target(1)] out float a, [SV_Target(1)] out float b) { a = 1f; b = 2f; }
             }
-            """, "duplicada");
+            """, "YS0205", "'b'");
     }
 
     [Fact]
@@ -160,7 +160,7 @@ public class InterfaceValidationTests
                 [return: SV_Position]
                 public V4 VS([TEXCOORD(0)] V4 a, [TEXCOORD(0)] V4 b) { return a; }
             }
-            """, "repetida");
+            """, "YS0204", "TEXCOORD0");
     }
 
     [Fact]
@@ -172,7 +172,7 @@ public class InterfaceValidationTests
                 [ShaderStage(Stage.Fragment)]
                 public float FS(float x) { return x; }
             }
-            """, "no Location or built-in", "'x'", "'FS'");
+            """, "YS0207", "'x'", "'FS'");
     }
 
     [Fact]
@@ -185,7 +185,7 @@ public class InterfaceValidationTests
                 [return: SV_Position]
                 public V4 VS(V4 p) { return p; }
             }
-            """, "no Location or built-in", "'p'", "'VS'");
+            """, "YS0207", "'p'", "'VS'");
     }
 
     [Fact]
@@ -197,7 +197,7 @@ public class InterfaceValidationTests
                 [ShaderStage(Stage.Fragment)]
                 public float FS([SV_VertexID] int id) { return 1f; }
             }
-            """, "VertexIndex", "'id'", "vertex shader input");
+            """, "YS0201", "SV_VertexID", "fragment");
     }
 
     [Fact]
@@ -210,7 +210,7 @@ public class InterfaceValidationTests
                 [return: SV_Position]
                 public V4 VS([POSITION] V4 p, [SV_IsFrontFace] bool front) { return p; }
             }
-            """, "FrontFacing", "'front'", "fragment shader input");
+            """, "YS0201", "SV_IsFrontFace", "vertex");
     }
 
     [Fact]
@@ -223,7 +223,7 @@ public class InterfaceValidationTests
                 [return: SV_Position]
                 public V4 FS([SV_Position] V4 p) { return p; }
             }
-            """, "FragCoord", "fragment shader input");
+            """, "YS0202", "SV_Position");
     }
 
     [Fact]

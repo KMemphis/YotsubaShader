@@ -88,6 +88,12 @@ public record Texture(string HumanName, StorageKind Kind, InterfaceSlot? Slot) :
     public required TextureUsage Usage;
 
     public required TextureFormat Format;
+
+    /// <summary>
+    /// Imagen y sampler en un solo recurso (<c>sampler2D</c> de GLSL: tiene [Sampler] y [Texture]).
+    /// En SPIR-V es un OpTypeSampledImage en lugar de un OpTypeImage.
+    /// </summary>
+    public bool CombinedSampler;
 }
 
 public enum TextureDimensions : int

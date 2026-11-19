@@ -23,12 +23,16 @@
         <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
     </ItemGroup>
     
+    <!-- Las reglas son las mismas que usa el compilador de shaders (YotsubaShader.Roslyn). -->
     <ItemGroup>
-      <Folder Include="GlslSyntax\" />
-      <Folder Include="HlslSyntax\" />
-      <Folder Include="MslSyntax\" />
-      <Folder Include="SpirvSyntax\" />
-      <Folder Include="WgslSyntax\" />
+      <Compile Include="..\YotsubaShader.Rules\**\*.cs" LinkBase="Rules" />
+      <Compile Include="..\..\Syntax\YotsubaShader.Concepts\Methods\Intrinsic.cs" LinkBase="Rules\Concepts" />
+      <Compile Include="..\..\Syntax\YotsubaShader.Concepts\Methods\CSharpIntrinsicToIntrinsicGPU.cs" LinkBase="Rules\Concepts" />
+    </ItemGroup>
+
+    <!-- YotsubaShaderTargets llega al analizador como build_property.YotsubaShaderTargets. -->
+    <ItemGroup>
+      <None Include="build\YotsubaShader.IDE.Analyzer.props" Pack="true" PackagePath="build/" />
     </ItemGroup>
 
     <ItemGroup>

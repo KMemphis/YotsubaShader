@@ -119,7 +119,7 @@ internal sealed partial class FunctionBodyEmitter
         
         if (declaration.Initializer is not null)
         {
-            string valueId = EmitValue(declaration.Initializer, ref function);
+            string valueId = ToLayout(EmitValue(declaration.Initializer, ref function), storage, function);
 
             _module.AddLine(
                 SpirVOpTable.OpStore,
@@ -132,6 +132,10 @@ internal sealed partial class FunctionBodyEmitter
     {
         string targetPointerId = EmitAddress(assignment.Target, ref function);
         string valueId = EmitValue(assignment.Value, ref function);
+        if (TryGetExpressionStorage(assignment.Target) is { } targetStorage)
+        {
+            valueId = ToLayout(valueId, targetStorage, function);
+        }
         
         _module.AddLine(
             SpirVOpTable.OpStore,
@@ -441,6 +445,8 @@ internal sealed partial class FunctionBodyEmitter
         VectorComponentsType.Int => SpirVTableTypesIds.IntID,
         VectorComponentsType.Uint => SpirVTableTypesIds.UIntID,
         VectorComponentsType.Double => SpirVTableTypesIds.FloatDinamicId(64),
+        VectorComponentsType.Half => SpirVTableTypesIds.FloatDinamicId(16),
+        VectorComponentsType.Bool => SpirVTableTypesIds.BoolID,
         _ => throw new NotSupportedException(
             $"Vector component type '{vector.ComponentsType}' is not supported.")
     };
@@ -486,6 +492,15 @@ internal sealed partial class FunctionBodyEmitter
 
             case FunctionCallExpression call:
                 return ReturnStorageOf(call.Target);
+
+            case IntrinsicCallExpression intrinsic:
+                return intrinsic.ResultType;
+
+            case ZeroValue zero:
+                return zero.Type;
+
+            case RuntimeArrayLength:
+                return null;
 
             case SequenceExpression sequence:
                 return TryGetExpressionStorage(sequence.Value);
@@ -555,6 +570,9 @@ internal sealed partial class FunctionBodyEmitter
             case FloatLiteral literal:
                 id = $"%float_{unchecked((uint)BitConverter.SingleToInt32Bits(literal.Value)):X8}";
                 break;
+            case HalfLiteral literal:
+                id = $"%half_{BitConverter.HalfToUInt16Bits((System.Half)literal.Value):X4}";
+                break;
             case DoubleLiteral literal:
                 id = $"%double_{unchecked((ulong)BitConverter.DoubleToInt64Bits(literal.Value)):X16}";
                 break;
@@ -620,6 +638,15 @@ internal sealed partial class FunctionBodyEmitter
                     function,
                     requiresValue: true);
                 break;
+            case IntrinsicCallExpression intrinsicCall:
+                id = EmitIntrinsicValue(intrinsicCall, ref function);
+                break;
+            case ZeroValue zero:
+                id = EmitZeroValue(zero.Type, function);
+                break;
+            case RuntimeArrayLength runtimeLength:
+                id = EmitRuntimeArrayLength(runtimeLength, ref function);
+                break;
             case BinaryExpression binary:
                 id = EmitBinary(binary, ref function);
                 break;
@@ -628,6 +655,13 @@ internal sealed partial class FunctionBodyEmitter
                 break;
             default:
                 throw new NotSupportedException($"Expression '{expression.GetType().Name}' is not supported yet.");
+        }
+
+        // Un struct o array leído de un buffer tiene el tipo con layout: se copia al tipo sin layout para usarlo.
+        if (expression is StorageReference or StorageStructPropertyReference or StorageArrayElementReference &&
+            TryGetExpressionStorage(expression) is { } loaded && HasExplicitLayout(loaded))
+        {
+            id = CopyLogical(id, _module.DeclareType(WithoutLayout(loaded), function.Stage), function);
         }
 
         if (!_module.IsDefined(id))
@@ -639,6 +673,71 @@ internal sealed partial class FunctionBodyEmitter
         return id;
     }
     
+    /// <summary>OpArrayLength sobre el struct del buffer y el índice del miembro; C# espera un int.</summary>
+    private string EmitRuntimeArrayLength(RuntimeArrayLength length, ref Function function)
+    {
+        StorageStructPropertyReference member = length.Array;
+        if (TryGetExpressionStorage(member.Reference) is not CustomStruct structure)
+        {
+            throw new NotSupportedException("The length of an unsized array is only available inside a storage buffer.");
+        }
+
+        int index = structure.Properties.ToList().FindIndex(p => p.HumanName == member.PropertyName);
+        string structPointer = EmitAddress(member.Reference, ref function);
+
+        string unsignedId = $"%value_{function.HumanName}_{function.Id.Value}_{_nextTemporaryValue++}";
+        _module.AddResultLine(unsignedId, SpirVOpTable.OpArrayLength,
+            SpirVModuleHelpers.Id(_module.DeclareType(typeof(uint))),
+            SpirVModuleHelpers.Id(structPointer),
+            new SpirVInstructionParameter(index.ToString(), SpirVInstructionType.UIntValue));
+
+        string signedId = $"%value_{function.HumanName}_{function.Id.Value}_{_nextTemporaryValue++}";
+        _module.AddResultLine(signedId, SpirVOpTable.OpBitcast,
+            SpirVModuleHelpers.Id(_module.DeclareType(typeof(int))), SpirVModuleHelpers.Id(unsignedId));
+        return signedId;
+    }
+
+    private static bool HasExplicitLayout(Storage storage) =>
+        storage.Kind is StorageKind.Uniform or StorageKind.StorageBuffer or StorageKind.PushConstant &&
+        storage is CustomStruct or IRTypes.Array;
+
+    /// <summary>El mismo tipo sin layout de buffer: el de las variables locales.</summary>
+    private static Storage WithoutLayout(Storage storage) => storage switch
+    {
+        CustomStruct structure => structure with
+        {
+            Kind = StorageKind.Local,
+            Properties = structure.Properties.Select(WithoutLayout).ToList()
+        },
+        IRTypes.Array array => array with { Kind = StorageKind.Local, ElementType = WithoutLayout(array.ElementType) },
+        _ => storage
+    };
+
+    /// <summary>Un valor sin layout que se guarda en un buffer pasa al tipo con layout.</summary>
+    private string ToLayout(string valueId, Storage target, Function function) =>
+        HasExplicitLayout(target) ? CopyLogical(valueId, _module.DeclareType(target, function.Stage), function) : valueId;
+
+    /// <summary>OpCopyLogical: copia entre dos tipos con la misma forma y distinto layout (SPIR-V 1.4+).</summary>
+    private string CopyLogical(string valueId, string targetTypeId, Function function)
+    {
+        string id = $"%value_{function.HumanName}_{function.Id.Value}_{_nextTemporaryValue++}";
+        _module.AddResultLine(id, SpirVOpTable.OpCopyLogical, SpirVModuleHelpers.Id(targetTypeId), SpirVModuleHelpers.Id(valueId));
+        return id;
+    }
+
+    /// <summary>El valor cero de cualquier tipo: un OpConstantNull compartido por todo el módulo.</summary>
+    private string EmitZeroValue(Storage type, Function function)
+    {
+        string typeId = _module.DeclareType(type, function.Stage);
+        string nullId = $"%null_{typeId.TrimStart('%')}";
+        if (!_module.IsDefined(nullId))
+        {
+            _module.AddResultLine(nullId, SpirVOpTable.OpConstantNull, SpirVModuleHelpers.Id(typeId));
+        }
+
+        return nullId;
+    }
+
     private string NewLabel(string kind, Function function) =>
     $"%{kind}_{function.Id.Value}_{_nextLabel++}";
 
@@ -684,6 +783,59 @@ private void EmitIf(If statement, Function function, IReadOnlyList<Function> oth
     BeginBlock(mergeLabel);
 }
 
+/// <summary>
+/// switch → OpSelectionMerge + OpSwitch. Cada sección es un bloque; las secciones con varios valores comparten
+/// bloque. Sin sección por defecto, los valores no listados van directos al merge.
+/// </summary>
+private void EmitSwitch(Switch statement, Function function, IReadOnlyList<Function> otherFuncs)
+{
+    string selectorId = EmitValue(statement.Selector, ref function);
+    string mergeLabel = NewLabel("switch_merge", function);
+
+    var sectionLabels = statement.Sections.Select(_ => NewLabel("switch_case", function)).ToList();
+    int defaultIndex = statement.Sections.ToList().FindIndex(s => s.IsDefault);
+    string defaultLabel = defaultIndex >= 0 ? sectionLabels[defaultIndex] : mergeLabel;
+
+    var operands = new List<SpirVInstructionParameter>
+    {
+        SpirVModuleHelpers.Id(selectorId),
+        SpirVModuleHelpers.Id(defaultLabel)
+    };
+
+    var seen = new HashSet<uint>();
+    for (int i = 0; i < statement.Sections.Count; i++)
+    {
+        foreach (long value in statement.Sections[i].Values)
+        {
+            uint literal = unchecked((uint)value);
+            if (!seen.Add(literal)) continue;
+            operands.Add(new SpirVInstructionParameter(literal.ToString(), SpirVInstructionType.UIntValue));
+            operands.Add(SpirVModuleHelpers.Id(sectionLabels[i]));
+        }
+    }
+
+    _module.AddLine(SpirVOpTable.OpSelectionMerge, SpirVModuleHelpers.Id(mergeLabel), NoneControl);
+    _module.AddLine(SpirVOpTable.OpSwitch, operands.ToArray());
+    _terminated = true;
+
+    _breakTargets.Push(mergeLabel);
+    try
+    {
+        for (int i = 0; i < statement.Sections.Count; i++)
+        {
+            BeginBlock(sectionLabels[i]);
+            EmitStatement(statement.Sections[i].Body, function, otherFuncs);
+            if (!_terminated) Branch(mergeLabel);
+        }
+    }
+    finally
+    {
+        _breakTargets.Pop();
+    }
+
+    BeginBlock(mergeLabel);
+}
+
 private void EmitLoop(Loop loop, Function function, IReadOnlyList<Function> otherFuncs)
 {
     string header = NewLabel("loop_header", function);
@@ -716,6 +868,7 @@ private void EmitLoop(Loop loop, Function function, IReadOnlyList<Function> othe
 
     // El loop sigue en la pila durante Continuing: el `break` de un do-while vive ahí.
     _loops.Push((merge, continueLabel));
+    _breakTargets.Push(merge);
     try
     {
         BeginBlock(body);
@@ -745,12 +898,13 @@ private void EmitLoop(Loop loop, Function function, IReadOnlyList<Function> othe
     finally
     {
         _loops.Pop();
+        _breakTargets.Pop();
     }
 
     BeginBlock(merge);
 }
 
-private enum ValueKind { Int32, UInt32, Float32, Float64, Bool }
+private enum ValueKind { Int32, UInt32, Float32, Float64, Bool, Float16, Int16, UInt16 }
 
 private static bool ProducesBool(BinaryOperator op) => op is
     BinaryOperator.Equal or BinaryOperator.NotEqual or
@@ -762,8 +916,11 @@ private string TypeIdOf(ValueKind kind) => kind switch
 {
     ValueKind.Int32 => SpirVTableTypesIds.IntID,
     ValueKind.UInt32 => SpirVTableTypesIds.UIntID,
+    ValueKind.Int16 => _module.DeclareType(typeof(short)),
+    ValueKind.UInt16 => _module.DeclareType(typeof(ushort)),
     ValueKind.Float32 => SpirVTableTypesIds.FloatID,
     ValueKind.Float64 => SpirVTableTypesIds.FloatDinamicId(64),
+    ValueKind.Float16 => SpirVTableTypesIds.FloatDinamicId(16),
     ValueKind.Bool => _module.DeclareType(typeof(bool)),
     _ => throw new NotSupportedException($"Value kind '{kind}' is not supported.")
 };
@@ -775,6 +932,8 @@ private ValueKind GetValueKind(Expression expression) => expression switch
     BoolLiteral => ValueKind.Bool,
     IntLiteral { Bits: 32, Signed: true } => ValueKind.Int32,
     IntLiteral { Bits: 32, Signed: false } => ValueKind.UInt32,
+    IntLiteral { Bits: 16, Signed: true } => ValueKind.Int16,
+    IntLiteral { Bits: 16, Signed: false } => ValueKind.UInt16,
     NumericConversion conversion => KindOf(conversion.TargetType),
     StorageReference reference => KindOf(reference.Storage),
     StorageStructPropertyReference property => KindOfProperty(property),
@@ -783,6 +942,10 @@ private ValueKind GetValueKind(Expression expression) => expression switch
     BinaryExpression binary => ProducesBool(binary.Operator) ? ValueKind.Bool : GetValueKind(binary.Left),
     UnaryExpression unary => unary.Operator == UnaryOperator.LogicalNot ? ValueKind.Bool : GetValueKind(unary.Operand),
     FunctionCallExpression call => KindOf(ReturnStorageOf(call.Target)),
+    ZeroValue zero => KindOf(zero.Type),
+    RuntimeArrayLength => ValueKind.Int32,
+    IntrinsicCallExpression intrinsic => KindOf(intrinsic.ResultType
+        ?? throw new NotSupportedException($"La intrínseca '{intrinsic.Intrinsic}' no tiene resultado.")),
     _ => throw new NotSupportedException(
         $"Cannot infer the value kind of '{expression.GetType().Name}'.")
 };
@@ -791,6 +954,8 @@ private static ValueKind KindOf(ScalarType type) => type switch
 {
     ScalarType.Int32 => ValueKind.Int32,
     ScalarType.UInt32 => ValueKind.UInt32,
+    ScalarType.Int16 => ValueKind.Int16,
+    ScalarType.UInt16 => ValueKind.UInt16,
     ScalarType.Float32 => ValueKind.Float32,
     ScalarType.Float64 => ValueKind.Float64,
     _ => throw new NotSupportedException($"Scalar type '{type}' is not supported.")
@@ -800,8 +965,11 @@ private static ValueKind KindOf(Storage storage) => storage switch
 {
     IRTypes.Int { Bits: 32, Signed: true } => ValueKind.Int32,
     IRTypes.Int { Bits: 32, Signed: false } => ValueKind.UInt32,
+    IRTypes.Int { Bits: 16, Signed: true } => ValueKind.Int16,
+    IRTypes.Int { Bits: 16, Signed: false } => ValueKind.UInt16,
     IRTypes.Float => ValueKind.Float32,
     IRTypes.Double => ValueKind.Float64,
+    IRTypes.Half => ValueKind.Float16,
     IRTypes.Bool => ValueKind.Bool,
     _ => throw new NotSupportedException(
         $"Storage '{storage.HumanName}' ({storage.GetType().Name}) is not a supported scalar operand.")
@@ -819,6 +987,8 @@ private ValueKind KindOfProperty(StorageStructPropertyReference property)
             VectorComponentsType.Int => ValueKind.Int32,
             VectorComponentsType.Uint => ValueKind.UInt32,
             VectorComponentsType.Double => ValueKind.Float64,
+            VectorComponentsType.Half => ValueKind.Float16,
+            VectorComponentsType.Bool => ValueKind.Bool,
             _ => throw new NotSupportedException($"Vector component type '{vector.ComponentsType}' is not supported.")
         };
     }
@@ -890,7 +1060,7 @@ private static SpirVOperation SelectBinaryOperation(BinaryOperator op, ValueKind
     }
 
     bool floating = kind is ValueKind.Float32 or ValueKind.Float64;
-    bool signed = kind == ValueKind.Int32;
+    bool signed = kind is ValueKind.Int32 or ValueKind.Int16;
 
     if (floating && op is BinaryOperator.BitwiseAnd or BinaryOperator.BitwiseOr or
             BinaryOperator.BitwiseXor or BinaryOperator.ShiftLeft or BinaryOperator.ShiftRight)
@@ -932,9 +1102,9 @@ private string EmitUnary(UnaryExpression unary, ref Function function)
     {
         UnaryOperator.LogicalNot when kind == ValueKind.Bool =>
             (SpirVOpTable.OpLogicalNot, _module.DeclareType(typeof(bool))),
-        UnaryOperator.BitwiseNot when kind is ValueKind.Int32 or ValueKind.UInt32 =>
+        UnaryOperator.BitwiseNot when kind is ValueKind.Int32 or ValueKind.UInt32 or ValueKind.Int16 or ValueKind.UInt16 =>
             (SpirVOpTable.OpNot, TypeIdOf(kind)),
-        UnaryOperator.Negate when kind == ValueKind.Int32 =>
+        UnaryOperator.Negate when kind is ValueKind.Int32 or ValueKind.Int16 =>
             (SpirVOpTable.OpSNegate, TypeIdOf(kind)),
         UnaryOperator.Negate when kind is ValueKind.Float32 or ValueKind.Float64 =>
             (SpirVOpTable.OpFNegate, TypeIdOf(kind)),
@@ -971,6 +1141,8 @@ private string EmitUnary(UnaryExpression unary, ref Function function)
                 VectorComponentsType.Int => SpirVTableTypesIds.IntID,
                 VectorComponentsType.Uint => SpirVTableTypesIds.UIntID,
                 VectorComponentsType.Double => SpirVTableTypesIds.FloatDinamicId(64),
+                VectorComponentsType.Half => SpirVTableTypesIds.FloatDinamicId(16),
+                VectorComponentsType.Bool => SpirVTableTypesIds.BoolID,
 
                 _ => throw new NotSupportedException(
                     $"Vector component type '{vector.ComponentsType}' is not supported.")
@@ -1118,6 +1290,8 @@ private string EmitUnary(UnaryExpression unary, ref Function function)
         {
             ValueKind.Int32 => ScalarType.Int32,
             ValueKind.UInt32 => ScalarType.UInt32,
+            ValueKind.Int16 => ScalarType.Int16,
+            ValueKind.UInt16 => ScalarType.UInt16,
             ValueKind.Float32 => ScalarType.Float32,
             ValueKind.Float64 => ScalarType.Float64,
 
@@ -1142,6 +1316,8 @@ private string EmitUnary(UnaryExpression unary, ref Function function)
 
         string resultTypeId = targetType switch
         {
+            ScalarType.Int16 => _module.DeclareType(typeof(short)),
+            ScalarType.UInt16 => _module.DeclareType(typeof(ushort)),
             ScalarType.Int32 => SpirVTableTypesIds.IntID,
             ScalarType.UInt32 => SpirVTableTypesIds.UIntID,
             ScalarType.Float32 => SpirVTableTypesIds.FloatID,
@@ -1151,35 +1327,40 @@ private string EmitUnary(UnaryExpression unary, ref Function function)
                 $"Target type '{targetType}' is not supported.")
         };
 
-        SpirVOperation operation = (sourceType, targetType) switch
+        static int IntBits(ScalarType t) => t switch
         {
-            (ScalarType.Int32, ScalarType.Float32) or
-                (ScalarType.Int32, ScalarType.Float64) =>
-                SpirVOpTable.OpConvertSToF,
-
-            (ScalarType.UInt32, ScalarType.Float32) or
-                (ScalarType.UInt32, ScalarType.Float64) =>
-                SpirVOpTable.OpConvertUToF,
-
-            (ScalarType.Int32, ScalarType.UInt32) or
-                (ScalarType.UInt32, ScalarType.Int32) =>
-                SpirVOpTable.OpBitcast,
-            
-            (ScalarType.Float32, ScalarType.Int32) or
-                (ScalarType.Float64, ScalarType.Int32) =>
-                SpirVOpTable.OpConvertFToS,
-
-            (ScalarType.Float32, ScalarType.UInt32) or
-                (ScalarType.Float64, ScalarType.UInt32) =>
-                SpirVOpTable.OpConvertFToU,
-
-            (ScalarType.Float32, ScalarType.Float64) or
-                (ScalarType.Float64, ScalarType.Float32) =>
-                SpirVOpTable.OpFConvert,
-
-            _ => throw new NotSupportedException(
-                $"Conversion '{sourceType}' → '{targetType}' is not supported yet.")
+            ScalarType.Int16 or ScalarType.UInt16 => 16,
+            ScalarType.Int32 or ScalarType.UInt32 => 32,
+            _ => 0
         };
+
+        static bool IsSigned(ScalarType t) => t is ScalarType.Int16 or ScalarType.Int32;
+        static bool IsFloat(ScalarType t) => t is ScalarType.Float32 or ScalarType.Float64;
+
+        SpirVOperation operation;
+        if (IntBits(sourceType) > 0 && IntBits(targetType) > 0)
+        {
+            // Mismo ancho: solo cambia el signo. Distinto ancho: extiende según el signo del origen.
+            operation = IntBits(sourceType) == IntBits(targetType)
+                ? SpirVOpTable.OpBitcast
+                : IsSigned(sourceType) ? SpirVOpTable.OpSConvert : SpirVOpTable.OpUConvert;
+        }
+        else if (IntBits(sourceType) > 0 && IsFloat(targetType))
+        {
+            operation = IsSigned(sourceType) ? SpirVOpTable.OpConvertSToF : SpirVOpTable.OpConvertUToF;
+        }
+        else if (IsFloat(sourceType) && IntBits(targetType) > 0)
+        {
+            operation = IsSigned(targetType) ? SpirVOpTable.OpConvertFToS : SpirVOpTable.OpConvertFToU;
+        }
+        else if (IsFloat(sourceType) && IsFloat(targetType))
+        {
+            operation = SpirVOpTable.OpFConvert;
+        }
+        else
+        {
+            throw new NotSupportedException($"Conversion '{sourceType}' → '{targetType}' is not supported yet.");
+        }
 
         string resultId =
             $"%value_{function.HumanName}_{function.Id.Value}_{_nextTemporaryValue++}";
@@ -1389,14 +1570,47 @@ private string EmitUnary(UnaryExpression unary, ref Function function)
                 SpirVInstructionType.IdRef)
         };
 
-        foreach (Expression argument in arguments)
+        // ref/in/out: se pasa una variable temporal (SPIR-V lógico solo admite punteros a variables completas)
+        // y después de la llamada su valor se copia al argumento original.
+        var copyBack = new List<(Expression Target, string Temporary, string TypeId)>();
+        for (int i = 0; i < arguments.Count; i++)
         {
-            string argumentId = EmitValue(
-                argument,
-                ref caller);
+            Expression argument = arguments[i];
+            ParameterMode mode = functionCalled.ModeOf(i);
 
-            parameters.Add(
-                SpirVModuleHelpers.Id(argumentId));
+            if (mode == ParameterMode.Value)
+            {
+                parameters.Add(SpirVModuleHelpers.Id(EmitValue(argument, ref caller)));
+                continue;
+            }
+
+            // out var x: la declaración se emite antes de la llamada.
+            while (argument is SequenceExpression sequence)
+            {
+                foreach (Statement statement in sequence.Prelude) EmitStatement(statement, caller, _otherFuncs);
+                argument = sequence.Value;
+            }
+
+            Storage parameter = functionCalled.Inputs[i];
+            string typeId = _module.DeclareType(parameter, Stage.None);
+            string pointerTypeId = _module.DeclarePointer(SpirVStorageClass.Function, typeId);
+            string temporary = $"%byref_{caller.HumanName}_{caller.Id.Value}_{_nextTemporaryValue++}";
+            _module.AddResultLine(temporary, SpirVOpTable.OpVariable, SpirVModuleHelpers.Id(pointerTypeId),
+                SpirVInstructionParameter.Enumerant(SpirVStorageClass.Function));
+
+            if (mode is ParameterMode.Ref or ParameterMode.In)
+            {
+                string value = EmitValue(argument, ref caller);
+                _module.AddLine(SpirVOpTable.OpStore, SpirVModuleHelpers.Id(temporary), SpirVModuleHelpers.Id(value));
+            }
+
+            // Un valor temporal (resultado de una llamada...) no tiene dónde copiarse de vuelta.
+            if (mode is ParameterMode.Ref or ParameterMode.Out && IsAddressable(argument))
+            {
+                copyBack.Add((argument, temporary, typeId));
+            }
+
+            parameters.Add(SpirVModuleHelpers.Id(temporary));
         }
 
         string resultId =
@@ -1406,6 +1620,14 @@ private string EmitUnary(UnaryExpression unary, ref Function function)
             resultId,
             SpirVOpTable.OpFunctionCall,
             parameters.ToArray());
+
+        foreach (var (copyTarget, temporary, typeId) in copyBack)
+        {
+            string value = $"%value_{caller.HumanName}_{caller.Id.Value}_{_nextTemporaryValue++}";
+            _module.AddResultLine(value, SpirVOpTable.OpLoad, SpirVModuleHelpers.Id(typeId), SpirVModuleHelpers.Id(temporary));
+            string address = EmitAddress(copyTarget, ref caller);
+            _module.AddLine(SpirVOpTable.OpStore, SpirVModuleHelpers.Id(address), SpirVModuleHelpers.Id(value));
+        }
 
         return resultId;
     }
@@ -1417,11 +1639,12 @@ private string EmitUnary(UnaryExpression unary, ref Function function)
     }
     
     
-    private static IRTypes.Array GetArrayStorage(StorageArrayElementReference element)
+    private IRTypes.Array GetArrayStorage(StorageArrayElementReference element)
     {
-        if (element.ArrayReference is not StorageReference { Storage: IRTypes.Array array })
+        // Variable, campo de un struct (buffer.Items[i]) o elemento de otro array.
+        if (TryGetExpressionStorage(element.ArrayReference) is not IRTypes.Array array)
         {
-            throw new NotSupportedException("Only array variables can be indexed.");
+            throw new NotSupportedException("Only arrays can be indexed.");
         }
 
         return array;
@@ -1440,7 +1663,12 @@ private string EmitUnary(UnaryExpression unary, ref Function function)
         string indexId = EmitValue(element.Index, ref function);
 
         string elementTypeId = _module.DeclareType(array.ElementType, function.Stage);
-        string pointerTypeId = _module.DeclarePointer(ToSpirVStorageClass(array.Kind), elementTypeId);
+        // La clase de almacenamiento es la de la variable raíz: buffer.Items[i] vive en StorageBuffer.
+        string pointerTypeId = _module.DeclarePointer(
+            _pointers.ContainsKey(GetRootStorage(element.ArrayReference)) && GetRootStorage(element.ArrayReference) is var root &&
+            root.Kind is StorageKind.Local
+                ? SpirVStorageClass.Function
+                : ToSpirVStorageClass(GetRootStorage(element.ArrayReference).Kind), elementTypeId);
 
         string resultId = $"%address_{function.HumanName}_{function.Id.Value}_{_nextTemporaryValue++}";
 

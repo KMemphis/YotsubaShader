@@ -42,6 +42,11 @@ namespace YotsubaShader.Concepts.Methods
             ("Max", Intrinsic.Max),
             ("Clamp", Intrinsic.Clamp),
             ("FusedMultiplyAdd", Intrinsic.FusedMultiplyAdd),
+            ("ReciprocalEstimate", Intrinsic.Reciprocal),
+            ("ScaleB", Intrinsic.Ldexp),
+            ("IsNaN", Intrinsic.IsNaN),
+            ("IsInfinity", Intrinsic.IsInfinity),
+            ("IsFinite", Intrinsic.IsFinite),
         };
 
         public static readonly Dictionary<string, Intrinsic> Map = Build();
@@ -54,6 +59,12 @@ namespace YotsubaShader.Concepts.Methods
                 map[$"{M}.{name}"] = intrinsic;
                 map[$"{F}.{name}"] = intrinsic;
             }
+
+            // Reinterpretar los bits de un float (asint/asfloat, floatBitsToInt/intBitsToFloat).
+            map["System.BitConverter.SingleToInt32Bits"] = Intrinsic.FloatBitsToInt;
+            map["System.BitConverter.SingleToUInt32Bits"] = Intrinsic.FloatBitsToInt;
+            map["System.BitConverter.Int32BitsToSingle"] = Intrinsic.IntBitsToFloat;
+            map["System.BitConverter.UInt32BitsToSingle"] = Intrinsic.IntBitsToFloat;
             return map;
         }
     }

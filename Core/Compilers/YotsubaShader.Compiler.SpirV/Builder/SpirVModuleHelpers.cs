@@ -178,6 +178,8 @@ public static class SpirVModuleHelpers
                 return Define(module, SpirVTableTypesIds.FloatID, SpirVOpTable.OpTypeFloat, Int(32));
             case IR.Intermediate.Types.Bool:
                 return Define(module, SpirVTableTypesIds.BoolID, SpirVOpTable.OpTypeBool);
+            case IR.Intermediate.Types.Half:
+                return Define(module, SpirVTableTypesIds.FloatDinamicId(16), SpirVOpTable.OpTypeFloat, Int(16));
             case IR.Intermediate.Types.Double Double:
                 return Define(module, SpirVTableTypesIds.FloatDinamicId(64), SpirVOpTable.OpTypeFloat, Int(64));
             case IR.Intermediate.Types.Sampler:
@@ -204,6 +206,13 @@ public static class SpirVModuleHelpers
                         Define(module, SpirVTableTypesIds.FloatDinamicId(64),
                             SpirVOpTable.OpTypeFloat, Int(64)),
 
+                    VectorComponentsType.Half =>
+                        Define(module, SpirVTableTypesIds.FloatDinamicId(16),
+                            SpirVOpTable.OpTypeFloat, Int(16)),
+
+                    VectorComponentsType.Bool =>
+                        Define(module, SpirVTableTypesIds.BoolID, SpirVOpTable.OpTypeBool),
+
                     _ => throw new NotSupportedException(
                         $"El tipo de componente '{vector.ComponentsType}' no está soportado.")
                 };
@@ -215,22 +224,22 @@ public static class SpirVModuleHelpers
                     );
             
             case IR.Intermediate.Types.Matrix matrix:
-                string MatrixTypeId = matrix.ComponentsType switch
-                {
-                    MatrixComponentType.Float =>
-                        Define(module, SpirVTableTypesIds.FloatID,
-                            SpirVOpTable.OpTypeFloat, Int(32)),
-                    MatrixComponentType.Double =>
-                        Define(module, SpirVTableTypesIds.FloatDinamicId(64),
-                            SpirVOpTable.OpTypeFloat, Int(64)),
-                    _ => throw new NotSupportedException(
-                        $"El tipo de componente '{matrix.ComponentsType}' no está soportado.")
-                };                
-                
-                return Define(module, 
-                    SpirVTableTypesIds.MatrixID((int)matrix.Columns, matrix.ComponentsType),
+                // OpTypeMatrix recibe como "tipo de columna" un vector de `Rows` componentes, no el escalar.
+                string matrixColumnTypeId = module.DeclareType(
+                    new IR.Intermediate.Types.Vector(matrix.HumanName, matrix.Kind, null)
+                    {
+                        ComponentsType = matrix.ComponentsType == MatrixComponentType.Double
+                            ? VectorComponentsType.Double
+                            : matrix.ComponentsType == MatrixComponentType.Half
+                                ? VectorComponentsType.Half
+                                : VectorComponentsType.Float,
+                        ComponentsLength = (int)matrix.Rows
+                    }, stage);
+
+                return Define(module,
+                    SpirVTableTypesIds.MatrixID((int)matrix.Columns, (int)matrix.Rows, matrix.ComponentsType),
                     SpirVOpTable.OpTypeMatrix,
-                    Id(MatrixTypeId),
+                    Id(matrixColumnTypeId),
                     Int((int)matrix.Columns)
                 );
             case IR.Intermediate.Types.Texture texture:
@@ -267,7 +276,7 @@ public static class SpirVModuleHelpers
                         $"La dimensión '{texture.Dimensions}' no está soportada.")
                 };
 
-                return Define(module,
+                string imageTypeId = Define(module,
                     SpirVTableTypesIds.TextureID(texture),
                     SpirVOpTable.OpTypeImage,
                     Id(sampledTypeId),
@@ -277,16 +286,21 @@ public static class SpirVModuleHelpers
                     Int(texture.Multisampled ? 1 : 0),
                     Int((int)texture.Usage),
                     Enumerant(texture.Format.ToString(), (uint)texture.Format));
+
+                // sampler2D de GLSL: imagen y sampler juntos.
+                return texture.CombinedSampler ? DeclareSampledImageType(module, imageTypeId) : imageTypeId;
             }
             case IR.Intermediate.Types.Array array:
             {
+                string elementTypeId = module.DeclareType(array.ElementType, stage);
+
+                // Sin longitud: el último miembro de un storage buffer (RWStructuredBuffer, buffer { T data[]; }).
                 if (array.Length is not uint length)
                 {
-                    throw new NotSupportedException(
-                        "Arrays of runtime-defined length are not supported yet.");
+                    return Define(module, $"%rta_{elementTypeId.TrimStart('%')}", SpirVOpTable.OpTypeRuntimeArray,
+                        Id(elementTypeId));
                 }
 
-                string elementTypeId = module.DeclareType(array.ElementType, stage);
                 string lengthId = module.DeclareUIntConstant(checked((int)length));
 
                 return Define(module,
@@ -360,6 +374,9 @@ public static class SpirVModuleHelpers
         if (type == typeof(UInt16))
             return Define(module, SpirVTableTypesIds.UInt16ID, SpirVOpTable.OpTypeInt, Int(16), Int(0));
         
+        if (type == typeof(System.Half))
+            return Define(module, SpirVTableTypesIds.FloatDinamicId(16), SpirVOpTable.OpTypeFloat, Int(16));
+
         if (type == typeof(double))
             return Define(module, SpirVTableTypesIds.FloatDinamicId(64), SpirVOpTable.OpTypeFloat, Int(64));
         
@@ -401,6 +418,10 @@ public static class SpirVModuleHelpers
         throw new NotSupportedException(
             $"El tipo {type.FullName} no está soportado por esta versión del compilador de shaders.");
     }
+
+    /// <summary>OpTypeSampledImage de una imagen: lo que consumen OpImageSample* y OpImageQueryLod.</summary>
+    public static string DeclareSampledImageType(this SpirVModule module, string imageTypeId) =>
+        Define(module, "%sampled_" + imageTypeId.TrimStart('%'), SpirVOpTable.OpTypeSampledImage, Id(imageTypeId));
 
     private static string DeclareFloatVector(SpirVModule module, int components) =>
         Define(module, SpirVTableTypesIds.VectorID(components, VectorComponentsType.Float), SpirVOpTable.OpTypeVector,
@@ -484,6 +505,17 @@ public static class SpirVModuleHelpers
                 SpirVInstructionType.FloatValue));
     }
     
+    public static string DeclareHalfConstant(this SpirVModule module, float value)
+    {
+        if (!float.IsFinite(value)) throw new NotSupportedException("NaN and infinity half constants are not supported yet.");
+
+        string halfId = module.DeclareType(typeof(System.Half));
+        ushort bits = BitConverter.HalfToUInt16Bits((System.Half)value);
+
+        return Define(module, $"%half_{bits:X4}", SpirVOpTable.OpConstant, Id(halfId),
+            new SpirVInstructionParameter(bits.ToString(), SpirVInstructionType.UIntValue));
+    }
+
     public static string DeclareDoubleConstant(
         this SpirVModule module,
         double value)

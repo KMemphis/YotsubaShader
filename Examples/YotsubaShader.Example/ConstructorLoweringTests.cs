@@ -296,6 +296,6 @@ public class ConstructorLoweringTests
             }
             """;
 
-        Assert.Throws<NotSupportedException>(() => Compile(code));
+        Assert.Contains("YS0503", Assert.ThrowsAny<Exception>(() => Compile(code)).Message);
     }
 }

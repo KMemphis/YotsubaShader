@@ -117,9 +117,9 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
                 ProcessCompoundAssignmentOperation(compoundAssignmentOperation, inputs, outputs, compilation, stage,
                     out statement);
                 break;
-            case IDeconstructionAssignmentOperation:
-                throw new NotImplementedException(
-                    nameof(ProcessDeconstructionAssignmentOperation));
+            case IDeconstructionAssignmentOperation deconstruction:
+                ProcessDeconstructionAssignmentOperation(deconstruction, inputs, outputs, compilation, stage, out statement);
+                break;
 
             case ISimpleAssignmentOperation simpleAssignmentOperation:
                  ProcessSimpleAssignmentOperation(simpleAssignmentOperation, inputs, outputs, compilation, stage,
@@ -169,9 +169,9 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
             case IWhileLoopOperation whileLoopOperation:
                 ProcessWhileLoopOperation(whileLoopOperation, inputs, outputs, compilation, stage, out statement);
                 break;
-            case ISwitchOperation:
-                throw new NotImplementedException(
-                    nameof(ProcessSwitchOperation));
+            case ISwitchOperation switchOperation:
+                ProcessSwitchOperation(switchOperation, inputs, outputs, compilation, stage, out statement);
+                break;
 
             case IBranchOperation branchOperation:
                 ProcessBranchOperation(branchOperation, inputs, outputs, compilation, stage, out statement);
@@ -206,8 +206,9 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
                     nameof(ProcessFixedOperation));
 
             case ILocalFunctionOperation:
-                throw new NotImplementedException(
-                    nameof(ProcessLocalFunctionOperation));
+                // La función local se compila como una función auxiliar cuando se llama.
+                statement = null;
+                break;
 
             case IEventAssignmentOperation:
                 throw new NotImplementedException(
@@ -358,12 +359,6 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
         throw new NotImplementedException();
     }
 
-    public void ProcessDeconstructionAssignmentOperation(IDeconstructionAssignmentOperation operation, Dictionary<ISymbol, Storage> inputs,
-        Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage, out Statement? statement)
-    {
-        throw new NotImplementedException();
-    }
-
     public void ProcessIncrementOrDecrementOperation(IIncrementOrDecrementOperation operation, Dictionary<ISymbol, Storage> inputs,
         Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage, out Statement? statement)
     {
@@ -387,6 +382,13 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
         Stage stage,
         out Statement? statement)
     {
+        if (TryProcessIntrinsicCall(operation, inputs, outputs, compilation, stage, asFloat: false,
+                out GPUIntrinsic intrinsic, out var intrinsicArguments, out var intrinsicArgumentTypes, out _))
+        {
+            statement = new IntrinsicCallStatement(intrinsic, intrinsicArguments, intrinsicArgumentTypes);
+            return;
+        }
+
         (FunctionId functionId, IReadOnlyList<Expression> arguments) = ProcessInvocation(
                                                                         operation,
                                                                         inputs,
@@ -542,17 +544,20 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
     var collection = ProcessExpression(collectionOperation, inputs, outputs, compilation, stage)
                      ?? throw new NotSupportedException("The foreach collection did not produce an expression.");
     
-    if (collection is not StorageReference { Storage: IRTypes.Array array })
+    if (ResolveStorage(collection) is not IRTypes.Array array ||
+        collection is not (StorageReference or StorageStructPropertyReference or StorageArrayElementReference))
     {
         throw new NotSupportedException(
-            "foreach is only supported over arrays referenced by a variable or parameter.");
+            "foreach is only supported over arrays referenced by a variable, a parameter or a field.");
     }
 
-    if (array.Length is not uint length)
-    {
-        throw new NotSupportedException(
-            "foreach over a runtime-sized array is not supported; use a for loop with an explicit length.");
-    }
+    // Longitud conocida: una constante. Array sin tamaño de un storage buffer: OpArrayLength en cada vuelta.
+    Expression lengthExpression = array.Length is uint length
+        ? new IntLiteral(length.ToString(System.Globalization.CultureInfo.InvariantCulture), true)
+        : collection is StorageStructPropertyReference runtimeArray
+            ? new RuntimeArrayLength(runtimeArray)
+            : throw new NotSupportedException(
+                "foreach over an array of unknown length is not supported; use a for loop with an explicit length.");
 
     // 2. Índice oculto (nombre único, igual que cualquier otro local).
     var indexStorage = new IRTypes.Int(
@@ -592,7 +597,7 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
     var condition = new BinaryExpression(
         BinaryOperator.Less,
         indexRef,
-        new IntLiteral(length.ToString(CultureInfo.InvariantCulture), true));
+        lengthExpression);
 
     var increment = new Assignment(
         indexRef,
@@ -641,17 +646,12 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
         }
     }
 
-    public void ProcessSwitchOperation(ISwitchOperation operation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation,
-        Stage stage, out Statement? statement)
-    {
-        throw new NotImplementedException();
-    }
-
     public void ProcessBranchOperation(IBranchOperation operation,
         Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
         Compilation compilation, Stage stage, out Statement? statement)
     {
-        if (_loopDepth == 0)
+        bool isBreak = operation.BranchKind == BranchKind.Break;
+        if (_loopDepth == 0 && !(isBreak && _switchDepth > 0))
         {
             throw new NotSupportedException("break/continue outside of a loop is not supported.");
         }
