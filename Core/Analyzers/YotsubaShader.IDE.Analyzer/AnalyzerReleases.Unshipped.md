@@ -85,3 +85,4 @@ YS0706 | YotsubaShader.Portability | Warning | Layout de buffer distinto entre A
 YS0707 | YotsubaShader.Portability | Warning | Operación con derivadas en control de flujo no uniforme
 YS0708 | YotsubaShader.Portability | Warning | NaN e infinito no fiables
 YS0709 | YotsubaShader | Warning | División entera por cero
+YS0710 | YotsubaShader.Portability | Warning | No disponible en Godot

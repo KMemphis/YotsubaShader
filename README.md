@@ -274,10 +274,13 @@ YotsubaShader is backend-agnostic: the same C# shader can be compiled to every t
 | `mgfx` (`monogame`) | `Shader.<platform>.mgfx`, one file per `MonoGamePlatform` (`desktopgl`, `windowsdx11`, `windowsdirectx12`, `desktopvulkan`, `ios`, `android`, `gl4`) | `ToMGFX(MonoGamePlatform)` |
 | `kni` (`kni-webgl`) | `Shader.knifx`, one binary per shader | `ToKNIWebGL_FX()` |
 | `fna` | `Shader.fxb`, one binary per shader | `ToFNA_FX()` |
+| `godot` (`gdshader`) | `Shader.<type>.gdshader`, one text file per Godot shader type (`spatial`, `canvasitem`) | `ToGodotShader(GodotShaderType)`, returns `string` |
 
 The `spirv`, `hlsl`, `glsl`, `gles`, `msl`, and `cpp` targets come from the SPIR-V module through YotsubaShaderCross. The `mgfx`, `kni`, and `fna` targets produce a compiled effect for the MonoGame, KNI, and FNA content pipelines through [ShadowDusk](ThirdParty/ShadowDusk): they write one binary per shader instead of one file per stage.
 
 The `mgfx`, `kni`, and `fna` targets compile the vertex and fragment stages through ShadowDusk, which needs its native DXC and vkd3d-shader libraries. They are not in the repository: run `ThirdParty/ShadowDusk/tools/restore.sh` once (it downloads them and verifies their SHA-256) before using them. If one binary fails to compile, the CLI reports the reason, keeps going with the others, and exits with code 1. Loading and rendering the generated effects is exercised by the load tests in `Examples/` (MonoGame, KNI, and FNA); CI runs the MonoGame and KNI ones on Linux. The current compiler path covers the `Vertex`, `Fragment`, and `Compute` stages and the supported subset of shader-body operations.
+
+The `godot` target translates the SPIR-V module to Godot Shading Language: `main` becomes `vertex()` and `fragment()`, vertex inputs map to `VERTEX`, `NORMAL`, `UV`, `UV2` and `COLOR` by semantic, vertex outputs become `varying`s, `SV_Target0` is written to `ALBEDO`/`ALPHA` (`spatial`, emitted with `render_mode unshaded, cull_disabled`) or `COLOR` (`canvas_item`), and `[Uniform]` structs become one `uniform` per field named `<Field>_<Member>`. It has no ShadowDusk dependency. Compute shaders, storage buffers, several render targets and built-ins without a Godot counterpart are reported as errors for that file. The plugin also ships an editor addon (`addons/yotsubashader`) that regenerates the `.gdshader` files whenever the project is built; see `Plugins/YotsubaShader.Extensions.Godot/addon/README.md`.
 
 ### Generated project accessors
 
@@ -293,7 +296,7 @@ The command discovers and compiles the shader classes, then writes `YotsubaShade
 
 - `ToSpirV(this ShaderType shader)`, returning the embedded SPIR-V `byte[]`.
 - `ToHlsl(Stage stage)`, `ToGlsl(Stage stage)`, `ToGlslEs(Stage stage)`, and `ToMSL(Stage stage)`, returning the generated source text for that stage.
-- `ToMGFX(this ShaderType shader, MonoGamePlatform platform)`, `ToKNIWebGL_FX(this ShaderType shader)`, and `ToFNA_FX(this ShaderType shader)`, returning the embedded engine effect `byte[]`. `MonoGamePlatform` is an enum declared inside the generated file. If ShadowDusk cannot compile a target while the file is generated, that method throws `NotSupportedException` with the reason instead of failing the whole command.
+- `ToMGFX(this ShaderType shader, MonoGamePlatform platform)`, `ToKNIWebGL_FX(this ShaderType shader)`, and `ToFNA_FX(this ShaderType shader)`, returning the embedded engine effect `byte[]`; `ToGodotShader(this ShaderType shader, GodotShaderType type)` returns the `.gdshader` source as a `string`. `MonoGamePlatform` is an enum declared inside the generated file. If ShadowDusk cannot compile a target while the file is generated, that method throws `NotSupportedException` with the reason instead of failing the whole command.
 
 The generated source uses raw string literals so the emitted shader text remains readable. `CompilerGenerated` and `EditorBrowsable(Never)` keep the helper out of normal IntelliSense lists while leaving the generated file and its methods available to the project. The `add` command currently requires at least one `--target` for CLI argument compatibility; its generated helper set is not filtered by that value. Use `compile` when you need target-specific files in an output directory.
 

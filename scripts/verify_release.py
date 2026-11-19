@@ -130,7 +130,8 @@ def check_packages(feed: pathlib.Path, version: str, require_six_natives: bool) 
                     raise ValueError("tool package still bundles ShadowDusk assemblies; they belong to the plugins")
             if package_id.startswith("YotsubaShader.Extensions.") and package_id != "YotsubaShader.Extensions":
                 dependencies = {node.attrib["id"] for node in metadata.iter() if node.tag.endswith("dependency")}
-                if "YotsubaShader.ShadowDusk.Compiler" not in dependencies:
+                # The Godot plugin translates through SPIRV-Cross to .gdshader text: it has no ShadowDusk dependency.
+                if package_id != "YotsubaShader.Extensions.Godot" and "YotsubaShader.ShadowDusk.Compiler" not in dependencies:
                     raise ValueError(f"{package_id}: must depend on YotsubaShader.ShadowDusk.Compiler")
     print(f"Verified {len(PACKAGES)} packages" + (" and native assets for all six RIDs" if require_six_natives else ""))
 
@@ -152,7 +153,7 @@ def smoke(executable: pathlib.Path, project: pathlib.Path) -> None:
     # Plugin targets are fetched from NuGet (latest version), so they can only be
     # smoke-tested once the plugin packages are published.
     if os.environ.get("YOTSUBA_SMOKE_PLUGINS") == "1":
-        targets.update({"monogame": ".mgfx", "kni": ".knifx", "fna": ".fxb"})
+        targets.update({"monogame": ".mgfx", "kni": ".knifx", "fna": ".fxb", "godot": ".gdshader"})
     with tempfile.TemporaryDirectory(prefix="yotsuba-release-smoke-") as scratch:
         output = pathlib.Path(scratch) / "output"
         args = [str(executable), "compile", str(project)]

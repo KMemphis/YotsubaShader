@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+        <RootNamespace>Examples.GodotShaders</RootNamespace>
+        <AssemblyName>Examples.GodotShaders</AssemblyName>
+        <LangVersion>latest</LangVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\..\Core\Analyzers\YotsubaShader.IDE.Analyzer\YotsubaShader.IDE.Analyzer.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\..\Core\Syntax\YotsubaShader.HlslSyntax\YotsubaShader.HlslSyntax.csproj" />
+        <ProjectReference Include="..\..\..\Core\Syntax\YotsubaShader.SpirvSyntax\YotsubaShader.SpirvSyntax.csproj" />
+    </ItemGroup>
+
+    <!-- El IDE avisa (YS0710) de lo que Godot Shading Language no tiene: compute, storage buffers, varios render targets... -->
+    <PropertyGroup>
+        <YotsubaShaderTargets>Godot</YotsubaShaderTargets>
+    </PropertyGroup>
+    <ItemGroup>
+        <CompilerVisibleProperty Include="YotsubaShaderTargets" />
+    </ItemGroup>
+</Project>

@@ -194,6 +194,7 @@ public sealed class Args
         {
             "mgfx" => "monogame",
             "kni-webgl" => "kni",
+            "gdshader" => "godot",
             var other => other
         };
 

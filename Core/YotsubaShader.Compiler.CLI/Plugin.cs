@@ -28,6 +28,12 @@ public sealed class PluginMetadata
     /// <summary>Nombre del parámetro del método generado (por ejemplo "platform"). Por defecto "option".</summary>
     public string? OptionsParameter { get; set; }
 
+    /// <summary>
+    /// El backend produce texto UTF-8 (por ejemplo un .gdshader). El método generado por "yotsuba add"
+    /// devuelve <c>string</c> en lugar de <c>byte[]</c>.
+    /// </summary>
+    public bool Text { get; set; }
+
     [JsonIgnore]
     public string OptionsParameterName => string.IsNullOrWhiteSpace(OptionsParameter) ? "option" : OptionsParameter;
 

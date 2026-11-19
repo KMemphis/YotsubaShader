@@ -13,6 +13,9 @@ internal enum ShaderTargets
     Metal = 1 << 2,
     WebGPU = 1 << 3,
     OpenGL = 1 << 4,
+
+    /// <summary>Godot Shading Language. No forma parte de <see cref="All"/>: solo se valida si se pide con <c>godot</c>.</summary>
+    Godot = 1 << 5,
     All = Vulkan | D3D12 | Metal | WebGPU | OpenGL
 }
 
@@ -35,6 +38,7 @@ internal static class ShaderTargetsParser
                 "metal" or "msl" => ShaderTargets.Metal,
                 "webgpu" or "wgsl" => ShaderTargets.WebGPU,
                 "opengl" or "gl" or "glsl" or "gles" => ShaderTargets.OpenGL,
+                "godot" or "gdshader" => ShaderTargets.Godot,
                 "all" => ShaderTargets.All,
                 _ => ShaderTargets.None
             };
@@ -52,6 +56,7 @@ internal static class ShaderTargetsParser
         if ((targets & ShaderTargets.Metal) != 0) names.Add("Metal");
         if ((targets & ShaderTargets.WebGPU) != 0) names.Add("WebGPU");
         if ((targets & ShaderTargets.OpenGL) != 0) names.Add("OpenGL");
+        if ((targets & ShaderTargets.Godot) != 0) names.Add("Godot");
         return string.Join(", ", names);
     }
 }

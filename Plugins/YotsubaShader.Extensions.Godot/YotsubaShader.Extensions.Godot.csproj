@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <PackageId>YotsubaShader.Extensions.Godot</PackageId>
+        <Description>YotsubaShader plugin: Godot Shading Language (.gdshader) backend for the yotsuba CLI.</Description>
+        <PackageTags>yotsuba-plugin;shader</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\YotsubaShader.Extensions\YotsubaShader.Extensions.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Content Include="addon\**\*" Pack="true" PackagePath="content\addon" />
+    </ItemGroup>
+
+</Project>
