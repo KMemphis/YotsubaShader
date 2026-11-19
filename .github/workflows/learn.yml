@@ -1,0 +1,69 @@
+name: Publicar learn en GitHub Pages
+
+# learn.yotsubashader.com. El contenido vive en el repo de la web (Web/learn); este repo solo lo publica,
+# porque Pages da un sitio por repositorio y yotsubashader.com ya usa el del repo de la web.
+
+on:
+  push:
+    branches: [main]
+  repository_dispatch:
+    types: [learn-updated]    # lo envía el repo de la web cuando cambia learn/
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  SITE_URL: https://learn.yotsubashader.com     # sin barra final
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Web (aquí vive learn/)
+        uses: actions/checkout@v7
+        with:
+          repository: KMemphis/YotsubaShader-Web
+          token: ${{ secrets.WEB_REPO_TOKEN || github.token }}
+          ref: main
+          path: Web
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Construir learn
+        working-directory: Web/learn
+        run: node build.mjs --strict-i18n   # falla si falta una traducción o hay un enlace roto
+
+      - name: Comprobar SEO (sitemap, robots, canonical)
+        working-directory: Web/learn/dist
+        run: |
+          test -f sitemap.xml
+          grep -q "^Sitemap: ${SITE_URL}/sitemap.xml" robots.txt
+          grep -q "rel=\"canonical\" href=\"${SITE_URL}/en/\"" en/index.html
+
+      - name: Dominio personalizado
+        run: echo "learn.yotsubashader.com" > Web/learn/dist/CNAME
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: Web/learn/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

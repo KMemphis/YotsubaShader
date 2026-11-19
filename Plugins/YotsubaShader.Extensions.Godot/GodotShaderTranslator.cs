@@ -22,6 +22,11 @@ internal static class GodotShaderTranslator
 
     private static readonly Dictionary<string, string> TextureTypes = new()
     {
+        ["sampler2D"] = "sampler2D",
+        ["sampler3D"] = "sampler3D",
+        ["samplerCube"] = "samplerCube",
+        ["sampler2DArray"] = "sampler2DArray",
+        ["samplerCubeArray"] = "samplerCubeArray",
         ["texture2D"] = "sampler2D",
         ["texture3D"] = "sampler3D",
         ["textureCube"] = "samplerCube",
@@ -205,7 +210,16 @@ internal static class GodotShaderTranslator
         foreach (GlslInterface input in module.Inputs)
         {
             VertexSlot slot = SlotOf(function, input.Name);
-            prologue.AppendLine("    " + InputInitializer(input, slot.Semantic, spatial));
+            try
+            {
+                prologue.AppendLine("    " + InputInitializer(input, slot.Semantic, spatial));
+            }
+            catch (NotSupportedException) when (!body.Contains(input.Name))
+            {
+                // Un dato que este tipo de shader no entrega (p. ej. NORMAL en canvas_item) y que el shader no usa:
+                // se declara en cero para que la entrada exista, sin fallar.
+                prologue.AppendLine($"    {input.Type} {input.Name} = {input.Type}(0);");
+            }
         }
 
         body = Rename(body, renames);
@@ -270,13 +284,20 @@ internal static class GodotShaderTranslator
         return Entry("fragment", prologue.ToString(), body, epilogue.ToString());
     }
 
-    /// <summary>Un <c>return;</c> dentro de main también tiene que escribir las salidas.</summary>
+    /// <summary>
+    /// Godot Shading Language no admite <c>return</c> dentro de <c>vertex()</c> ni <c>fragment()</c>. Si el cuerpo
+    /// tiene alguno, se envuelve en un <c>for</c> de una sola vuelta y cada <c>return;</c> pasa a ser un <c>break;</c>:
+    /// así las salidas del epílogo se escriben una sola vez, al final.
+    /// </summary>
     private static string Entry(string name, string prologue, string body, string epilogue)
     {
         epilogue = epilogue.TrimEnd();
-        if (epilogue.Length > 0)
+        if (Return.IsMatch(body))
         {
-            body = Return.Replace(body, "{ " + epilogue.Replace("\r", "").Replace("\n", " ") + " return; }");
+            WrapEarlyReturns(body, false, out bool needsFlag);
+            string rewritten = WrapEarlyReturns(body, needsFlag, out _);
+            if (needsFlag) prologue += "    bool ys_returned = false;\n";
+            body = "    for (int ys_once = 0; ys_once < 1; ys_once++)\n    {\n" + rewritten.Trim('\r', '\n') + "\n    }";
         }
 
         var text = new StringBuilder();
@@ -287,6 +308,85 @@ internal static class GodotShaderTranslator
         if (epilogue.Length > 0) text.AppendLine("    " + epilogue.Replace("\n", "\n    "));
         text.AppendLine("}");
         return text.ToString();
+    }
+
+    /// <summary>
+    /// Sustituye cada <c>return;</c> por <c>break;</c>. Si el return está dentro de un bucle o un switch, el <c>break</c>
+    /// solo saldría de ese, así que se levanta <c>ys_returned</c> y, al cerrar cada bucle, se vuelve a salir.
+    /// </summary>
+    private static string WrapEarlyReturns(string body, bool insertChecks, out bool usedFlag)
+    {
+        usedFlag = false;
+        var output = new StringBuilder();
+        var contexts = new Stack<int>(); // 0 = bloque normal, 1 = bucle/switch, 2 = cuerpo de un do-while
+        bool pendingDoCheck = false;
+
+        for (int i = 0; i < body.Length; i++)
+        {
+            char c = body[i];
+
+            if (c == '{')
+            {
+                string before = output.ToString().TrimEnd();
+                int kind = 0;
+                if (Regex.IsMatch(before, @"\bdo$")) kind = 2;
+                else if (before.EndsWith(')'))
+                {
+                    int depth = 0, j = before.Length - 1;
+                    for (; j >= 0; j--)
+                    {
+                        if (before[j] == ')') depth++;
+                        else if (before[j] == '(' && --depth == 0) break;
+                    }
+
+                    if (j > 0 && Regex.IsMatch(before[..j], @"\b(for|while|switch)\s*$")) kind = 1;
+                }
+
+                contexts.Push(kind);
+                output.Append(c);
+                continue;
+            }
+
+            if (c == '}')
+            {
+                int kind = contexts.Count > 0 ? contexts.Pop() : 0;
+                output.Append(c);
+                if (insertChecks && kind == 1) output.Append(" if (ys_returned) break;");
+                if (insertChecks && kind == 2) pendingDoCheck = true;
+                continue;
+            }
+
+            if (c == ';' && pendingDoCheck)
+            {
+                output.Append(c).Append(" if (ys_returned) break;");
+                pendingDoCheck = false;
+                continue;
+            }
+
+            if (c == 'r' && (i == 0 || !(char.IsLetterOrDigit(body[i - 1]) || body[i - 1] == '_')))
+            {
+                Match match = Return.Match(body, i);
+                if (match.Success && match.Index == i)
+                {
+                    if (contexts.Any(k => k != 0))
+                    {
+                        usedFlag = true;
+                        output.Append("{ ys_returned = true; break; }");
+                    }
+                    else
+                    {
+                        output.Append("break;");
+                    }
+
+                    i += match.Length - 1;
+                    continue;
+                }
+            }
+
+            output.Append(c);
+        }
+
+        return output.ToString();
     }
 
     private static string ColorStore(string local, string type, bool spatial) => (spatial, type) switch
@@ -317,6 +417,13 @@ internal static class GodotShaderTranslator
             (VertexUsage.Color, 0) => ("COLOR", "vec4", 1f),
             (VertexUsage.TextureCoordinate, 0) => ("UV", "vec2", 0f),
             (VertexUsage.TextureCoordinate, 1) when spatial => ("UV2", "vec2", 0f),
+            (VertexUsage.TextureCoordinate, 2) => ("CUSTOM0", "vec4", 0f),
+            (VertexUsage.TextureCoordinate, 3) => ("CUSTOM1", "vec4", 0f),
+            (VertexUsage.TextureCoordinate, 4) when spatial => ("CUSTOM2", "vec4", 0f),
+            (VertexUsage.TextureCoordinate, 5) when spatial => ("CUSTOM3", "vec4", 0f),
+            (VertexUsage.BlendIndices, 0) when spatial => ("BONE_INDICES", "uvec4", 0f),
+            (VertexUsage.BlendWeight, 0) when spatial => ("BONE_WEIGHTS", "vec4", 0f),
+            (VertexUsage.PointSize, 0) => ("POINT_SIZE", "float", 0f),
             _ => null
         };
 
@@ -327,6 +434,9 @@ internal static class GodotShaderTranslator
                 $"'{input.Name}': la semántica {semantic.Usage.ToString().ToUpperInvariant()}{semantic.Index} " +
                 $"no tiene entrada equivalente en un shader Godot '{mode}'.");
         }
+
+        // POINT_SIZE: en las pruebas, leerlo en vertex() hacía que Godot no dibujara nada. Se entrega el valor por defecto (1).
+        if (source.Value.Builtin == "POINT_SIZE") return $"{input.Type} {input.Name} = 1.0;";
 
         return $"{input.Type} {input.Name} = {Adapt(source.Value.Builtin, source.Value.BuiltinType, input.Type, source.Value.PadW)};";
     }
@@ -378,16 +488,39 @@ internal static class GodotShaderTranslator
         if (match.Storage is null) match = leaves.FirstOrDefault(l => glslName.EndsWith("_" + l.Member, StringComparison.Ordinal));
         if (match.Storage is null) match = leaves.FirstOrDefault(l => l.Member == glslName);
 
+        // El nombre estándar del campo (VERTEX, UV...) manda sobre el número o la semántica que lleve.
+        if (match.Storage is not null && ByName(match.Member) is { } named) return named;
+
         return match.Storage?.Slot switch
         {
             VertexSlot vertexSlot => vertexSlot,
-            LocationSlot location => throw new NotSupportedException(
-                $"'{glslName}': [Location({location.Location})] no tiene equivalente en Godot. " +
-                "Usa una semántica ([POSITION], [NORMAL], [TEXCOORD(0)], [COLOR]...) para las entradas de vertex."),
+            LocationSlot location => ByName(match.Member) ?? throw new NotSupportedException(
+                $"'{glslName}': [Location({location.Location})] y el nombre '{match.Member}' no corresponden a ningún dato de vértice de Godot. " +
+                "Nombres: VERTEX, NORMAL, TANGENT, BINORMAL, UV, UV2, COLOR, CUSTOM0-3, BONE_INDICES, BONE_WEIGHTS, POINT_SIZE."),
             _ => throw new NotSupportedException(
                 $"No se puede determinar la semántica de la entrada de vertex '{glslName}'.")
         };
     }
+
+    /// <summary>Convención: el nombre del campo (sin mayúsculas ni guiones bajos) dice qué dato de vértice es.</summary>
+    private static VertexSlot? ByName(string member) => member.Replace("_", "").ToLowerInvariant() switch
+    {
+        "vertex" => new VertexSlot(new VertexSemantic(VertexUsage.Position, 0)),
+        "normal" => new VertexSlot(new VertexSemantic(VertexUsage.Normal, 0)),
+        "tangent" => new VertexSlot(new VertexSemantic(VertexUsage.Tangent, 0)),
+        "binormal" => new VertexSlot(new VertexSemantic(VertexUsage.Binormal, 0)),
+        "uv" => new VertexSlot(new VertexSemantic(VertexUsage.TextureCoordinate, 0)),
+        "uv2" => new VertexSlot(new VertexSemantic(VertexUsage.TextureCoordinate, 1)),
+        "color" => new VertexSlot(new VertexSemantic(VertexUsage.Color, 0)),
+        "custom0" => new VertexSlot(new VertexSemantic(VertexUsage.TextureCoordinate, 2)),
+        "custom1" => new VertexSlot(new VertexSemantic(VertexUsage.TextureCoordinate, 3)),
+        "custom2" => new VertexSlot(new VertexSemantic(VertexUsage.TextureCoordinate, 4)),
+        "custom3" => new VertexSlot(new VertexSemantic(VertexUsage.TextureCoordinate, 5)),
+        "boneindices" => new VertexSlot(new VertexSemantic(VertexUsage.BlendIndices, 0)),
+        "boneweights" => new VertexSlot(new VertexSemantic(VertexUsage.BlendWeight, 0)),
+        "pointsize" => new VertexSlot(new VertexSemantic(VertexUsage.PointSize, 0)),
+        _ => null
+    };
 
     private static string Rename(string text, Dictionary<string, string> renames)
     {
