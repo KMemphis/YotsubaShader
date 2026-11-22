@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://yotsubashader.com">Website</a> ·
-  <a href="https://yotsubashader.com/documentation/">Documentation</a> ·
+  <a href="https://yotsubashader.com/">Documentation</a> ·
   <a href="https://yotsubashader.com/playground/">Playground</a> ·
   <a href="https://github.com/KMemphis/YotsubaShader">Repository</a>
 </p>
