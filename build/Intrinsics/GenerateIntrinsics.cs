@@ -40,6 +40,16 @@ public class GenerateIntrinsics : Microsoft.Build.Utilities.Task
             Write("Math.g.cs", ClassFile(data, "Math", jsonName, known));
             Write("Intrinsic.g.cs", ClassFile(data, "Intrinsic", jsonName, known));
             Write("Placeholders.g.cs", PlaceholdersFile(data, jsonName));
+
+            // Constructores y operadores de los vectores de Types/ (structs [Vector] declarados partial).
+            // Lo mismo para las matrices [Matrix] de float, double o half.
+            string language = Str(data, "language") ?? "";
+            string typesDir = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(JsonFile)), "Types");
+            List<Vec> vectors = ReadVectors(typesDir, language == "WGSL");
+            List<Mat> matrices = ReadMatrices(typesDir, vectors);
+            Write("Vectors.g.cs", VectorsFile(vectors, language, jsonName));
+            Write("Matrices.g.cs", MatricesFile(matrices, vectors, language, jsonName));
+            Write("Constructors.g.cs", ConstructorsFile(vectors, matrices, language, Str(data, "namespace"), jsonName));
             return true;
         }
         catch (Exception e)
@@ -254,6 +264,768 @@ public class GenerateIntrinsics : Microsoft.Build.Utilities.Task
         }
         lines.Add("");
         return string.Join("\n", lines);
+    }
+
+    // ---------------------------------------------------------------- vectores: constructores y operadores
+    //
+    // Los tipos [Vector] de Types/ son structs con un campo [VectorComponent(n)] por componente. Aquí se generan:
+    //   - Vectors.g.cs: en cada struct (partial), los constructores y los operadores que tienen los lenguajes de
+    //     shaders (+ - * / con otro vector o con un escalar, %, & | ^ ~ << >> en enteros, ! & | ^ en bool, y < > <= >=
+    //     en HLSL, MSL y WGSL). += -= *= /=... vienen solos con C#.
+    //   - Constructors.g.cs: la clase estática Constructors con un método por constructor (float3(x, y, z)...).
+    // El compilador reconoce [ConstructorMethod] y [ComponentwiseOperator]; los cuerpos en C# solo sirven en la CPU.
+
+    sealed class Vec
+    {
+        public string Name;       // float3, vec3
+        public string Namespace;
+        public string TypeParam;  // "T" en vec3<T>; null si no es genérico
+        public string Component;  // float, int, uint, double, bool, System.Half o el parámetro de tipo
+        public readonly List<string> Fields = new List<string>();
+        public int Size { get { return Fields.Count; } }
+        public string Open { get { return "global::" + Namespace + "." + Name; } }
+        public string Full { get { return Open + (TypeParam != null ? "<" + TypeParam + ">" : ""); } }
+        public string Closed(string component) { return Open + "<" + component + ">"; }
+    }
+
+    // Tipo de componente de C# -> nombre del tipo de componente en el IR.
+    static readonly Dictionary<string, string> ScalarKinds = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        { "float", "Float" }, { "int", "Int" }, { "uint", "Uint" }, { "double", "Double" }, { "bool", "Bool" },
+        { "System.Half", "Half" },
+    };
+
+    // Las conversiones entre vectores solo se generan entre estos (el IR no convierte half ni bool).
+    static readonly string[] Convertible = { "float", "int", "uint", "double" };
+
+    const string GpuOnly = "throw new NotSupportedException(\"This operation is only available in shader code.\")";
+
+    static List<Vec> ReadVectors(string typesDir, bool generics)
+    {
+        var result = new List<Vec>();
+        if (!Directory.Exists(typesDir)) return result;
+
+        foreach (string file in Directory.GetFiles(typesDir, "*.cs").OrderBy(f => f, StringComparer.Ordinal))
+        {
+            string text = File.ReadAllText(file);
+            Match ns = Regex.Match(text, @"\bnamespace\s+([\w.]+)");
+            Match type = Regex.Match(text, @"\[Vector\]\s*public\s+partial\s+struct\s+(\w+)\s*(?:<\s*(\w+)\s*>)?");
+            if (!ns.Success || !type.Success) continue;
+
+            List<Match> fields = Regex.Matches(text, @"\[VectorComponent\((\d+)\)\]\s*public\s+([\w.]+)\s+(\w+)\s*;")
+                .Cast<Match>()
+                .OrderBy(m => int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture))
+                .ToList();
+            if (fields.Count < 2 || fields.Select(f => f.Groups[2].Value).Distinct().Count() != 1) continue;
+
+            var vector = new Vec
+            {
+                Name = type.Groups[1].Value,
+                Namespace = ns.Groups[1].Value,
+                TypeParam = type.Groups[2].Success ? type.Groups[2].Value : null,
+                Component = fields[0].Groups[2].Value,
+            };
+            if (vector.TypeParam != null && (!generics || vector.Component != vector.TypeParam)) continue;
+            if (vector.TypeParam == null && !ScalarKinds.ContainsKey(vector.Component)) continue;
+
+            vector.Fields.AddRange(fields.Select(f => f.Groups[3].Value));
+            result.Add(vector);
+        }
+
+        return result;
+    }
+
+    /// <summary>El vector del mismo tipo de componente y tamaño <paramref name="size"/>, o null.</summary>
+    static Vec Sibling(List<Vec> vectors, Vec of, int size)
+    {
+        return vectors.FirstOrDefault(v => v.Size == size && v.Component == of.Component &&
+                                           (v.TypeParam == null) == (of.TypeParam == null));
+    }
+
+    /// <summary>Maneras de repartir <paramref name="total"/> componentes en trozos de 1 o más (sin el trozo único).</summary>
+    static List<List<int>> Compositions(int total)
+    {
+        var result = new List<List<int>>();
+        Compose(total, new List<int>(), result);
+        result.RemoveAll(parts => parts.Count == 1);
+        return result;
+    }
+
+    static void Compose(int left, List<int> current, List<List<int>> result)
+    {
+        if (left == 0) { result.Add(new List<int>(current)); return; }
+        for (int size = 1; size <= left; size++)
+        {
+            current.Add(size);
+            Compose(left - size, current, result);
+            current.RemoveAt(current.Count - 1);
+        }
+    }
+
+    /// <summary>Un constructor: sus parámetros y, para cada componente del resultado, la expresión que lo llena.</summary>
+    sealed class Signature
+    {
+        public readonly List<string> Parameters = new List<string>();  // "float x", "global::...float2 xy"
+        public readonly List<string> Arguments = new List<string>();   // "x", "xy"
+        public readonly List<string> Values = new List<string>();      // una por componente: "x", "xy.X"
+    }
+
+    /// <summary>
+    /// Constructores de un vector de <paramref name="component"/> con los campos <paramref name="fields"/>.
+    /// <paramref name="pieceType"/> da el tipo completo de un vector del mismo componente y tamaño k (o null).
+    /// </summary>
+    static List<Signature> Signatures(List<string> fields, string component, Func<int, string> pieceType,
+        Func<int, List<string>> pieceFields, IEnumerable<KeyValuePair<string, List<string>>> conversions)
+    {
+        var result = new List<Signature>();
+
+        // Un escalar repetido en todos los componentes.
+        var splat = new Signature();
+        splat.Parameters.Add(component + " value");
+        splat.Arguments.Add("value");
+        foreach (string unused in fields) splat.Values.Add("value");
+        result.Add(splat);
+
+        // Escalares y vectores más pequeños, en orden: (x, y, z), (xy, z), (x, yz)...
+        foreach (List<int> parts in Compositions(fields.Count))
+        {
+            var signature = new Signature();
+            int at = 0;
+            bool valid = true;
+            foreach (int size in parts)
+            {
+                string name = string.Concat(fields.Skip(at).Take(size).Select(f => f.ToLowerInvariant()));
+                name = Esc(name);
+                if (size == 1)
+                {
+                    signature.Parameters.Add(component + " " + name);
+                    signature.Values.Add(name);
+                }
+                else
+                {
+                    string piece = pieceType(size);
+                    if (piece == null) { valid = false; break; }
+                    signature.Parameters.Add(piece + " " + name);
+                    foreach (string field in pieceFields(size)) signature.Values.Add(name + "." + field);
+                }
+                signature.Arguments.Add(name);
+                at += size;
+            }
+            if (valid) result.Add(signature);
+        }
+
+        // Otro vector del mismo tamaño con otro tipo de componente: cada componente se convierte.
+        foreach (KeyValuePair<string, List<string>> source in conversions)
+        {
+            var signature = new Signature();
+            signature.Parameters.Add(source.Key + " v");
+            signature.Arguments.Add("v");
+            foreach (string field in source.Value) signature.Values.Add("(" + component + ")v." + field);
+            result.Add(signature);
+        }
+
+        return result;
+    }
+
+    static List<Signature> SignaturesOf(List<Vec> vectors, Vec vector)
+    {
+        var conversions = new List<KeyValuePair<string, List<string>>>();
+        if (vector.TypeParam == null && Convertible.Contains(vector.Component))
+        {
+            foreach (Vec other in vectors)
+            {
+                if (other.TypeParam == null && other.Size == vector.Size && other.Component != vector.Component &&
+                    Convertible.Contains(other.Component))
+                {
+                    conversions.Add(new KeyValuePair<string, List<string>>(other.Full, other.Fields));
+                }
+            }
+        }
+
+        return Signatures(vector.Fields, vector.Component,
+            size => { Vec piece = Sibling(vectors, vector, size); return piece == null ? null : piece.Full; },
+            size => Sibling(vectors, vector, size).Fields,
+            conversions);
+    }
+
+    static string VectorsFile(List<Vec> vectors, string language, string jsonName)
+    {
+        var lines = new List<string>
+        {
+            "// <auto-generated>",
+            "//   Generado al compilar por GenerateIntrinsics a partir de los vectores de Types/ (" + jsonName + ").",
+            "//   No lo edites a mano.",
+            "// </auto-generated>",
+            "#nullable disable",
+            "using System;",
+            "using YotsubaShader.Concepts.Methods;",
+        };
+
+        bool comparisons = language == "HLSL" || language == "MSL" || language == "WGSL";
+
+        foreach (IGrouping<string, Vec> group in vectors.GroupBy(v => v.Namespace))
+        {
+            lines.Add("");
+            lines.Add("namespace " + group.Key);
+            lines.Add("{");
+            foreach (Vec vector in group)
+            {
+                lines.Add("    public partial struct " + vector.Name + (vector.TypeParam != null ? "<" + vector.TypeParam + ">" : ""));
+                lines.Add("    {");
+                VectorConstructors(lines, vectors, vector);
+                VectorOperators(lines, vectors, vector, comparisons);
+                lines.Add("    }");
+                lines.Add("");
+            }
+            if (lines[lines.Count - 1] == "") lines.RemoveAt(lines.Count - 1);
+            lines.Add("}");
+        }
+
+        lines.Add("");
+        return string.Join("\n", lines);
+    }
+
+    static void VectorConstructors(List<string> lines, List<Vec> vectors, Vec vector)
+    {
+        const string I = "        ";
+        foreach (Signature signature in SignaturesOf(vectors, vector))
+        {
+            lines.Add(I + "[ConstructorMethod]");
+            lines.Add(I + "public " + vector.Name + "(" + string.Join(", ", signature.Parameters) + ")");
+            lines.Add(I + "{");
+            for (int i = 0; i < vector.Size; i++) lines.Add(I + "    " + vector.Fields[i] + " = " + signature.Values[i] + ";");
+            lines.Add(I + "}");
+            lines.Add("");
+        }
+    }
+
+    static void VectorOperators(List<string> lines, List<Vec> vectors, Vec vector, bool comparisons)
+    {
+        string c = vector.Component;
+        bool generic = vector.TypeParam != null;
+        bool isBool = c == "bool";
+        bool integer = c == "int" || c == "uint";
+        bool negatable = generic || c == "float" || c == "int" || c == "double" || c == "System.Half";
+
+        if (isBool)
+        {
+            foreach (string op in new[] { "&", "|", "^" }) Binary(lines, vector, op, vector.Full, false);
+            Unary(lines, vector, "!");
+            return;
+        }
+
+        foreach (string op in new[] { "+", "-", "*", "/" }) Binary(lines, vector, op, vector.Full, true);
+        if (integer || generic)
+        {
+            foreach (string op in new[] { "%", "&", "|", "^" }) Binary(lines, vector, op, vector.Full, true);
+            Unary(lines, vector, "~");
+            Shift(lines, vector, "<<");
+            Shift(lines, vector, ">>");
+        }
+        if (negatable) Unary(lines, vector, "-");
+
+        if (!comparisons) return;
+        string boolVector = generic
+            ? vector.Closed("bool")
+            : vectors.Where(v => v.TypeParam == null && v.Component == "bool" && v.Size == vector.Size).Select(v => v.Full).FirstOrDefault();
+        if (boolVector == null) return;
+        foreach (string op in new[] { "<", ">", "<=", ">=" }) Binary(lines, vector, op, boolVector, true);
+    }
+
+    /// <summary>a op b con dos vectores y, si <paramref name="withScalar"/>, también con un escalar a cada lado.</summary>
+    static void Binary(List<string> lines, Vec vector, string op, string result, bool withScalar)
+    {
+        string v = vector.Full, c = vector.Component;
+        Operator(lines, vector, result, op, v + " a, " + v + " b", i => "a." + vector.Fields[i] + " " + op + " b." + vector.Fields[i]);
+        if (!withScalar) return;
+        Operator(lines, vector, result, op, v + " a, " + c + " b", i => "a." + vector.Fields[i] + " " + op + " b");
+        Operator(lines, vector, result, op, c + " a, " + v + " b", i => "a " + op + " b." + vector.Fields[i]);
+    }
+
+    static void Shift(List<string> lines, Vec vector, string op)
+    {
+        string v = vector.Full;
+        Operator(lines, vector, v, op, v + " a, " + v + " b", i => "a." + vector.Fields[i] + " " + op + " (int)b." + vector.Fields[i]);
+        Operator(lines, vector, v, op, v + " a, int b", i => "a." + vector.Fields[i] + " " + op + " b");
+    }
+
+    static void Unary(List<string> lines, Vec vector, string op)
+    {
+        Operator(lines, vector, vector.Full, op, vector.Full + " a", i => op + "a." + vector.Fields[i]);
+    }
+
+    static void Operator(List<string> lines, Vec vector, string result, string op, string parameters, Func<int, string> component)
+    {
+        const string I = "        ";
+        string body = vector.TypeParam != null
+            ? GpuOnly
+            : "new " + result + "(" + string.Join(", ", Enumerable.Range(0, vector.Size).Select(component)) + ")";
+        lines.Add(I + "[ComponentwiseOperator]");
+        lines.Add(I + "public static " + result + " operator " + op + "(" + parameters + ") => " + body + ";");
+        lines.Add("");
+    }
+
+    static string ConstructorsFile(List<Vec> vectors, List<Mat> matrices, string language, string ns, string jsonName)
+    {
+        var lines = new List<string>
+        {
+            "// <auto-generated>",
+            "//   Generado al compilar por GenerateIntrinsics a partir de los vectores de Types/ (" + jsonName + ").",
+            "//   No lo edites a mano.",
+            "// </auto-generated>",
+            "#nullable disable",
+            "using System;",
+            "using YotsubaShader.Concepts.Methods;",
+            "",
+            "namespace " + ns,
+            "{",
+            "    /// <summary>",
+            "    /// Los constructores de los vectores y las matrices con la forma de " + (language.Length > 0 ? language : "la sintaxis") + ": float3(x, y, z), float4(xyz, w), float3(1.0f)...",
+            "    /// Cada uno equivale al constructor del tipo (new float3(x, y, z)).",
+            "    /// </summary>",
+            "    public static class Constructors",
+            "    {",
+        };
+
+        const string I = "        ";
+        foreach (Vec vector in vectors)
+        {
+            lines.Add(I + "// " + new string('-', 76) + " " + vector.Name);
+            lines.Add("");
+            foreach (Signature signature in SignaturesOf(vectors, vector))
+            {
+                string generic = vector.TypeParam != null ? "<" + vector.TypeParam + ">" : "";
+                lines.Add(I + "[ConstructorMethod]");
+                lines.Add(I + "public static " + vector.Full + " " + Esc(vector.Name) + generic + "(" + string.Join(", ", signature.Parameters) + ")" +
+                          (vector.TypeParam != null ? " where " + vector.TypeParam + " : unmanaged" : ""));
+                lines.Add(I + "    => new " + vector.Full + "(" + string.Join(", ", signature.Arguments) + ");");
+                lines.Add("");
+            }
+
+            // WGSL también escribe vec3f, vec3i, vec3u y vec3h para vec3<f32>, vec3<i32>...
+            if (vector.TypeParam != null && language == "WGSL")
+            {
+                foreach (KeyValuePair<string, string> alias in new Dictionary<string, string>
+                         { { "f", "float" }, { "i", "int" }, { "u", "uint" }, { "h", "System.Half" } })
+                {
+                    Vec closed = vector;
+                    var conversions = new List<KeyValuePair<string, List<string>>>();
+                    if (Convertible.Contains(alias.Value))
+                    {
+                        foreach (string other in new[] { "float", "int", "uint" })
+                        {
+                            if (other != alias.Value) conversions.Add(new KeyValuePair<string, List<string>>(closed.Closed(other), closed.Fields));
+                        }
+                    }
+
+                    List<Signature> signatures = Signatures(closed.Fields, alias.Value,
+                        size => { Vec piece = Sibling(vectors, closed, size); return piece == null ? null : piece.Closed(alias.Value); },
+                        size => Sibling(vectors, closed, size).Fields,
+                        conversions);
+
+                    string target = closed.Closed(alias.Value);
+                    foreach (Signature signature in signatures)
+                    {
+                        bool conversion = signature.Parameters.Count == 1 && signature.Parameters[0].EndsWith(" v");
+                        lines.Add(I + "[ConstructorMethod]");
+                        lines.Add(I + "public static " + target + " " + closed.Name + alias.Key + "(" + string.Join(", ", signature.Parameters) + ")");
+                        lines.Add(I + "    => new " + target + "(" + string.Join(", ", conversion ? signature.Values : signature.Arguments) + ");");
+                        lines.Add("");
+                    }
+                }
+            }
+        }
+
+        MatrixConstructorMethods(lines, matrices, vectors, language);
+
+        if (lines[lines.Count - 1] == "") lines.RemoveAt(lines.Count - 1);
+        lines.Add("    }");
+        lines.Add("}");
+        lines.Add("");
+        return string.Join("\n", lines);
+    }
+
+    // ---------------------------------------------------------------- matrices: constructores y operadores
+    //
+    // Los tipos [Matrix] de Types/ son structs con un campo [MatrixColumn(n)] por columna, todas del mismo vector.
+    // Solo se generan para las de float, double o half (las demás no son matrices en SPIR-V). En Matrices.g.cs:
+    //   - constructores: por columnas (GLSL, MSL, WGSL) o por filas (HLSL), con todos los escalares (por columnas, o
+    //     por filas en HLSL), con un escalar en la diagonal (GLSL, MSL) y desde otra matriz (GLSL: mat3(m4)).
+    //   - operadores: + - entre matrices, - unario, * con un escalar, / entre un escalar (menos en WGSL), y * como
+    //     producto de álgebra lineal con vectores y matrices (menos en HLSL, donde * y / van por componente y el
+    //     producto es mul()).
+    // El compilador reconoce [ConstructorMethod], [ComponentwiseOperator] y [MatrixProduct].
+
+    sealed class Mat
+    {
+        public string Name;       // float3x3, mat3, mat3x3
+        public string Namespace;
+        public string TypeParam;  // "T" en mat3x3<T>; null si no es genérica
+        public Vec Column;        // el vector de cada columna (Rows componentes)
+        public readonly List<string> Fields = new List<string>();  // C0, C1...
+        public int Columns { get { return Fields.Count; } }
+        public int Rows { get { return Column.Size; } }
+        public string Component { get { return Column.Component; } }
+        public string Open { get { return "global::" + Namespace + "." + Name; } }
+        public string Full { get { return Open + (TypeParam != null ? "<" + TypeParam + ">" : ""); } }
+        public string Closed(string component) { return Open + "<" + component + ">"; }
+    }
+
+    /// <summary>Qué constructores y operadores tiene cada lenguaje.</summary>
+    sealed class MatrixRules
+    {
+        public bool RowMajor;      // HLSL: float2x2(m00, m01, m10, m11) y float2x2(fila0, fila1)
+        public bool Diagonal;      // mat3(1.0) es la identidad
+        public bool Resize;        // mat3(m4), dmat3(m3)
+        public bool Product;       // * es el producto de álgebra lineal
+        public bool ScalarDivide;  // m / 2.0
+        public bool Elementwise;   // HLSL: m * n y m / n por componente
+
+        public static MatrixRules For(string language)
+        {
+            bool hlsl = language == "HLSL";
+            bool glsl = language == "GLSL" || language == "SPIR-V";
+            return new MatrixRules
+            {
+                RowMajor = hlsl,
+                Diagonal = glsl || language == "MSL",
+                Resize = glsl,
+                Product = !hlsl,
+                ScalarDivide = language != "WGSL",
+                Elementwise = hlsl,
+            };
+        }
+    }
+
+    static readonly string[] MatrixComponents = { "float", "double", "System.Half" };
+
+    static List<Mat> ReadMatrices(string typesDir, List<Vec> vectors)
+    {
+        var result = new List<Mat>();
+        if (!Directory.Exists(typesDir)) return result;
+
+        foreach (string file in Directory.GetFiles(typesDir, "*.cs").OrderBy(f => f, StringComparer.Ordinal))
+        {
+            string text = File.ReadAllText(file);
+            Match ns = Regex.Match(text, @"\bnamespace\s+([\w.]+)");
+            Match type = Regex.Match(text, @"\[Matrix\]\s*public\s+partial\s+struct\s+(\w+)\s*(?:<\s*(\w+)\s*>)?");
+            if (!ns.Success || !type.Success) continue;
+
+            List<Match> fields = Regex.Matches(text, @"\[MatrixColumn\((\d+)\)\]\s*public\s+(\w+)\s*(?:<\s*(\w+)\s*>)?\s+(\w+)\s*;")
+                .Cast<Match>()
+                .OrderBy(m => int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture))
+                .ToList();
+            if (fields.Count < 2 || fields.Count > 4) continue;
+            if (fields.Select(f => f.Groups[2].Value + "<" + f.Groups[3].Value + ">").Distinct().Count() != 1) continue;
+
+            string typeParam = type.Groups[2].Success ? type.Groups[2].Value : null;
+            string columnName = fields[0].Groups[2].Value;
+            bool genericColumn = fields[0].Groups[3].Success;
+            if ((typeParam != null) != genericColumn) continue;
+            if (typeParam != null && fields[0].Groups[3].Value != typeParam) continue;
+
+            Vec column = vectors.FirstOrDefault(v => v.Name == columnName && (v.TypeParam != null) == genericColumn);
+            if (column == null || column.Size < 2 || column.Size > 4) continue;
+            if (typeParam == null && !MatrixComponents.Contains(column.Component)) continue;
+
+            var matrix = new Mat
+            {
+                Name = type.Groups[1].Value,
+                Namespace = ns.Groups[1].Value,
+                TypeParam = typeParam,
+                Column = column,
+            };
+            matrix.Fields.AddRange(fields.Select(f => f.Groups[4].Value));
+            result.Add(matrix);
+        }
+
+        return result;
+    }
+
+    /// <summary>El tipo de un vector o una matriz, abierto (vec3&lt;T&gt;) o cerrado con un componente (vec3&lt;float&gt;).</summary>
+    sealed class Naming
+    {
+        public string Component;  // float, T...
+        public Func<Vec, string> Vector;
+        public Func<Mat, string> Matrix;
+    }
+
+    static Naming OpenNaming(Mat matrix)
+    {
+        return new Naming { Component = matrix.Component, Vector = v => v.Full, Matrix = m => m.Full };
+    }
+
+    static Naming ClosedNaming(string component)
+    {
+        return new Naming { Component = component, Vector = v => v.Closed(component), Matrix = m => m.Closed(component) };
+    }
+
+    static string NewVector(Naming naming, Vec vector, IEnumerable<string> components)
+    {
+        return "new " + naming.Vector(vector) + "(" + string.Join(", ", components) + ")";
+    }
+
+    /// <summary>Los constructores de una matriz; en cada firma, Values tiene la expresión de cada columna.</summary>
+    static List<Signature> MatrixSignatures(Mat matrix, List<Mat> matrices, List<Vec> vectors, MatrixRules rules, Naming naming)
+    {
+        var result = new List<Signature>();
+        string c = naming.Component;
+        Vec column = matrix.Column;
+
+        // Un escalar en la diagonal y cero en el resto: mat3(1.0) es la identidad.
+        if (rules.Diagonal)
+        {
+            var diagonal = new Signature();
+            diagonal.Parameters.Add(c + " value");
+            diagonal.Arguments.Add("value");
+            for (int j = 0; j < matrix.Columns; j++)
+            {
+                int col = j;
+                diagonal.Values.Add(NewVector(naming, column,
+                    Enumerable.Range(0, matrix.Rows).Select(i => i == col ? "value" : "default(" + c + ")")));
+            }
+            result.Add(diagonal);
+        }
+
+        if (rules.RowMajor)
+        {
+            // Una fila por argumento: float2x3(float3 r0, float3 r1).
+            Vec row = Sibling(vectors, column, matrix.Columns);
+            if (row != null)
+            {
+                var rows = new Signature();
+                for (int i = 0; i < matrix.Rows; i++)
+                {
+                    rows.Parameters.Add(naming.Vector(row) + " r" + i);
+                    rows.Arguments.Add("r" + i);
+                }
+                for (int j = 0; j < matrix.Columns; j++)
+                {
+                    int col = j;
+                    rows.Values.Add(NewVector(naming, column, Enumerable.Range(0, matrix.Rows).Select(i => "r" + i + "." + row.Fields[col])));
+                }
+                result.Add(rows);
+            }
+        }
+        else
+        {
+            // Una columna por argumento: mat3(c0, c1, c2).
+            var columns = new Signature();
+            for (int j = 0; j < matrix.Columns; j++)
+            {
+                columns.Parameters.Add(naming.Vector(column) + " c" + j);
+                columns.Arguments.Add("c" + j);
+                columns.Values.Add("c" + j);
+            }
+            result.Add(columns);
+        }
+
+        // Todos los escalares: mNM es el elemento de la columna N y la fila M (en HLSL, de la fila N y la columna M).
+        var scalars = new Signature();
+        var names = new string[matrix.Columns, matrix.Rows];
+        for (int a = 0; a < (rules.RowMajor ? matrix.Rows : matrix.Columns); a++)
+        {
+            for (int b = 0; b < (rules.RowMajor ? matrix.Columns : matrix.Rows); b++)
+            {
+                string name = "m" + a + b;
+                scalars.Parameters.Add(c + " " + name);
+                scalars.Arguments.Add(name);
+                if (rules.RowMajor) names[b, a] = name; else names[a, b] = name;
+            }
+        }
+        for (int j = 0; j < matrix.Columns; j++)
+        {
+            int col = j;
+            scalars.Values.Add(NewVector(naming, column, Enumerable.Range(0, matrix.Rows).Select(i => names[col, i])));
+        }
+        result.Add(scalars);
+
+        // Desde otra matriz: lo que no cabe se corta y lo que falta es la identidad (mat3(m4), mat4(m3), dmat3(m3)).
+        if (rules.Resize && matrix.TypeParam == null && Convertible.Contains(matrix.Component))
+        {
+            foreach (Mat other in matrices)
+            {
+                if (other == matrix || other.TypeParam != null || !Convertible.Contains(other.Component)) continue;
+
+                var conversion = new Signature();
+                conversion.Parameters.Add(other.Full + " m");
+                conversion.Arguments.Add("m");
+                for (int j = 0; j < matrix.Columns; j++)
+                {
+                    int col = j;
+                    conversion.Values.Add(NewVector(naming, column, Enumerable.Range(0, matrix.Rows).Select(i =>
+                        col < other.Columns && i < other.Rows
+                            ? "(" + c + ")m." + other.Fields[col] + "." + other.Column.Fields[i]
+                            : i == col ? "(" + c + ")1" : "default(" + c + ")")));
+                }
+                result.Add(conversion);
+            }
+        }
+
+        return result;
+    }
+
+    static string MatricesFile(List<Mat> matrices, List<Vec> vectors, string language, string jsonName)
+    {
+        var lines = new List<string>
+        {
+            "// <auto-generated>",
+            "//   Generado al compilar por GenerateIntrinsics a partir de las matrices de Types/ (" + jsonName + ").",
+            "//   No lo edites a mano.",
+            "// </auto-generated>",
+            "#nullable disable",
+            "using System;",
+            "using YotsubaShader.Concepts.Methods;",
+        };
+
+        MatrixRules rules = MatrixRules.For(language);
+        foreach (IGrouping<string, Mat> group in matrices.GroupBy(m => m.Namespace))
+        {
+            lines.Add("");
+            lines.Add("namespace " + group.Key);
+            lines.Add("{");
+            foreach (Mat matrix in group)
+            {
+                lines.Add("    public partial struct " + matrix.Name + (matrix.TypeParam != null ? "<" + matrix.TypeParam + ">" : ""));
+                lines.Add("    {");
+                MatrixConstructors(lines, matrix, matrices, vectors, rules);
+                MatrixOperators(lines, matrix, matrices, vectors, rules);
+                if (lines[lines.Count - 1] == "") lines.RemoveAt(lines.Count - 1);
+                lines.Add("    }");
+                lines.Add("");
+            }
+            if (lines[lines.Count - 1] == "") lines.RemoveAt(lines.Count - 1);
+            lines.Add("}");
+        }
+
+        lines.Add("");
+        return string.Join("\n", lines);
+    }
+
+    static string ConstructorAttribute(MatrixRules rules)
+    {
+        return rules.RowMajor ? "[ConstructorMethod(RowMajor = true)]" : "[ConstructorMethod]";
+    }
+
+    static void MatrixConstructors(List<string> lines, Mat matrix, List<Mat> matrices, List<Vec> vectors, MatrixRules rules)
+    {
+        const string I = "        ";
+        foreach (Signature signature in MatrixSignatures(matrix, matrices, vectors, rules, OpenNaming(matrix)))
+        {
+            lines.Add(I + ConstructorAttribute(rules));
+            lines.Add(I + "public " + matrix.Name + "(" + string.Join(", ", signature.Parameters) + ")");
+            lines.Add(I + "{");
+            for (int j = 0; j < matrix.Columns; j++) lines.Add(I + "    " + matrix.Fields[j] + " = " + signature.Values[j] + ";");
+            lines.Add(I + "}");
+            lines.Add("");
+        }
+    }
+
+    /// <summary>La matriz de <paramref name="columns"/> columnas y <paramref name="rows"/> filas para el resultado de un producto.</summary>
+    static Mat ProductType(List<Mat> matrices, Mat left, Mat right, int columns, int rows)
+    {
+        List<Mat> candidates = matrices.Where(m => m.Component == left.Component && (m.TypeParam == null) == (left.TypeParam == null) &&
+                                                   m.Columns == columns && m.Rows == rows).ToList();
+        if (candidates.Contains(left)) return left;
+        if (candidates.Contains(right)) return right;
+        return candidates.OrderBy(m => m.Name.Length).ThenBy(m => m.Name, StringComparer.Ordinal).FirstOrDefault();
+    }
+
+    static void MatrixOperators(List<string> lines, Mat matrix, List<Mat> matrices, List<Vec> vectors, MatrixRules rules)
+    {
+        string m = matrix.Full, c = matrix.Component;
+        bool generic = matrix.TypeParam != null;
+        Func<Func<int, string>, string> build = column =>
+            "new " + m + " { " + string.Join(", ", Enumerable.Range(0, matrix.Columns).Select(j => matrix.Fields[j] + " = " + column(j))) + " }";
+
+        // Por componente: cada columna con la operación del vector.
+        foreach (string op in new[] { "+", "-" })
+        {
+            MatrixOperator(lines, generic, "ComponentwiseOperator", m, op, m + " a, " + m + " b", build(j => "a." + matrix.Fields[j] + " " + op + " b." + matrix.Fields[j]));
+        }
+        MatrixOperator(lines, generic, "ComponentwiseOperator", m, "-", m + " a", build(j => "-a." + matrix.Fields[j]));
+        MatrixOperator(lines, generic, "ComponentwiseOperator", m, "*", m + " a, " + c + " b", build(j => "a." + matrix.Fields[j] + " * b"));
+        MatrixOperator(lines, generic, "ComponentwiseOperator", m, "*", c + " a, " + m + " b", build(j => "a * b." + matrix.Fields[j]));
+        if (rules.ScalarDivide)
+        {
+            MatrixOperator(lines, generic, "ComponentwiseOperator", m, "/", m + " a, " + c + " b", build(j => "a." + matrix.Fields[j] + " / b"));
+        }
+        if (rules.Elementwise)
+        {
+            foreach (string op in new[] { "*", "/" })
+            {
+                MatrixOperator(lines, generic, "ComponentwiseOperator", m, op, m + " a, " + m + " b", build(j => "a." + matrix.Fields[j] + " " + op + " b." + matrix.Fields[j]));
+            }
+        }
+
+        if (!rules.Product) return;
+
+        // matriz * vector: la combinación de las columnas con los componentes del vector.
+        Vec column = matrix.Column;
+        Vec input = Sibling(vectors, column, matrix.Columns);
+        if (input == null) return;
+        MatrixOperator(lines, generic, "MatrixProduct", column.Full, "*", m + " a, " + input.Full + " b",
+            string.Join(" + ", Enumerable.Range(0, matrix.Columns).Select(j => "a." + matrix.Fields[j] + " * b." + input.Fields[j])));
+
+        // vector * matriz: el producto punto del vector con cada columna.
+        MatrixOperator(lines, generic, "MatrixProduct", input.Full, "*", column.Full + " a, " + m + " b",
+            "new " + input.Full + "(" + string.Join(", ", Enumerable.Range(0, matrix.Columns).Select(j =>
+                string.Join(" + ", Enumerable.Range(0, matrix.Rows).Select(i => "a." + column.Fields[i] + " * b." + matrix.Fields[j] + "." + column.Fields[i])))) + ")");
+
+        // matriz * matriz: cada columna del resultado es esta matriz por la columna de la otra.
+        foreach (Mat other in matrices)
+        {
+            if (other.Component != matrix.Component || (other.TypeParam == null) != (matrix.TypeParam == null) || other.Rows != matrix.Columns) continue;
+            Mat result = ProductType(matrices, matrix, other, other.Columns, matrix.Rows);
+            if (result == null) continue;
+            MatrixOperator(lines, generic, "MatrixProduct", result.Full, "*", m + " a, " + other.Full + " b",
+                "new " + result.Full + " { " + string.Join(", ", Enumerable.Range(0, other.Columns).Select(j => result.Fields[j] + " = a * b." + other.Fields[j])) + " }");
+        }
+    }
+
+    static void MatrixOperator(List<string> lines, bool generic, string attribute, string result, string op, string parameters, string body)
+    {
+        const string I = "        ";
+        lines.Add(I + "[" + attribute + "]");
+        lines.Add(I + "public static " + result + " operator " + op + "(" + parameters + ") => " + (generic ? GpuOnly : body) + ";");
+        lines.Add("");
+    }
+
+    /// <summary>Los métodos de Constructors para las matrices (mat3(c0, c1, c2), float2x2(a, b, c, d)...).</summary>
+    static void MatrixConstructorMethods(List<string> lines, List<Mat> matrices, List<Vec> vectors, string language)
+    {
+        const string I = "        ";
+        MatrixRules rules = MatrixRules.For(language);
+        foreach (Mat matrix in matrices)
+        {
+            lines.Add(I + "// " + new string('-', 76) + " " + matrix.Name);
+            lines.Add("");
+            string generic = matrix.TypeParam != null ? "<" + matrix.TypeParam + ">" : "";
+            foreach (Signature signature in MatrixSignatures(matrix, matrices, vectors, rules, OpenNaming(matrix)))
+            {
+                lines.Add(I + ConstructorAttribute(rules));
+                lines.Add(I + "public static " + matrix.Full + " " + Esc(matrix.Name) + generic + "(" + string.Join(", ", signature.Parameters) + ")" +
+                          (matrix.TypeParam != null ? " where " + matrix.TypeParam + " : unmanaged" : ""));
+                lines.Add(I + "    => new " + matrix.Full + "(" + string.Join(", ", signature.Arguments) + ");");
+                lines.Add("");
+            }
+
+            // WGSL también escribe mat3x3f y mat3x3h para mat3x3<f32> y mat3x3<f16>.
+            if (matrix.TypeParam != null && language == "WGSL")
+            {
+                foreach (KeyValuePair<string, string> alias in new Dictionary<string, string> { { "f", "float" }, { "h", "System.Half" } })
+                {
+                    string target = matrix.Closed(alias.Value);
+                    foreach (Signature signature in MatrixSignatures(matrix, matrices, vectors, rules, ClosedNaming(alias.Value)))
+                    {
+                        lines.Add(I + ConstructorAttribute(rules));
+                        lines.Add(I + "public static " + target + " " + matrix.Name + alias.Key + "(" + string.Join(", ", signature.Parameters) + ")");
+                        lines.Add(I + "    => new " + target + "(" + string.Join(", ", signature.Arguments) + ");");
+                        lines.Add("");
+                    }
+                }
+            }
+        }
     }
 
     // ---------------------------------------------------------------- lector de JSON mínimo, sin dependencias

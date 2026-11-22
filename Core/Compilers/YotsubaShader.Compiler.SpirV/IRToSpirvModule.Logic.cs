@@ -301,6 +301,13 @@ public partial class IRToSpirvModule
                     AddCapabilityForExpression(value, emittedCapabilities);
                 }
                 break;
+            case MatrixExpression matrixExpression:
+                AddCapabilityForStorage(matrixExpression.MatrixType, emittedCapabilities);
+                foreach (Expression column in matrixExpression.Columns)
+                {
+                    AddCapabilityForExpression(column, emittedCapabilities);
+                }
+                break;
             case ZeroValue zero:
                 AddCapabilityForStorage(zero.Type, emittedCapabilities);
                 break;
@@ -673,7 +680,14 @@ public partial class IRToSpirvModule
                 {
                     DeclareExpressionConstants(module, vectorExpressionValue, stage);
                 }
-                break;  
+                break;
+            case MatrixExpression matrixExpression:
+                module.DeclareType(matrixExpression.MatrixType, stage);
+                foreach (Expression column in matrixExpression.Columns)
+                {
+                    DeclareExpressionConstants(module, column, stage);
+                }
+                break;
             case CustomStructExpression structure:
             {
                 // new VertexOutput() significa el valor cero/default del struct.

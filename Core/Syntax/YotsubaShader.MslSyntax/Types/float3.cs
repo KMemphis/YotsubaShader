@@ -71,7 +71,7 @@ using YotsubaShader.Language.Native.Types.Vector;
 namespace YotsubaShader.MslSyntax.Types;
 
 [Vector]
-public struct float3
+public partial struct float3
 {
     [VectorComponent(0)]
     public float X;

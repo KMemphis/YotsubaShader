@@ -9,6 +9,35 @@ const SHADER_TYPES := {
 }
 
 
+const DEFAULT_COMMAND := "dotnet yotsuba"
+static var _resolved := {}
+
+
+## `dotnet yotsuba` only works when yotsuba is a *local* tool (a dotnet-tools.json manifest above the project). A tool
+## installed with `dotnet tool install -g` is the executable `yotsuba` in ~/.dotnet/tools, which Godot may not even
+## have on its PATH when it is launched from the Dock or Finder. For the default command this finds what works.
+static func resolve_command(command: String) -> String:
+	var wanted := command.strip_edges()
+	if wanted != DEFAULT_COMMAND:
+		return wanted
+	if _resolved.has(wanted):
+		return _resolved[wanted]
+	var found := wanted
+	var output: Array = []
+	var local_ok := OS.execute("dotnet", ["yotsuba", "--help"], output, true) == 0 \
+		and not "".join(PackedStringArray(output)).contains("Could not execute")
+	if not local_ok:
+		var home := OS.get_environment("USERPROFILE") if OS.get_name() == "Windows" else OS.get_environment("HOME")
+		var exe := "yotsuba.exe" if OS.get_name() == "Windows" else "yotsuba"
+		var global_tool := home.path_join(".dotnet/tools").path_join(exe)
+		if FileAccess.file_exists(global_tool):
+			found = global_tool
+		elif OS.execute(exe, ["--help"], [], true) != -1:
+			found = exe
+	_resolved[wanted] = found
+	return found
+
+
 ## Returns {"ok": bool, "skipped": bool, "log": String, "files": PackedStringArray}.
 ## `shader_type` is "spatial", "canvas_item" or "both". Shaders that fail to translate for the chosen
 ## type are reported in `log` and make `ok` false; the ones that did translate are still written.
@@ -30,6 +59,7 @@ static func regenerate(project: String, output_dir: String, shader_type: String,
 	DirAccess.make_dir_recursive_absolute(output_path)
 
 	# A single path to an executable may contain spaces; otherwise the command is split into words.
+	command = resolve_command(command)
 	var parts := PackedStringArray([command.strip_edges()]) if FileAccess.file_exists(command.strip_edges()) \
 		else command.strip_edges().split(" ", false)
 	if parts.is_empty() or parts[0].is_empty():
@@ -46,6 +76,11 @@ static func regenerate(project: String, output_dir: String, shader_type: String,
 	for line in lines:
 		text += str(line)
 	result["log"] = text
+
+	if exit_code != 0 and text.contains("Could not execute"):
+		result["ok"] = false
+		result["log"] = "YotsubaShader: '%s' is not an installed command. Install it with `dotnet tool install -g YotsubaShader.Compiler.CLI`, or set yotsuba_shader/command to its full path.\n%s" % [command, text]
+		return result
 
 	if exit_code == -1:
 		result["ok"] = false

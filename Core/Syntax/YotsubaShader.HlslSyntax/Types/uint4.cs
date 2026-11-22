@@ -71,7 +71,7 @@ using YotsubaShader.Language.Native.Types.Vector;
 namespace YotsubaShader.HlslSyntax.Types;
 
 [Vector]
-public struct uint4
+public partial struct uint4
 {
     [VectorComponent(0)]
     public uint X;

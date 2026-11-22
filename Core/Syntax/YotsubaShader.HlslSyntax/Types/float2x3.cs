@@ -71,7 +71,7 @@ using YotsubaShader.Language.Native.Types.Matrix;
 namespace YotsubaShader.HlslSyntax.Types;
 
 [Matrix]
-public struct float2x3
+public partial struct float2x3
 {
     [MatrixColumn(0)]
     public float2 C0;

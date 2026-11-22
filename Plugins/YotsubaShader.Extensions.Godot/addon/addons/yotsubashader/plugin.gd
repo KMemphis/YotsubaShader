@@ -9,8 +9,14 @@ const SETTING_OUTPUT := "yotsuba_shader/output_dir"
 const SETTING_TYPE := "yotsuba_shader/shader_type"
 const SETTING_COMMAND := "yotsuba_shader/command"
 const SETTING_ON_RUN := "yotsuba_shader/regenerate_on_run"
+const SETTING_LSP := "yotsuba_shader/lsp_command"
+const SETTING_THEME := "yotsuba_shader/editor_theme"
+
+const YotsubaPanel := preload("res://addons/yotsubashader/editor_panel.gd")
 
 const MENU_TITLE := "Regenerate YotsubaShader shaders"
+
+var _panel: Control
 
 
 func _enter_tree() -> void:
@@ -19,11 +25,58 @@ func _enter_tree() -> void:
 	_define(SETTING_TYPE, "spatial", TYPE_STRING, PROPERTY_HINT_ENUM, "spatial,canvas_item,both")
 	_define(SETTING_COMMAND, "dotnet yotsuba", TYPE_STRING, PROPERTY_HINT_NONE, "")
 	_define(SETTING_ON_RUN, true, TYPE_BOOL, PROPERTY_HINT_NONE, "")
+	_define(SETTING_LSP, "", TYPE_STRING, PROPERTY_HINT_NONE, "")
+	_define(SETTING_THEME, "vs_dark", TYPE_STRING, PROPERTY_HINT_ENUM, "vs_dark,vs_light,godot")
 	add_tool_menu_item(MENU_TITLE, _on_menu)
+
+	_panel = YotsubaPanel.new()
+	EditorInterface.get_editor_main_screen().add_child(_panel)
+	_panel.hide()
 
 
 func _exit_tree() -> void:
 	remove_tool_menu_item(MENU_TITLE)
+	if _panel != null:
+		_panel.shutdown()
+		_panel.queue_free()
+		_panel = null
+
+
+func _has_main_screen() -> bool:
+	return true
+
+
+func _get_plugin_name() -> String:
+	return "Yotsuba"
+
+
+func _get_plugin_icon() -> Texture2D:
+	var theme := EditorInterface.get_editor_theme()
+	return theme.get_icon("Script", "EditorIcons")
+
+
+func _make_visible(visible: bool) -> void:
+	if _panel == null:
+		return
+	_panel.visible = visible
+	if visible:
+		_panel.apply_theme(str(ProjectSettings.get_setting(SETTING_THEME, "vs_dark")))
+		_panel.project_path = _csproj_path()
+		var lsp_command := str(ProjectSettings.get_setting(SETTING_LSP, "")).strip_edges()
+		_panel.command = lsp_command if not lsp_command.is_empty() \
+			else Generator.resolve_command(str(ProjectSettings.get_setting(SETTING_COMMAND, "dotnet yotsuba")))
+		_panel.activate()
+
+
+func _csproj_path() -> String:
+	var path := str(ProjectSettings.get_setting(SETTING_PROJECT, "")).strip_edges()
+	if path.is_empty():
+		return ""
+	if path.begins_with("res://"):
+		return ProjectSettings.globalize_path(path)
+	if path.is_absolute_path():
+		return path
+	return ProjectSettings.globalize_path("res://").path_join(path).simplify_path()
 
 
 ## Called by the editor right before it runs the project.

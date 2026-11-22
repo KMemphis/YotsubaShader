@@ -213,6 +213,14 @@ public partial class StatementOperationProcessor
         Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs,
         Compilation compilation, Stage stage)
     {
+        if (IsComponentwiseOperator(operation.OperatorMethod))
+        {
+            Expression operandValue = ProcessExpression(operation.Operand, inputs, outputs, compilation, stage)
+                                      ?? throw new NotSupportedException("The unary operand did not produce an expression.");
+            return BuildComponentwiseUnary(operation.OperatorKind, operation.OperatorMethod!, operandValue,
+                operation.Operand.Type!, compilation, stage);
+        }
+
         if (operation.OperatorMethod is { MethodKind: MethodKind.UserDefinedOperator } userOperator)
         {
             var (functionId, arguments) = ProcessMethodCall(
@@ -477,6 +485,13 @@ public partial class StatementOperationProcessor
 }
     private Expression? ProcessInvocationExpression(IInvocationOperation invocationOperation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage)
     {
+        // float3(x, y, z) y los demás métodos de la clase Constructors de las sintaxis.
+        if (IsConstructorMethod(invocationOperation.TargetMethod))
+        {
+            return BuildVector(invocationOperation.TargetMethod.ReturnType, invocationOperation.TargetMethod,
+                OrderedArguments(invocationOperation), inputs, outputs, compilation, stage);
+        }
+
         if (TryProcessIntrinsicCall(invocationOperation, inputs, outputs, compilation, stage, asFloat: false,
                 out GPUIntrinsic intrinsic, out var intrinsicArguments, out var intrinsicArgumentTypes,
                 out var intrinsicResultType))
@@ -514,6 +529,17 @@ public partial class StatementOperationProcessor
 
     private Expression? ProcessBinaryExpression(IBinaryOperation binaryOperation, Dictionary<ISymbol, Storage> inputs, Dictionary<ISymbol, Storage> outputs, Compilation compilation, Stage stage)
     {
+        // a + b, v * 2.0f, a < b... con los vectores de las sintaxis: componente a componente.
+        if (IsComponentwiseOperator(binaryOperation.OperatorMethod))
+        {
+            Expression leftValue = ProcessExpression(binaryOperation.LeftOperand, inputs, outputs, compilation, stage)
+                                   ?? throw new NotSupportedException("The left binary operand did not produce an expression.");
+            Expression rightValue = ProcessExpression(binaryOperation.RightOperand, inputs, outputs, compilation, stage)
+                                    ?? throw new NotSupportedException("The right binary operand did not produce an expression.");
+            return BuildComponentwiseBinary(binaryOperation.OperatorKind, binaryOperation.OperatorMethod!,
+                leftValue, binaryOperation.LeftOperand.Type!, rightValue, binaryOperation.RightOperand.Type!, compilation, stage);
+        }
+
         // Un operador definido por el usuario se compila como la función que Roslyn ya resolvió.
         if (binaryOperation.OperatorMethod is { MethodKind: MethodKind.UserDefinedOperator } userOperator)
         {
@@ -621,13 +647,20 @@ public partial class StatementOperationProcessor
         
         switch (storageType)
         {
-            case IRTypes.CustomStruct or IRTypes.Vector: 
+            case IRTypes.CustomStruct or IRTypes.Vector or IRTypes.Matrix:
             {
                 IMethodSymbol ctor = objectCreationOperation.Constructor
                                      ?? throw new NotSupportedException($"No se resolvió un constructor para '{objectCreationOperation.Type}'.");
 
                 Expression created;
-                if (ctor.IsImplicitlyDeclared)
+                if (IsConstructorMethod(ctor))
+                {
+                    // new float3(x, y, z), new mat3(c0, c1, c2): un constructor de un vector o una matriz de las sintaxis.
+                    created = BuildVector(objectCreationOperation.Type, ctor,
+                        objectCreationOperation.Arguments.OrderBy(a => a.Parameter!.Ordinal).Select(a => a.Value).ToArray(),
+                        inputs, outputs, compilation, stage);
+                }
+                else if (ctor.IsImplicitlyDeclared)
                 {
                     // new T() sin constructor propio es el valor cero; el inicializador asigna después.
                     created = storageType is IRTypes.CustomStruct customStruct
@@ -1163,6 +1196,7 @@ public partial class StatementOperationProcessor
         FunctionCallExpression call => call.Arguments.Any(ContainsSequence),
         IntrinsicCallExpression intrinsic => intrinsic.Arguments.Any(ContainsSequence),
         VectorExpression vector => vector.Values.Any(ContainsSequence),
+        MatrixExpression matrix => matrix.Columns.Any(ContainsSequence),
         _ => false
     };
 

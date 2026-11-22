@@ -71,7 +71,7 @@ using YotsubaShader.Language.Native.Types.Vector;
 namespace YotsubaShader.SpirvSyntax.Types;
 
 [Vector]
-public struct uvec4
+public partial struct uvec4
 {
     [VectorComponent(0)]
     public uint X;

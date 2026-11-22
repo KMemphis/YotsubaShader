@@ -71,7 +71,7 @@ using YotsubaShader.Language.Native.Types.Vector;
 namespace YotsubaShader.SpirvSyntax.Types;
 
 [Vector]
-public struct dvec2
+public partial struct dvec2
 {
     [VectorComponent(0)]
     public double X;

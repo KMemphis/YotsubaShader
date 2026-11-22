@@ -71,7 +71,7 @@ using YotsubaShader.Language.Native.Types.Matrix;
 namespace YotsubaShader.SpirvSyntax.Types;
 
 [Matrix]
-public struct mat4x4
+public partial struct mat4x4
 {
     [MatrixColumn(0)]
     public vec4 C0;
