@@ -71,7 +71,7 @@ using YotsubaShader.Language.Native.Types.Vector;
 namespace YotsubaShader.WgslSyntax.Types;
 
 [Vector]
-public struct vec4<T> where T : unmanaged
+public partial struct vec4<T> where T : unmanaged
 {
     [VectorComponent(0)]
     public T X;

@@ -575,6 +575,12 @@ internal sealed class BodyRules
             return;
         }
 
+        // float3(x, y, z), vec3<T>(...): los constructores de las sintaxis se compilan como un vector.
+        if (ShaderSymbols.HasAttribute(method.OriginalDefinition, ShaderNames.ConstructorMethod))
+        {
+            return;
+        }
+
         if (MathSupport.IsMath(method))
         {
             if (method.Parameters.Any(p => p.Type.SpecialType == SpecialType.System_Decimal) ||

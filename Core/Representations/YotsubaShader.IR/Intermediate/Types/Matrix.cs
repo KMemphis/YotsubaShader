@@ -77,6 +77,12 @@ public record class Matrix(string HumanName, StorageKind Kind, InterfaceSlot? Sl
     public required uint Rows;
 
     public required uint Columns;
+
+    /// <summary>
+    /// Los nombres de los campos [MatrixColumn] en orden (C0, C1...), para leer o escribir una columna (m.C1).
+    /// Null si la matriz no viene de un struct de C#.
+    /// </summary>
+    public IReadOnlyList<string>? ColumnNames { get; init; }
 }
 
 public enum MatrixComponentType

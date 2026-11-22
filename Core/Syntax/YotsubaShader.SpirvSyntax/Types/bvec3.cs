@@ -71,7 +71,7 @@ using YotsubaShader.Language.Native.Types.Vector;
 namespace YotsubaShader.SpirvSyntax.Types;
 
 [Vector]
-public struct bvec3
+public partial struct bvec3
 {
     [VectorComponent(0)]
     public bool X;

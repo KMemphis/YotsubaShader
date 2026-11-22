@@ -31,5 +31,7 @@
         <!-- YotsubaShader.CLI.csproj: permanece net10.0 -->
             <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.0.0" />
             <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="5.0.0" />
+            <!-- Completado y ayuda al pasar el ratón del servidor de lenguaje (yotsuba lsp) -->
+            <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Features" Version="5.0.0" />
     </ItemGroup>
 </Project>

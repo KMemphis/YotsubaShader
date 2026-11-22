@@ -1293,6 +1293,7 @@ public class ShaderProcessor
 
         string columnAttribute = typeof(YotsubaShader.Language.Native.Types.Matrix.MatrixColumnAttribute).FullName!;
         var columns = new SortedDictionary<int, ITypeSymbol>();
+        var columnNames = new SortedDictionary<int, string>();
 
         foreach (ISymbol member in type.GetMembers())
         {
@@ -1316,6 +1317,7 @@ public class ShaderProcessor
                 throw new InvalidOperationException(
                     $"The matrix '{type.ToDisplayString()}' declares the column {index} more than once.");
             }
+            columnNames[index] = member.Name;
         }
 
         if (columns.Count == 0) return null;
@@ -1349,7 +1351,8 @@ public class ShaderProcessor
                 ? MatrixComponentType.Double
                 : componentsType == VectorComponentsType.Half ? MatrixComponentType.Half : MatrixComponentType.Float,
             Rows = (uint)rows,
-            Columns = (uint)columns.Count
+            Columns = (uint)columns.Count,
+            ColumnNames = columnNames.Values.ToList()
         };
     }
 

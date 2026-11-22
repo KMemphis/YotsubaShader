@@ -403,6 +403,29 @@ internal sealed partial class FunctionBodyEmitter
             throw NotAVectorComponent(notAComponentOwner, property.PropertyName);
         }
 
+        // m.C1 = ...: la dirección de una columna es un AccessChain sobre el puntero de la matriz.
+        if (ownerStorage is IRTypes.Matrix matrix)
+        {
+            uint columnIndex = MatrixColumnIndex(matrix, property.PropertyName);
+            string matrixPointerId = EmitAddress(property.Reference, ref function);
+            SpirVStorageClass matrixStorageClass = ToSpirVStorageClass(GetRootStorage(property.Reference).Kind);
+
+            string columnTypeId = _module.DeclareType(MatrixColumnStorage(matrix), function.Stage);
+            string columnPointerTypeId = _module.DeclarePointer(matrixStorageClass, columnTypeId);
+            string columnIndexId = _module.DeclareUIntConstant((int)columnIndex);
+
+            string columnAddressId = $"%address_{function.HumanName}_{function.Id.Value}_{_nextTemporaryValue++}";
+
+            _module.AddResultLine(
+                columnAddressId,
+                SpirVOpTable.OpAccessChain,
+                SpirVModuleHelpers.Id(columnPointerTypeId),
+                SpirVModuleHelpers.Id(matrixPointerId),
+                SpirVModuleHelpers.Id(columnIndexId));
+
+            return columnAddressId;
+        }
+
         if (ownerStorage is not CustomStruct structure)
         {
             throw new NotSupportedException(
@@ -483,9 +506,16 @@ internal sealed partial class FunctionBodyEmitter
                 return reference.Storage;
 
             case StorageStructPropertyReference property:
-                return TryGetExpressionStorage(property.Reference) is CustomStruct structure
-                    ? structure.Properties.FirstOrDefault(member => member.HumanName == property.PropertyName)
-                    : null;
+                return TryGetExpressionStorage(property.Reference) switch
+                {
+                    CustomStruct structure => structure.Properties.FirstOrDefault(member => member.HumanName == property.PropertyName),
+                    // m.C1: una columna de la matriz es un vector de Rows componentes.
+                    IRTypes.Matrix matrix => MatrixColumnStorage(matrix),
+                    _ => null
+                };
+
+            case MatrixExpression matrixExpression:
+                return matrixExpression.MatrixType;
 
             case StorageArrayElementReference element:
                 return (TryGetExpressionStorage(element.ArrayReference) as IRTypes.Array)?.ElementType;
@@ -589,6 +619,10 @@ internal sealed partial class FunctionBodyEmitter
             // new Vector2(...), new Vector3(...), new Vector4(...)
             case VectorExpression vector:
                 id = EmitVector(vector, ref function);
+                break;
+            // mat3(c0, c1, c2), float2x2(a, b, c, d)...: las columnas ya vienen construidas.
+            case MatrixExpression matrixExpression:
+                id = EmitMatrix(matrixExpression, ref function);
                 break;
             // Para new MiStruct(a, b, c), cuando el frontend lo produzca.
             case CustomStructExpression structure:
@@ -1165,6 +1199,30 @@ private string EmitUnary(UnaryExpression unary, ref Function function)
             throw NotAVectorComponent(notAComponentOwner, property.PropertyName);
         }
 
+        // m.C1: la columna se lee de la memoria si la matriz tiene dirección, o se extrae de su valor.
+        if (ownerStorage is IRTypes.Matrix matrix)
+        {
+            uint columnIndex = MatrixColumnIndex(matrix, property.PropertyName);
+            string columnTypeId = _module.DeclareType(MatrixColumnStorage(matrix), function.Stage);
+
+            if (IsAddressable(property.Reference))
+            {
+                return EmitLoad(EmitAddress(property, ref function), columnTypeId, ref function);
+            }
+
+            string matrixValueId = EmitValue(property.Reference, ref function);
+            string columnId = $"%value_{function.HumanName}_{function.Id.Value}_{_nextTemporaryValue++}";
+
+            _module.AddResultLine(
+                columnId,
+                SpirVOpTable.OpCompositeExtract,
+                SpirVModuleHelpers.Id(columnTypeId),
+                SpirVModuleHelpers.Id(matrixValueId),
+                new SpirVInstructionParameter(columnIndex.ToString(), SpirVInstructionType.UIntValue));
+
+            return columnId;
+        }
+
         if (ownerStorage is not CustomStruct structure)
         {
             throw new NotSupportedException(
@@ -1230,6 +1288,60 @@ private string EmitUnary(UnaryExpression unary, ref Function function)
         };
 
         return index < (uint)vector.ComponentsLength;
+    }
+
+    /// <summary>El índice de una columna por el nombre de su campo [MatrixColumn] (C0, C1...).</summary>
+    private static uint MatrixColumnIndex(IRTypes.Matrix matrix, string propertyName)
+    {
+        int index = matrix.ColumnNames is { } names
+            ? names.ToList().IndexOf(propertyName)
+            : propertyName.Length == 2 && propertyName[0] is 'C' or 'c' && char.IsDigit(propertyName[1])
+                ? propertyName[1] - '0'
+                : -1;
+
+        if (index < 0 || index >= matrix.Columns)
+        {
+            throw new NotSupportedException(
+                $"'{propertyName}' is not a column of this matrix with {matrix.Columns} columns" +
+                (matrix.ColumnNames is { } columnNames ? $" (its columns are {string.Join(", ", columnNames)})." : "."));
+        }
+
+        return (uint)index;
+    }
+
+    /// <summary>El tipo de una columna: un vector de <see cref="IRTypes.Matrix.Rows"/> componentes.</summary>
+    private static IRTypes.Vector MatrixColumnStorage(IRTypes.Matrix matrix) =>
+        new("column", StorageKind.Local, null)
+        {
+            ComponentsLength = (int)matrix.Rows,
+            ComponentsType = matrix.ComponentsType switch
+            {
+                IRTypes.MatrixComponentType.Double => VectorComponentsType.Double,
+                IRTypes.MatrixComponentType.Half => VectorComponentsType.Half,
+                _ => VectorComponentsType.Float
+            }
+        };
+
+    private string EmitMatrix(MatrixExpression matrix, ref Function function)
+    {
+        if (matrix.Columns.Count != matrix.MatrixType.Columns)
+        {
+            throw new InvalidOperationException(
+                $"A matrix with {matrix.MatrixType.Columns} columns received {matrix.Columns.Count}.");
+        }
+
+        string matrixTypeId = _module.DeclareType(matrix.MatrixType, function.Stage);
+        string resultId = $"%value_{function.HumanName}_{function.Id.Value}_{_nextTemporaryValue++}";
+
+        var parameters = new List<SpirVInstructionParameter> { SpirVModuleHelpers.Id(matrixTypeId) };
+        foreach (Expression column in matrix.Columns)
+        {
+            parameters.Add(SpirVModuleHelpers.Id(EmitValue(column, ref function)));
+        }
+
+        _module.AddResultLine(resultId, SpirVOpTable.OpCompositeConstruct, [.. parameters]);
+
+        return resultId;
     }
 
     private static NotSupportedException NotAVectorComponent(IRTypes.Vector vector, string propertyName) =>
@@ -1458,10 +1570,15 @@ private string EmitUnary(UnaryExpression unary, ref Function function)
             vector.Values.Count,
             vector.ComponentsType);
 
+        // Un vector que solo aparece como valor intermedio (el argumento de m * vec3(...)) no tiene variable que
+        // declare su tipo: se declara aquí.
         if (!_module.IsDefined(vectorTypeId))
         {
-            throw new InvalidOperationException(
-                $"Vector type '{vectorTypeId}' was not declared before function emission.");
+            vectorTypeId = _module.DeclareType(new IRTypes.Vector("vector", StorageKind.Local, null)
+            {
+                ComponentsLength = vector.Values.Count,
+                ComponentsType = vector.ComponentsType
+            }, function.Stage);
         }
 
         string resultId =

@@ -44,6 +44,7 @@ public class PlasmaShader
                 + System.MathF.Sin((input.Uv.X + input.Uv.Y) * 7f + t * 0.7f);
 
         float4 color = new float4();
+    
         color.X = (0.5f + 0.5f * System.MathF.Sin(v)) * P.Tint.X;
         color.Y = (0.5f + 0.5f * System.MathF.Sin(v + 2.1f)) * P.Tint.Y;
         color.Z = (0.5f + 0.5f * System.MathF.Sin(v + 4.2f)) * P.Tint.Z;

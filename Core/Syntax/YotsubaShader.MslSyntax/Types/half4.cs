@@ -71,7 +71,7 @@ using YotsubaShader.Language.Native.Types.Vector;
 namespace YotsubaShader.MslSyntax.Types;
 
 [Vector]
-public struct half4
+public partial struct half4
 {
     [VectorComponent(0)]
     public System.Half X;

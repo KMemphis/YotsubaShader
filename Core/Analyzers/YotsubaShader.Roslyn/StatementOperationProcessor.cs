@@ -316,7 +316,13 @@ public partial class StatementOperationProcessor : IStatementOperationProcessor
 
         Expression result;
 
-        if (operation.OperatorMethod is { MethodKind: MethodKind.UserDefinedOperator } userOperator)
+        if (IsComponentwiseOperator(operation.OperatorMethod))
+        {
+            // v += w, v *= 2.0f... con los vectores de las sintaxis: componente a componente.
+            result = BuildComponentwiseBinary(operation.OperatorKind, operation.OperatorMethod!,
+                target, operation.Target.Type!, value, operation.Value.Type!, compilation, stage);
+        }
+        else if (operation.OperatorMethod is { MethodKind: MethodKind.UserDefinedOperator } userOperator)
         {
             // x op= y  =>  x = op(x, y), con el operador que Roslyn resolvió.
             if (userOperator.Parameters.Length != 2)

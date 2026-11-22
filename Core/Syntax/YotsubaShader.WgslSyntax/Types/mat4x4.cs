@@ -71,7 +71,7 @@ using YotsubaShader.Language.Native.Types.Matrix;
 namespace YotsubaShader.WgslSyntax.Types;
 
 [Matrix]
-public struct mat4x4<T> where T : unmanaged
+public partial struct mat4x4<T> where T : unmanaged
 {
     [MatrixColumn(0)]
     public vec4<T> C0;

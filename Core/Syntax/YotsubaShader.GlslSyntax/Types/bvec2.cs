@@ -71,7 +71,7 @@ using YotsubaShader.Language.Native.Types.Vector;
 namespace YotsubaShader.GlslSyntax.Types;
 
 [Vector]
-public struct bvec2
+public partial struct bvec2
 {
     [VectorComponent(0)]
     public bool X;

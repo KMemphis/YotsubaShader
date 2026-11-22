@@ -84,6 +84,7 @@ const string usage = """
                        yotsuba compile <proyecto.csproj> --target <destino> [--target <destino> ...] [--output <directorio>]
                        yotsuba add <proyecto.csproj> --target <destino> [--target <destino> ...]
                        yotsuba plugin list | install <nombre> | update [nombre] | remove <nombre>
+                       yotsuba lsp <proyecto.csproj>     (servidor de lenguaje por stdio: diagnósticos en vivo para editores)
 
                      Destinos incluidos: spirv, hlsl, glsl, gles, msl, cpp.
                      Destinos por plugin (se instalan solos desde NuGet, última versión): monogame, kni, fna, godot.
@@ -95,6 +96,12 @@ const string usage = """
 if (args.Length > 0 && args[0].Equals("plugin", StringComparison.OrdinalIgnoreCase))
 {
     Environment.ExitCode = await PluginCommand.RunAsync(args[1..]);
+    return;
+}
+
+if (args.Length > 0 && args[0].Equals("lsp", StringComparison.OrdinalIgnoreCase))
+{
+    Environment.ExitCode = await LanguageServer.RunAsync(args[1..]);
     return;
 }
 

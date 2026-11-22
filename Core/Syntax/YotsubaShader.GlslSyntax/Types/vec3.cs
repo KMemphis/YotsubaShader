@@ -3,7 +3,7 @@ using YotsubaShader.Language.Native.Types.Vector;
 namespace YotsubaShader.GlslSyntax.Types
 {
     [Vector]
-    public struct vec3
+    public partial struct vec3
     {
         [VectorComponent(0)]
         public float X;

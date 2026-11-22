@@ -1,6 +1,8 @@
 <Project>
   <!--
-    Genera Math, Intrinsic y los tipos de relleno a partir del JSON de la sintaxis, antes de compilar.
+    Genera Math, Intrinsic y los tipos de relleno a partir del JSON de la sintaxis, antes de compilar, y los
+    constructores y operadores de los vectores y las matrices de Types/ (Vectors.g.cs, Matrices.g.cs y la clase
+    Constructors).
 
     Uso en el .csproj de cada sintaxis (una sola línea):
         <Import Project="..\..\..\build\Intrinsics\Intrinsics.targets" />
@@ -24,10 +26,12 @@
   <ItemGroup>
     <!-- El JSON aparece en el IDE pero no se copia a la salida. -->
     <None Update="@(_IntrinsicsJsonFile)" CopyToOutputDirectory="Never" />
-    <_IntrinsicsGenerated Include="$(IntrinsicsOutputDir)Math.g.cs;$(IntrinsicsOutputDir)Intrinsic.g.cs;$(IntrinsicsOutputDir)Placeholders.g.cs" />
+    <_IntrinsicsGenerated Include="$(IntrinsicsOutputDir)Math.g.cs;$(IntrinsicsOutputDir)Intrinsic.g.cs;$(IntrinsicsOutputDir)Placeholders.g.cs;$(IntrinsicsOutputDir)Vectors.g.cs;$(IntrinsicsOutputDir)Matrices.g.cs;$(IntrinsicsOutputDir)Constructors.g.cs" />
     <_IntrinsicsInput Include="@(_IntrinsicsJsonFile)" />
     <_IntrinsicsInput Include="$(MSBuildThisFileDirectory)GenerateIntrinsics.cs;$(MSBuildThisFileFullPath)" />
     <_IntrinsicsInput Include="$(IntrinsicsEnumFile)" Condition="Exists('$(IntrinsicsEnumFile)')" />
+    <!-- Los vectores y las matrices de Types/ dan Vectors.g.cs, Matrices.g.cs y Constructors.g.cs. -->
+    <_IntrinsicsInput Include="$(MSBuildProjectDirectory)\Types\*.cs" />
   </ItemGroup>
 
   <UsingTask TaskName="GenerateIntrinsics"

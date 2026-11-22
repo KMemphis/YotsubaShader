@@ -1,11 +1,22 @@
 ; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
 config_version=5
+
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
 config/name="YotsubaShader Godot Example"
 run/main_scene="res://main.tscn"
-config/features=PackedStringArray("4.4")
+config/features=PackedStringArray("4.7")
 
 [editor_plugins]
 
@@ -14,5 +25,5 @@ enabled=PackedStringArray("res://addons/yotsubashader/plugin.cfg")
 [yotsuba_shader]
 
 project="Shaders/Godot.Shaders.csproj"
-output_dir="res://yotsuba_shaders"
-shader_type="spatial"
+lsp_command="/private/tmp/claude-501/-Users-memphis--claude-spares-spare-PLu3dn/35dc90cb-a907-45ec-b347-faf35808d50b/scratchpad/yotsuba-lsp.sh"
+command="/private/tmp/claude-501/-Users-memphis--claude-spares-spare-PLu3dn/35dc90cb-a907-45ec-b347-faf35808d50b/scratchpad/yotsuba-lsp.sh"

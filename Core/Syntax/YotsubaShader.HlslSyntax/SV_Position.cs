@@ -74,3 +74,11 @@ namespace YotsubaShader.HlslSyntax;
 [AttributeUsage(AttributeUsagesTable.InputOutput)]
 [ClipSpacePosition, FragmentCoordinate]
 public class SV_Position : YotsubaShaderConcept;
+
+
+/// <summary>
+/// Posicion que asigna el vertex shader a la gpu para que dibuje el vertice
+/// </summary>
+[AttributeUsage(AttributeUsagesTable.InputOutput)]
+[ClipSpacePosition, FragmentCoordinate]
+public class SV_POSITION : YotsubaShaderConcept;

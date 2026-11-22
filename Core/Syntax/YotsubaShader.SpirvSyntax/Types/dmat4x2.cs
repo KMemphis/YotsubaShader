@@ -71,7 +71,7 @@ using YotsubaShader.Language.Native.Types.Matrix;
 namespace YotsubaShader.SpirvSyntax.Types;
 
 [Matrix]
-public struct dmat4x2
+public partial struct dmat4x2
 {
     [MatrixColumn(0)]
     public dvec2 C0;

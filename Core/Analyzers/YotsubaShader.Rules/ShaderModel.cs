@@ -34,6 +34,7 @@ internal static class ShaderNames
     public const string ArrayLength = "YotsubaShader.Language.ArrayLengthAttribute";
     public const string IntrinsicMethod = "YotsubaShader.Concepts.Methods.IntrinsicMethodAttribute";
     public const string IntrinsicOption = "YotsubaShader.Concepts.Methods.IntrinsicOptionAttribute";
+    public const string ConstructorMethod = "YotsubaShader.Concepts.Methods.ConstructorMethodAttribute";
     public const string ConceptKey = "YotsubaShader.Concepts.ConceptKeyAttribute";
     public const string ConceptNamespace = "YotsubaShader.Concepts";
 }
