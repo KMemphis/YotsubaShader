@@ -518,7 +518,12 @@ public sealed class PluginManager : IDisposable
                 continue;
             }
 
-            string folder = Path.Combine(directory, subdirectory);
+            // ShadowDusk busca los nativos por arquitectura: runtimes/<rid>/native.
+            // Si el rid es específico (tiene arquitectura), se conserva en el destino.
+            bool perArch = parts[1].Contains('-');
+            string folder = subdirectory == "native" && perArch
+                ? Path.Combine(directory, "runtimes", parts[1], "native")
+                : Path.Combine(directory, subdirectory);
             Directory.CreateDirectory(folder);
 
             string destination = Path.Combine(folder, entry.Name);
