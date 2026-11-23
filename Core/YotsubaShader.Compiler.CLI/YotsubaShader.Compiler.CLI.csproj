@@ -6,6 +6,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <PackAsTool>true</PackAsTool>
         <ToolCommandName>yotsuba</ToolCommandName>
         <PackageId>YotsubaShader.Compiler.CLI</PackageId>
@@ -19,6 +20,10 @@
         <None Include="..\..\ThirdParty\ShadowDusk\src\ShadowDusk.HLSL\THIRD-PARTY-NOTICES.txt" Pack="true" PackagePath="tools/net10.0/any/THIRD-PARTY-NOTICES.txt" Visible="false" />
         <None Include="..\..\LICENSE" Pack="true" PackagePath="tools/net10.0/any/" Visible="false" />
         <None Include="..\ShaderCross\YotsubaShaderCross\LICENSE" Pack="true" PackagePath="tools/net10.0/any/YotsubaShaderCross/" Visible="false" />
+    </ItemGroup>
+    <!-- Bibliotecas nativas de naga (SPIR-V -> WGSL), una por RID: las genera Native/naga/build.sh o el workflow naga-native.yml. -->
+    <ItemGroup>
+        <None Include="Native\naga\runtimes\**\*" Pack="true" PackagePath="tools/net10.0/any/runtimes/" Link="runtimes\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="Microsoft.Build.Locator" Version="1.11.2" />

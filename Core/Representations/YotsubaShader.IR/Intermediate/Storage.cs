@@ -74,4 +74,12 @@ public abstract record class Storage(
     string HumanName,
     StorageKind Kind,
     InterfaceSlot? Slot
-    );
+    )
+{
+    /// <summary>
+    /// Storage buffer que el shader sólo lee (StructuredBuffer, ImmutableArray, <c>device(readOnly)</c>...). Se decora
+    /// <c>NonWritable</c>: HLSL lo declara como SRV (registro t), MSL como <c>const device</c>, GLSL <c>readonly</c> y
+    /// WGSL <c>var&lt;storage, read&gt;</c>, que WebGPU exige en el vertex shader.
+    /// </summary>
+    public bool ReadOnly { get; init; }
+}

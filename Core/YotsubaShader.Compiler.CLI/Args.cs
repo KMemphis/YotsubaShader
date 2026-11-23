@@ -81,14 +81,27 @@ public enum ShaderTarget
     Glsl,
     GlslEs,
     Msl,
-    Cpp
+    Cpp,
+    Wgsl
+}
+
+/// <summary>
+/// Un destino pedido con <c>--target nombre[:versión]</c>. <see cref="Version"/> es la versión del lenguaje de salida
+/// ya validada (null = la que el compilador usa por defecto).
+/// </summary>
+public readonly record struct TargetRequest(ShaderTarget Target, ShaderVersion? Version = null);
+
+/// <summary>Versión de un lenguaje de salida. <see cref="Number"/> es el entero del lenguaje (430, 300, 51...).</summary>
+public readonly record struct ShaderVersion(int Major, int Minor, int Patch, uint Number, string Text)
+{
+    public override string ToString() => Text;
 }
 
 public sealed class Args
 {
     public Command Command { get; }
     public string ProjectPath { get; }
-    public IReadOnlyList<ShaderTarget> Targets { get; }
+    public IReadOnlyList<TargetRequest> Targets { get; }
 
     /// <summary>Destinos que resuelve un plugin (monogame, kni, fna...).</summary>
     public IReadOnlyList<string> PluginTargets { get; }
@@ -105,7 +118,7 @@ public sealed class Args
 
         string? projectPath = null;
         string? outputDirectory = null;
-        var targets = new List<ShaderTarget>();
+        var targets = new List<TargetRequest>();
         var pluginTargets = new List<string>();
 
         for (int index = 1; index < args.Length; index++)
@@ -167,6 +180,16 @@ public sealed class Args
             .Distinct()
             .ToArray();
 
+        // `--target glsl:430 --target glsl:460`: dos versiones del mismo destino necesitan nombres de archivo distintos.
+        foreach (IGrouping<ShaderTarget, TargetRequest> group in Targets.GroupBy(request => request.Target))
+        {
+            if (group.Count() > 1 && group.Any(request => request.Version is null))
+            {
+                throw new CliUsageException(
+                    $"El destino '{group.Key}' se pidió con y sin versión; indica la versión en todas las peticiones.");
+            }
+        }
+
         PluginTargets = pluginTargets
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -181,13 +204,30 @@ public sealed class Args
 
     private static void AddTarget(
         string value,
-        List<ShaderTarget> targets,
+        List<TargetRequest> targets,
         List<string> pluginTargets)
     {
-        if (TryParseBuiltInTarget(value, out ShaderTarget target))
+        string? versionText = null;
+        int colon = value.IndexOf(':');
+        string targetName = value;
+        if (colon >= 0)
         {
-            targets.Add(target);
+            targetName = value[..colon];
+            versionText = value[(colon + 1)..];
+        }
+
+        if (TryParseBuiltInTarget(targetName, out ShaderTarget target))
+        {
+            targets.Add(new TargetRequest(
+                target,
+                versionText is null ? null : ParseVersion(target, versionText)));
             return;
+        }
+
+        if (versionText is not null)
+        {
+            throw new CliUsageException(
+                $"El destino '{targetName}' no admite versión. Se puede usar con: spirv, glsl, gles, msl, hlsl.");
         }
 
         string name = value.ToLowerInvariant() switch
@@ -207,6 +247,91 @@ public sealed class Args
         pluginTargets.Add(name);
     }
 
+    /// <summary>
+    /// Interpreta la versión de <c>--target nombre:versión</c>.
+    /// spirv: 1.3 a 1.6 · glsl: 330, 430, 460... o 3.3, 4.3, 4.6 · gles: 300, 310, 320 o 3.0, 3.1, 3.2 ·
+    /// msl: 2.0, 2.4, 3.1... · hlsl: 5.0, 5.1, 6.0... o 50, 51, 60 (modelo de shader).
+    /// </summary>
+    private static ShaderVersion ParseVersion(ShaderTarget target, string text)
+    {
+        string trimmed = text.Trim();
+        string digits = trimmed.EndsWith("es", StringComparison.OrdinalIgnoreCase) ? trimmed[..^2] : trimmed;
+        string[] parts = digits.Split('.');
+
+        if (digits.Length == 0 ||
+            parts.Length is < 1 or > 3 ||
+            !parts.All(part => part.Length != 0 && part.All(char.IsAsciiDigit)))
+        {
+            throw new CliUsageException($"Versión inválida '{text}' para el destino '{target}'.");
+        }
+
+        int[] numbers = parts.Select(int.Parse).ToArray();
+
+        switch (target)
+        {
+            case ShaderTarget.SpirV:
+            {
+                if (numbers.Length != 2 || numbers[0] != 1 || numbers[1] < 3 || numbers[1] > 6)
+                {
+                    throw new CliUsageException(
+                        $"SPIR-V '{text}' no está soportado. Versiones: 1.3 (Vulkan 1.1), 1.4, 1.5 (Vulkan 1.2) y 1.6 (Vulkan 1.3).");
+                }
+
+                return new ShaderVersion(1, numbers[1], 0, (uint)(numbers[0] * 100 + numbers[1] * 10), $"1.{numbers[1]}");
+            }
+
+            case ShaderTarget.Glsl:
+            case ShaderTarget.GlslEs:
+            {
+                // «430» o «4.3». En GLSL ES: «300»/«3.0», «310»/«3.1», «320»/«3.2».
+                int number = numbers.Length == 1 ? numbers[0] : numbers[0] * 100 + numbers[1] * 10 + (numbers.Length == 3 ? numbers[2] : 0);
+                int[] allowed = target == ShaderTarget.Glsl
+                    ? [110, 120, 130, 140, 150, 330, 400, 410, 420, 430, 440, 450, 460]
+                    : [100, 300, 310, 320];
+
+                if (!allowed.Contains(number))
+                {
+                    throw new CliUsageException(
+                        $"{(target == ShaderTarget.Glsl ? "GLSL" : "GLSL ES")} '{text}' no está soportado. Versiones: {string.Join(", ", allowed)}.");
+                }
+
+                return new ShaderVersion(number / 100, number / 10 % 10, number % 10, (uint)number, number.ToString());
+            }
+
+            case ShaderTarget.Msl:
+            {
+                int major = numbers[0];
+                int minor = numbers.Length > 1 ? numbers[1] : 0;
+                int patch = numbers.Length > 2 ? numbers[2] : 0;
+
+                if (major < 1 || major > 4)
+                {
+                    throw new CliUsageException($"MSL '{text}' no está soportado. Versiones: 1.0 a 4.x (p. ej. 2.4, 3.1).");
+                }
+
+                return new ShaderVersion(major, minor, patch, 0, $"{major}.{minor}" + (patch != 0 ? $".{patch}" : string.Empty));
+            }
+
+            case ShaderTarget.Hlsl:
+            {
+                // «5.0», «5.1», «6.0»... o directamente «50», «51», «60».
+                int model = numbers.Length >= 2 ? numbers[0] * 10 + numbers[1] : numbers[0];
+                int[] allowed = [30, 40, 41, 50, 51, 60, 61, 62, 63, 64, 65, 66, 67, 68];
+
+                if (!allowed.Contains(model))
+                {
+                    throw new CliUsageException(
+                        $"HLSL SM '{text}' no está soportado. Modelos: 3.0, 4.0, 4.1, 5.0, 5.1, 6.0 a 6.8 (o 30, 40, 41, 50, 51, 60...).");
+                }
+
+                return new ShaderVersion(model / 10, model % 10, 0, (uint)model, $"{model / 10}.{model % 10}");
+            }
+
+            default:
+                throw new CliUsageException($"El destino '{target}' no admite versión.");
+        }
+    }
+
     private static bool TryParseBuiltInTarget(string value, out ShaderTarget target)
     {
         ShaderTarget? parsed =
@@ -218,6 +343,7 @@ public sealed class Args
             "gles" or "glsles" => ShaderTarget.GlslEs,
             "msl" or "metal" => ShaderTarget.Msl,
             "cpp" => ShaderTarget.Cpp,
+            "wgsl" => ShaderTarget.Wgsl,
             _ => null
         };
 

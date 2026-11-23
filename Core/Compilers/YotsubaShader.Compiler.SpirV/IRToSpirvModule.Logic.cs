@@ -912,6 +912,13 @@ public partial class IRToSpirvModule
             if(shaderGlobalResource.Slot is not DescriptorSlot descriptor) continue;
 
             DecorateDescriptor(module, BuildIrTypes.GlobalVariableId(shaderGlobalResource), descriptor);
+
+            if (shaderGlobalResource is { Kind: StorageKind.StorageBuffer, ReadOnly: true })
+            {
+                module.AddLine(SpirVOpTable.OpDecorate,
+                    SpirVModuleHelpers.Id(BuildIrTypes.GlobalVariableId(shaderGlobalResource)),
+                    SpirVInstructionParameter.Enumerant(SpirVDecoration.NonWritable));
+            }
         }
 
         foreach (var shaderFunction in shader.Functions)
@@ -945,8 +952,13 @@ public partial class IRToSpirvModule
                     DecorateVariable(module, variableId, leaf.Slot);
 
                     // Vulkan: una entrada de fragment entera o double no se interpola, debe llevar Flat.
-                    if (shaderFunction.Stage == Stage.Fragment && storage.Kind == StorageKind.Input &&
-                        NeedsFlat(leaf))
+                    // La salida de vertex que la alimenta también: GLSL ES exige `flat out` en los varyings enteros
+                    // y WGSL `@interpolate(flat)` en los dos lados, y SPIRV-Cross/naga copian la decoración.
+                    bool fragmentInput = shaderFunction.Stage == Stage.Fragment && storage.Kind == StorageKind.Input;
+                    bool vertexVarying = shaderFunction.Stage == Stage.Vertex && storage.Kind == StorageKind.Output &&
+                                         leaf.Slot is not BuiltInSlot;
+
+                    if ((fragmentInput || vertexVarying) && NeedsFlat(leaf))
                     {
                         module.AddLine(SpirVOpTable.OpDecorate,
                             SpirVModuleHelpers.Id(variableId),

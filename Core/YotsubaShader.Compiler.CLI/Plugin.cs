@@ -91,11 +91,23 @@ internal sealed class PluginLoadContext(string directory) : AssemblyLoadContext(
 {
     protected override Assembly? Load(AssemblyName assemblyName)
     {
+        // El contrato con el host (YotsubaShader.Extensions, IR, YotsubaShaderCross...) tiene que ser el mismo ensamblado
+        // en los dos lados, aunque el plugin se compilara contra una revisión distinta.
+        if (assemblyName.Name is { } simpleName &&
+            simpleName.StartsWith("YotsubaShader", StringComparison.Ordinal) &&
+            (Default.Assemblies.FirstOrDefault(loaded => loaded.GetName().Name == simpleName) ??
+             (File.Exists(Path.Combine(AppContext.BaseDirectory, simpleName + ".dll"))
+                 ? Default.LoadFromAssemblyPath(Path.Combine(AppContext.BaseDirectory, simpleName + ".dll"))
+                 : null)) is { } shared)
+        {
+            return shared;
+        }
+
         try
         {
             return Default.LoadFromAssemblyName(assemblyName);
         }
-        catch (FileNotFoundException)
+        catch (Exception exception) when (exception is FileNotFoundException or FileLoadException)
         {
         }
 

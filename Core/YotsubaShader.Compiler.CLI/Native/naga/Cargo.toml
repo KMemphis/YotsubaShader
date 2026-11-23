@@ -1,0 +1,19 @@
+[package]
+name = "yotsuba_naga"
+version = "0.1.0"
+edition = "2021"
+description = "Puente nativo SPIR-V -> WGSL (naga) para la CLI de Yotsuba Shader. Solo lo usa la CLI; la libreria del compilador sigue siendo C# puro."
+license = "MS-PL"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+naga = { version = "30", features = ["spv-in", "wgsl-out"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true
+# "unwind" para poder capturar un pánico de naga y devolverlo como error: con "abort" se cerraba todo el CLI.
+panic = "unwind"

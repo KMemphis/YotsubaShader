@@ -236,6 +236,8 @@ internal static class GodotShaderTranslator
         {
             ["gl_VertexIndex"] = "VERTEX_ID",
             ["gl_InstanceIndex"] = "INSTANCE_ID",
+            ["gl_VertexID"] = "VERTEX_ID",
+            ["gl_InstanceID"] = "INSTANCE_ID",
         };
         if (spatial) builtIns["gl_PointSize"] = "POINT_SIZE";
 

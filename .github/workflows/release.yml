@@ -53,8 +53,12 @@ jobs:
           git fetch origin main
           git merge-base --is-ancestor HEAD origin/main
 
-  pack:
+  naga:
     needs: validate
+    uses: ./.github/workflows/naga-native.yml
+
+  pack:
+    needs: [validate, naga]
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -67,6 +71,18 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: naga-*
+          path: Core/YotsubaShader.Compiler.CLI/Native/naga/runtimes-download
+      - name: Place naga natives under runtimes/<rid>/native
+        shell: bash
+        run: |
+          for dir in Core/YotsubaShader.Compiler.CLI/Native/naga/runtimes-download/naga-*; do
+            rid="${dir##*/naga-}"
+            mkdir -p "Core/YotsubaShader.Compiler.CLI/Native/naga/runtimes/$rid/native"
+            cp "$dir"/* "Core/YotsubaShader.Compiler.CLI/Native/naga/runtimes/$rid/native/"
+          done
       - name: Build and test
         run: |
           bash ThirdParty/ShadowDusk/tools/restore.sh
@@ -114,7 +130,7 @@ jobs:
           if-no-files-found: error
 
   publish-cli:
-    needs: [validate, pack]
+    needs: [validate, pack, naga]
     strategy:
       fail-fast: false
       matrix:
@@ -140,6 +156,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: naga-*
+          path: Core/YotsubaShader.Compiler.CLI/Native/naga/runtimes-download
+      - name: Place naga natives under runtimes/<rid>/native
+        shell: bash
+        run: |
+          for dir in Core/YotsubaShader.Compiler.CLI/Native/naga/runtimes-download/naga-*; do
+            rid="${dir##*/naga-}"
+            mkdir -p "Core/YotsubaShader.Compiler.CLI/Native/naga/runtimes/$rid/native"
+            cp "$dir"/* "Core/YotsubaShader.Compiler.CLI/Native/naga/runtimes/$rid/native/"
+          done
       - uses: actions/download-artifact@v4
         with:
           name: nupkg

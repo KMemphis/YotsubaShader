@@ -1,0 +1,44 @@
+name: Build naga native (SPIR-V to WGSL)
+
+# Biblioteca nativa que usa solo la CLI para --target wgsl. Se compila en un runner nativo por RID, sin
+# compilación cruzada. La libreria del compilador no depende de ella.
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'Core/YotsubaShader.Compiler.CLI/Native/naga/**'
+      - '.github/workflows/naga-native.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  naga:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {rid: win-x64, os: windows-2022}
+          - {rid: win-arm64, os: windows-11-arm}
+          - {rid: linux-x64, os: ubuntu-24.04}
+          - {rid: linux-arm64, os: ubuntu-24.04-arm}
+          - {rid: osx-x64, os: macos-15-intel}
+          - {rid: osx-arm64, os: macos-15}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: Core/YotsubaShader.Compiler.CLI/Native/naga
+      - name: Build
+        shell: bash
+        working-directory: Core/YotsubaShader.Compiler.CLI/Native/naga
+        run: ./build.sh '${{ matrix.rid }}'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: naga-${{ matrix.rid }}
+          path: Core/YotsubaShader.Compiler.CLI/Native/naga/runtimes/${{ matrix.rid }}/native/*
+          if-no-files-found: error

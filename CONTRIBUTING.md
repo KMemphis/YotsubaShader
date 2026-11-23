@@ -14,12 +14,13 @@ Thank you for your interest in Yotsuba Shader. Contributions are welcome, from a
 
 ## Set up
 
-You need the **.NET 8 SDK** (`global.json` asks for 8.0 and rolls forward to the latest minor version).
+You need the **.NET 10 SDK**: the CLI targets `net10.0`. The libraries target `net8.0` and `netstandard2.0`, so projects that use them can stay on .NET 8.
 
 ```bash
 git clone https://github.com/KMemphis/YotsubaShader.git
 cd YotsubaShader
 dotnet build YotsubaShader.sln
+dotnet test YotsubaShader.sln
 ```
 
 ## How the repository is organised
@@ -31,8 +32,8 @@ dotnet build YotsubaShader.sln
 | `YotsubaShader.IR` | Shared model between the frontend and the backends. |
 | `YotsubaShader.Compiler.SpirV` | SPIR-V module construction and encoding. |
 | `YotsubaShader.Generator` | SPIR-V operation table generated from the Khronos grammar. |
-| `YotsubaShader.Example` | Executable example of low-level SPIR-V assembly. |
-| `YotsubaShader.Frontend.Tests` | Discovery and analysis tests for the Roslyn frontend. |
+| `YotsubaShader.Example` | Compiler tests: C# to IR, SPIR-V validated with `spirv-val`, the invariant corpus and the Godot backend. |
+| `YotsubaShader.IDE.Analyzer.Tests` | Tests of the `YS` rules shown by the IDE analyzer. |
 | `Web` (separate repository) | The website and the in-browser playground; see [Documentation and website](#documentation-and-website). |
 
 ## Attribute changes
@@ -48,7 +49,7 @@ Yotsuba Shader has five authoring vocabularies (HLSL, GLSL, Metal, Vulkan and WG
 
 1. Fork the repository and create a branch from `main`.
 2. Keep the change focused: one topic per pull request.
-3. Run `dotnet build YotsubaShader.sln` and `dotnet test YotsubaShader.Frontend.Tests` and make sure they pass.
+3. Run `dotnet build YotsubaShader.sln` and `dotnet test YotsubaShader.sln` and make sure they pass.
 4. Describe **what** changes and **why**, and link the issue if there is one.
 
 Write commit messages that say what the change does, in the present tense ("Add texture usage attribute").

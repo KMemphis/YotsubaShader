@@ -75,19 +75,51 @@ namespace YotsubaShader.Extensions;
 
 public record CompiledCode(
     ShaderReflection Reflection,
-    byte[] SpirV,
+    byte[] FullSpirV,
     string SpirVAs,
     string CSharpFullClassName)
 {
+    private byte[]? _cleanSpirV;
+
+    /// <summary>
+    /// El módulo tal como lo emite el compilador, con las extensiones <c>SPV_GOOGLE_*</c> y las semánticas HLSL
+    /// (<c>POSITION</c>, <c>COLOR</c>...). Es la entrada de las traducciones a HLSL/GLSL/MSL/C++ y no sale de la librería.
+    /// </summary>
+    internal byte[] FullSpirV { get; init; } = FullSpirV;
+
+    /// <summary>
+    /// El SPIR-V para las APIs gráficas: el módulo del compilador (1.6) sin <c>SPV_GOOGLE_*</c> ni sus decoraciones,
+    /// que Vulkan sin <c>VK_GOOGLE_*</c> rechaza y que sólo sirven para generar HLSL con sus semánticas.
+    /// </summary>
+    public byte[] SpirV => _cleanSpirV ??= SpirvVersion.StripGoogleExtensions(FullSpirV);
+
     private CppVector<uint> ByteArrToCppVector()
     {
         ReadOnlySpan<uint> words =
-            MemoryMarshal.Cast<byte, uint>(SpirV);
+            MemoryMarshal.Cast<byte, uint>(FullSpirV);
 
         return new CppVector<uint>(words.ToArray());
     }
 
-    public string ToMsl(Stage stage)
+    /// <summary>
+    /// El SPIR-V del shader con la versión pedida (1.3 a 1.6). El compilador emite 1.6; <see cref="SpirV"/> es ese módulo ya limpio.
+    /// </summary>
+    public byte[] ToSpirV(int major, int minor) => SpirvVersion.Retarget(SpirV, major, minor);
+
+    // Las firmas de un solo parámetro existían en 0.9.x y los plugins publicados (MonoGame, KNI, FNA) las llaman.
+    // Se mantienen para que un plugin compilado contra esa versión siga cargando en este CLI.
+
+    /// <summary>Metal Shading Language con la versión por defecto de SPIRV-Cross (MSL 1.2).</summary>
+    public string ToMsl(Stage stage) => ToMsl(stage, majorVersion: null);
+
+    /// <summary>HLSL para Shader Model 5.0.</summary>
+    public string ToHlsl(Stage stage) => ToHlsl(stage, shaderModel: 50);
+
+    /// <summary>
+    /// Metal Shading Language. Sin versión usa la que fija SPIRV-Cross por defecto, MSL 1.2; para usar funciones más
+    /// nuevas (p. ej. 2.1 para texturas de lectura/escritura) pide una versión mayor.
+    /// </summary>
+    public string ToMsl(Stage stage, uint? majorVersion = null, uint minorVersion = 0, uint patchVersion = 0)
     {
         (string entryPoint, ExecutionModel executionModel) =
             GetEntryPoint(stage);
@@ -96,10 +128,18 @@ public record CompiledCode(
 
         compiler.set_entry_point(entryPoint, executionModel);
 
+        if (majorVersion is { } major)
+        {
+            CompilerMSL.Options options = compiler.get_msl_options();
+            options.msl_version = CompilerMSL.Options.make_msl_version(major, minorVersion, patchVersion);
+            compiler.set_msl_options(options);
+        }
+
         return compiler.compile().str();
     }
 
-    public string ToHlsl(Stage stage)
+    /// <summary>HLSL. <paramref name="shaderModel"/> en la notación de SPIRV-Cross: 50 = SM 5.0, 51 = SM 5.1, 60 = SM 6.0...</summary>
+    public string ToHlsl(Stage stage, uint shaderModel = 50)
     {
         (string entryPoint, ExecutionModel executionModel) =
             GetEntryPoint(stage);
@@ -111,13 +151,22 @@ public record CompiledCode(
         CompilerHLSL.Options options = compiler.get_hlsl_options();
         options.use_entry_point_name = true;
         options.user_semantic = true;
-        options.shader_model = 50;
+        options.shader_model = shaderModel;
         compiler.set_hlsl_options(options);
 
         return compiler.compile().str();
     }
 
-    public string ToGlsl(Stage stage, uint version = 450)
+    /// <summary>
+    /// GLSL for OpenGL (not Vulkan): no descriptor sets, and every texture paired with its sampler in one
+    /// <c>sampler2D</c>-style uniform. <paramref name="version"/> is the <c>#version</c> line (330, 410, 450...).
+    /// </summary>
+    public string ToGlsl(Stage stage, uint version = 450) => ToOpenGlGlsl(stage, version, es: false);
+
+    /// <summary>GLSL ES for OpenGL ES and WebGL, with the same rules as <see cref="ToGlsl"/>.</summary>
+    public string ToGlslEs(Stage stage, uint version = 310) => ToOpenGlGlsl(stage, version, es: true);
+
+    private string ToOpenGlGlsl(Stage stage, uint version, bool es)
     {
         (string entryPoint, YotsubaShaderCross.Spv.ExecutionModel executionModel) =
             GetEntryPoint(stage);
@@ -128,37 +177,88 @@ public record CompiledCode(
 
         CompilerGLSL.Options options = compiler.get_common_options();
         options.version = version;
-        options.es = false;
-        options.vulkan_semantics = true;
+        options.es = es;
+        // OpenGL, not Vulkan: SPIR-V already covers Vulkan.
+        options.vulkan_semantics = false;
+        // Below 420 the binding qualifier does not exist; do not ask for the extension that adds it (macOS lacks it).
+        options.enable_420pack_extension = false;
+        // gl_InstanceID as OpenGL gives it, without an extra SPIRV_Cross_BaseInstance uniform the program would have to fill.
+        options.vertex.support_nonzero_base_instance = false;
 
         // GLSL ejecutable requiere void main().
         options.use_entry_point_name = false;
 
         compiler.set_common_options(options);
 
+        // gl_PrimitiveID in a fragment shader is core only from GLSL ES 3.20; ES 3.10 gets it from GL_EXT_geometry_shader,
+        // which SPIRV-Cross does not request by itself (the output would not compile on the device).
+        const uint builtInPrimitiveId = 7;
+        if (es && version < 320 && stage == Stage.Fragment && UsesBuiltIn(builtInPrimitiveId))
+        {
+            compiler.require_extension(new CppString("GL_EXT_geometry_shader"));
+        }
+
+        // OpenGL has no separate textures and samplers: join each pair into one combined sampler,
+        // named after the texture and with the texture's binding.
+        compiler.build_combined_image_samplers();
+        foreach (CombinedImageSampler pair in compiler.get_combined_image_samplers())
+        {
+            compiler.set_name(
+                new TypedID_TypeNone(pair.combined_id),
+                compiler.get_name(new TypedID_TypeNone(pair.image_id)));
+        }
+        YotsubaShaderCross.Globals.inherit_combined_sampler_bindings(compiler);
+
+        // Before GLSL 410 (and GLSL ES 310) the values that travel from the vertex to the fragment stage have no
+        // location: OpenGL joins them by name. Then give each one the same name in both stages, from its location.
+        bool varyingsHaveLocation = es ? version >= 310 : version >= 410;
+        ShaderResources resources = compiler.get_shader_resources();
+        CppVector<Resource>? varyings = varyingsHaveLocation ? null : stage switch
+        {
+            Stage.Vertex => resources.stage_outputs,
+            Stage.Fragment => resources.stage_inputs,
+            _ => null,
+        };
+        if (varyings is not null)
+        {
+            foreach (Resource varying in varyings)
+            {
+                if (compiler.has_decoration(varying.id, Decoration.DecorationLocation))
+                {
+                    uint location = compiler.get_decoration(varying.id, Decoration.DecorationLocation);
+                    YotsubaShaderCross.Globals.rename_interface_variable(compiler, varyings, location, $"ys_varying{location}");
+                }
+            }
+        }
+
         return compiler.compile().str();
     }
 
-    public string ToGlslEs(Stage stage, uint version = 310)
+    // OpDecorate / OpMemberDecorate ... BuiltIn <builtIn> en el módulo.
+    private bool UsesBuiltIn(uint builtIn)
     {
-        (string entryPoint, YotsubaShaderCross.Spv.ExecutionModel executionModel) =
-            GetEntryPoint(stage);
+        ReadOnlySpan<uint> words = MemoryMarshal.Cast<byte, uint>(FullSpirV);
+        const uint decorationBuiltIn = 11;
 
-        var compiler = new CompilerGLSL(ByteArrToCppVector());
+        for (int at = 5; at < words.Length;)
+        {
+            uint opcode = words[at] & 0xFFFF;
+            int count = (int)(words[at] >> 16);
+            if (count == 0)
+            {
+                break;
+            }
 
-        compiler.set_entry_point(entryPoint, executionModel);
+            if ((opcode == 71 && count >= 4 && words[at + 2] == decorationBuiltIn && words[at + 3] == builtIn) ||
+                (opcode == 72 && count >= 5 && words[at + 3] == decorationBuiltIn && words[at + 4] == builtIn))
+            {
+                return true;
+            }
 
-        CompilerGLSL.Options options = compiler.get_common_options();
-        options.version = version;
-        options.es = true;
-        options.vulkan_semantics = true;
+            at += count;
+        }
 
-        // GLSL ES ejecutable requiere void main().
-        options.use_entry_point_name = false;
-
-        compiler.set_common_options(options);
-
-        return compiler.compile().str();
+        return false;
     }
 
     public string ToCpp(Stage stage)
@@ -169,6 +269,16 @@ public record CompiledCode(
         var compiler = new CompilerCPP(ByteArrToCppVector());
 
         compiler.set_entry_point(entryPoint, executionModel);
+
+        // El backend C++ deriva del de GLSL y, como él, no sabe escribir una textura y su sampler por separado:
+        // sin unirlos falla con cualquier shader que muestree una textura.
+        compiler.build_combined_image_samplers();
+        foreach (CombinedImageSampler pair in compiler.get_combined_image_samplers())
+        {
+            compiler.set_name(
+                new TypedID_TypeNone(pair.combined_id),
+                compiler.get_name(new TypedID_TypeNone(pair.image_id)));
+        }
 
         return compiler.compile().str();
     }

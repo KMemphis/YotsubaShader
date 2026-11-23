@@ -76,23 +76,38 @@ namespace YotsubaShader.Compiler.Library;
 public sealed class CSharpToSpirvCompiler
 {
     
-    public static List<CompiledCode> Compile(Compilation compilation, CancellationToken cancellationToken = default)
+    public static List<CompiledCode> Compile(Compilation compilation, CancellationToken cancellationToken = default) =>
+        Compile(compilation, failures: null, cancellationToken);
+
+    /// <summary>
+    /// Con <paramref name="failures"/> no nulo, un shader que no compila se registra ahí y se omite en vez de
+    /// abortar: los demás shaders del proyecto se compilan igual.
+    /// </summary>
+    public static List<CompiledCode> Compile(
+        Compilation compilation,
+        List<ShaderFailure>? failures,
+        CancellationToken cancellationToken = default)
     {
         var shaderProcessor = new ShaderProcessor();
-        var shaders = shaderProcessor.Process(compilation, cancellationToken);
+        var shaders = shaderProcessor.Process(compilation, cancellationToken, failures);
         var byteCodes = new List<CompiledCode>(shaders.Length);
 
         var compiler = new SpirVCompiler();
 
-        var span = shaders.AsSpan();
-        if (span.IsEmpty) return byteCodes;
-        foreach (var shader in span)
-        {        
-            var spirVModule = new IRToSpirvModule().Compile(shader.Item2);
-            ShaderReflection reflection = new ShaderReflection(shader.Item2);
-            CompiledCode compiledCode = new CompiledCode(reflection, compiler.Compile(spirVModule), spirVModule.ToSpirVAs,
-                shader.Item1);
-            byteCodes.Add(compiledCode);
+        foreach (var shader in shaders)
+        {
+            try
+            {
+                var spirVModule = new IRToSpirvModule().Compile(shader.Item2);
+                ShaderReflection reflection = new ShaderReflection(shader.Item2);
+                CompiledCode compiledCode = new CompiledCode(reflection, compiler.Compile(spirVModule), spirVModule.ToSpirVAs,
+                    shader.Item1);
+                byteCodes.Add(compiledCode);
+            }
+            catch (Exception exception) when (failures is not null && exception is not OperationCanceledException)
+            {
+                failures.Add(new ShaderFailure(shader.Item1, exception.Message, []));
+            }
         }
 
         return byteCodes;

@@ -7,8 +7,9 @@ using YotsubaShader.Extensions;
 namespace YotsubaShader.Compiler.CLI;
 
 /// <summary>
-/// Gestiona los plugins del CLI: el catálogo vive en un JSON en la web y cada plugin
-/// es un paquete NuGet del que siempre se usa la última versión publicada.
+/// Gestiona los plugins del CLI: el catálogo vive en un JSON en la web y cada plugin es un paquete NuGet. Se usa la
+/// versión más nueva que sea compatible con este CLI: la misma versión mayor.menor de <c>YotsubaShader.Extensions</c>
+/// y nunca una posterior, porque un plugin compilado contra un contrato más nuevo no carga en un CLI más viejo.
 /// </summary>
 public sealed class PluginManager : IDisposable
 {
@@ -48,6 +49,12 @@ public sealed class PluginManager : IDisposable
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("yotsuba-cli");
     }
 
+    /// <summary>Versión del contrato de plugins que trae este CLI (la de YotsubaShader.Extensions).</summary>
+    public static Version HostVersion { get; } = Normalize(typeof(IShaderTargetBackend).Assembly.GetName().Version);
+
+    private static Version Normalize(Version? version) =>
+        version is null ? new Version(0, 0, 0) : new Version(version.Major, version.Minor, Math.Max(version.Build, 0));
+
     private string PluginsDirectory => Path.Combine(_home, "plugins");
 
     private string PluginDirectory(string name) => Path.Combine(PluginsDirectory, name);
@@ -69,23 +76,19 @@ public sealed class PluginManager : IDisposable
         try
         {
             json = await ReadTextAsync(_catalogSource, token);
+            _catalog = ParseCatalog(json);
             Directory.CreateDirectory(_home);
-            await File.WriteAllTextAsync(cachePath, json, token);
+            await WriteAtomicAsync(cachePath, json, token);
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or IOException)
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or IOException
+                                              or JsonException or UnauthorizedAccessException)
         {
-            if (!File.Exists(cachePath))
-            {
-                throw new PluginException(
-                    $"No se pudo leer el catálogo de plugins ({_catalogSource}): {exception.Message}");
-            }
+            _catalog = ReadCachedCatalog() ?? throw new PluginException(
+                $"No se pudo leer el catálogo de plugins ({_catalogSource}): {exception.Message}");
 
             Console.Error.WriteLine(
                 $"Sin conexión al catálogo de plugins, se usa la copia local. ({exception.Message})");
-            json = await File.ReadAllTextAsync(cachePath, token);
         }
-
-        _catalog = JsonSerializer.Deserialize<PluginMetadata[]>(json, JsonOptions) ?? [];
 
         foreach (PluginMetadata entry in _catalog)
         {
@@ -96,6 +99,30 @@ public sealed class PluginManager : IDisposable
         }
 
         return _catalog;
+    }
+
+    private static PluginMetadata[] ParseCatalog(string json) =>
+        JsonSerializer.Deserialize<PluginMetadata[]>(json, JsonOptions) ?? [];
+
+    private PluginMetadata[]? ReadCachedCatalog()
+    {
+        try
+        {
+            string cachePath = Path.Combine(_home, "plugins.json");
+            return File.Exists(cachePath) ? ParseCatalog(File.ReadAllText(cachePath)) : null;
+        }
+        catch (Exception exception) when (exception is IOException or JsonException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    // Varios `yotsuba` en paralelo (un build con varios proyectos) no deben leer un archivo a medio escribir.
+    private static async Task WriteAtomicAsync(string path, string text, CancellationToken token)
+    {
+        string temporary = $"{path}.{Environment.ProcessId}.tmp";
+        await File.WriteAllTextAsync(temporary, text, token);
+        File.Move(temporary, path, overwrite: true);
     }
 
     private async Task<string> ReadTextAsync(string source, CancellationToken token)
@@ -129,16 +156,28 @@ public sealed class PluginManager : IDisposable
     {
         string manifest = Path.Combine(PluginDirectory(name), "plugin.json");
 
-        return File.Exists(manifest)
-            ? JsonSerializer.Deserialize<InstalledPlugin>(File.ReadAllText(manifest), JsonOptions)
-            : null;
+        try
+        {
+            return File.Exists(manifest)
+                ? JsonSerializer.Deserialize<InstalledPlugin>(File.ReadAllText(manifest), JsonOptions)
+                : null;
+        }
+        catch (Exception exception) when (exception is IOException or JsonException or UnauthorizedAccessException)
+        {
+            // Un plugin.json dañado equivale a no tenerlo instalado: se vuelve a instalar.
+            return null;
+        }
     }
 
     /// <summary>Instala el plugin con la última versión de su paquete NuGet (o la actualiza).</summary>
     public async Task<InstalledPlugin> InstallAsync(string name, CancellationToken token)
     {
         PluginMetadata metadata = await FindAsync(name, token);
-        string latest = await GetLatestVersionAsync(metadata.Package, token);
+        string latest = await GetCompatibleVersionAsync(metadata.Package, token);
+
+        // Otro yotsuba (un build en paralelo) puede estar instalando lo mismo: uno espera al otro.
+        using PluginLock pluginLock = await PluginLock.AcquireAsync(PluginsDirectory, token);
+
         InstalledPlugin? installed = GetInstalled(metadata.Name);
 
         if (installed is not null &&
@@ -152,7 +191,7 @@ public sealed class PluginManager : IDisposable
         Console.WriteLine($"Instalando plugin {metadata.Name} ({metadata.Package} {latest})...");
 
         string target = PluginDirectory(metadata.Name);
-        string staging = target + ".tmp";
+        string staging = $"{target}.{Environment.ProcessId}.tmp";
 
         if (Directory.Exists(staging))
         {
@@ -180,7 +219,16 @@ public sealed class PluginManager : IDisposable
 
             if (Directory.Exists(target))
             {
-                Directory.Delete(target, recursive: true);
+                try
+                {
+                    Directory.Delete(target, recursive: true);
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    throw new PluginException(
+                        $"No se pudo reemplazar el plugin '{metadata.Name}' en {target}: {exception.Message} " +
+                        "Cierra los otros procesos de yotsuba (o Godot/el IDE que lo use) y vuelve a intentarlo.");
+                }
             }
 
             Directory.Move(staging, target);
@@ -212,34 +260,74 @@ public sealed class PluginManager : IDisposable
     }
 
     /// <summary>
-    /// Devuelve el plugin cargado. Lo instala si falta y lo actualiza si NuGet tiene una
-    /// versión más nueva; sin conexión usa la copia instalada.
+    /// Devuelve el plugin cargado. Lo instala si falta y lo actualiza si NuGet tiene una versión compatible más nueva;
+    /// sin conexión usa la copia instalada. Si la copia instalada ya es la de este CLI no se consulta la red.
+    /// Cualquier fallo se convierte en <see cref="PluginException"/> con un mensaje legible.
     /// </summary>
     public async Task<Plugin> LoadAsync(string name, CancellationToken token)
     {
-        PluginMetadata metadata;
-
         try
         {
-            metadata = await FindAsync(name, token);
-            await InstallAsync(metadata.Name, token);
+            return await LoadCoreAsync(name, token);
         }
-        catch (Exception exception) when (
-            exception is HttpRequestException or TaskCanceledException &&
-            GetInstalled(name) is not null)
+        catch (Exception exception) when (exception is not PluginException and not OperationCanceledException)
         {
-            Console.Error.WriteLine(
-                $"No se pudo buscar actualizaciones de '{name}', se usa la versión instalada. ({exception.Message})");
+            Exception cause = exception is System.Reflection.ReflectionTypeLoadException { LoaderExceptions: { Length: > 0 } loader }
+                ? loader.FirstOrDefault(inner => inner is not null) ?? exception
+                : exception;
 
-            metadata = await FindAsync(name, token);
+            throw new PluginException(cause is HttpRequestException or TaskCanceledException
+                ? $"No se pudo descargar el plugin '{name}' de NuGet ({cause.Message}). Comprueba la conexión; " +
+                  "una vez instalado, funciona sin red."
+                : $"No se pudo cargar el plugin '{name}': {PluginErrors.Describe(cause)}");
+        }
+    }
+
+    private async Task<Plugin> LoadCoreAsync(string name, CancellationToken token)
+    {
+        PluginMetadata metadata;
+        InstalledPlugin? current = GetInstalled(name);
+
+        if (current is not null &&
+            TryParseVersion(current.Version, out Version? installedVersion) &&
+            installedVersion == HostVersion &&
+            ReadCachedCatalog()?.FirstOrDefault(entry => entry.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) is { } cached)
+        {
+            // La versión instalada es exactamente la del CLI: no hay nada mejor que buscar.
+            metadata = cached;
+        }
+        else
+        {
+            try
+            {
+                metadata = await FindAsync(name, token);
+                await InstallAsync(metadata.Name, token);
+            }
+            catch (Exception exception) when (
+                exception is HttpRequestException or TaskCanceledException &&
+                current is not null)
+            {
+                Console.Error.WriteLine(
+                    $"No se pudo buscar actualizaciones de '{name}', se usa la versión instalada. ({exception.Message})");
+
+                metadata = await FindAsync(name, token);
+            }
         }
 
         InstalledPlugin installed = GetInstalled(metadata.Name)
             ?? throw new PluginException($"El plugin '{name}' no está instalado.");
 
         string directory = PluginDirectory(metadata.Name);
+        string assemblyPath = Path.Combine(directory, installed.Assembly);
+
+        if (installed.Assembly.Length == 0 || !File.Exists(assemblyPath))
+        {
+            throw new PluginException(
+                $"La instalación del plugin '{name}' está incompleta. Ejecuta 'yotsuba plugin install {name}'.");
+        }
+
         var context = new PluginLoadContext(directory);
-        var assembly = context.LoadFromAssemblyPath(Path.Combine(directory, installed.Assembly));
+        var assembly = context.LoadFromAssemblyPath(assemblyPath);
 
         Type backendType = assembly
             .GetTypes()
@@ -248,15 +336,61 @@ public sealed class PluginManager : IDisposable
                 !type.IsAbstract &&
                 !type.IsInterface)
             ?? throw new PluginException(
-                $"'{installed.Assembly}' no contiene ninguna implementación de IShaderTargetBackend.");
+                $"'{installed.Assembly}' no contiene ninguna implementación de IShaderTargetBackend compatible con este CLI " +
+                $"({CliVersion.Informational}).");
 
         var backend = (IShaderTargetBackend)Activator.CreateInstance(backendType)!;
         return new Plugin(metadata, installed.Version, backend);
     }
 
+    private static bool TryParseVersion(string text, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Version? version)
+    {
+        (Version core, string pre) = ParseVersion(text);
+        version = pre.Length == 0 ? Normalize(core) : null;
+        return version is not null;
+    }
+
     // ------------------------------------------------------------------ NuGet
 
-    private async Task<string> GetLatestVersionAsync(string package, CancellationToken token)
+    /// <summary>
+    /// La versión del plugin para este CLI: la más nueva con la misma mayor.menor que el CLI que no lo supere. Si no
+    /// hay ninguna, la más nueva anterior al CLI. Una posterior no sirve: su contrato (YotsubaShader.Extensions) es más
+    /// nuevo que el del CLI.
+    /// </summary>
+    private async Task<string> GetCompatibleVersionAsync(string package, CancellationToken token)
+    {
+        string[] versions = await GetVersionsAsync(package, token);
+        Version host = HostVersion;
+
+        var stable = versions
+            .Select(text => (Text: text, Parsed: ParseVersion(text)))
+            .Where(candidate => candidate.Parsed.Pre.Length == 0)
+            .Select(candidate => (candidate.Text, Version: Normalize(candidate.Parsed.Core)))
+            .Where(candidate => candidate.Version <= host)
+            .OrderByDescending(candidate => candidate.Version)
+            .ToArray();
+
+        var sameMinor = stable.Where(candidate =>
+            candidate.Version.Major == host.Major && candidate.Version.Minor == host.Minor).ToArray();
+
+        if (sameMinor.Length != 0)
+        {
+            return sameMinor[0].Text;
+        }
+
+        if (stable.Length != 0)
+        {
+            Console.Error.WriteLine(
+                $"Aviso: no hay {package} {host.Major}.{host.Minor}.x; se usa {stable[0].Text}, que puede no ser compatible con el CLI {CliVersion.Informational}.");
+            return stable[0].Text;
+        }
+
+        throw new PluginException(
+            $"No hay ninguna versión de {package} compatible con el CLI {CliVersion.Informational} " +
+            $"(publicadas: {string.Join(", ", versions)}). Actualiza el CLI: dotnet tool update -g YotsubaShader.Compiler.CLI");
+    }
+
+    private async Task<string[]> GetVersionsAsync(string package, CancellationToken token)
     {
         string url = $"{NuGetFlatContainer}{package.ToLowerInvariant()}/index.json";
 
@@ -270,11 +404,16 @@ public sealed class PluginManager : IDisposable
         response.EnsureSuccessStatusCode();
 
         using JsonDocument document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token));
-        string[] versions = document.RootElement
+        return document.RootElement
             .GetProperty("versions")
             .EnumerateArray()
             .Select(element => element.GetString()!)
             .ToArray();
+    }
+
+    private async Task<string> GetLatestVersionAsync(string package, CancellationToken token)
+    {
+        string[] versions = await GetVersionsAsync(package, token);
 
         string[] stable = versions.Where(version => !version.Contains('-')).ToArray();
         string[] pool = stable.Length != 0 ? stable : versions;
@@ -518,7 +657,12 @@ public sealed class PluginManager : IDisposable
                 continue;
             }
 
-            string folder = Path.Combine(directory, subdirectory);
+            // ShadowDusk busca los nativos por arquitectura: runtimes/<rid>/native.
+            // Si el rid es específico (tiene arquitectura), se conserva en el destino.
+            bool perArch = parts[1].Contains('-');
+            string folder = subdirectory == "native" && perArch
+                ? Path.Combine(directory, "runtimes", parts[1], "native")
+                : Path.Combine(directory, subdirectory);
             Directory.CreateDirectory(folder);
 
             string destination = Path.Combine(folder, entry.Name);
@@ -586,3 +730,39 @@ public sealed class PluginManager : IDisposable
 }
 
 public sealed class PluginException(string message) : Exception(message);
+
+/// <summary>
+/// Cerrojo entre procesos para instalar plugins: un archivo abierto en exclusiva dentro de la carpeta de plugins.
+/// </summary>
+internal sealed class PluginLock : IDisposable
+{
+    private readonly FileStream _stream;
+
+    private PluginLock(FileStream stream) => _stream = stream;
+
+    public static async Task<PluginLock> AcquireAsync(string directory, CancellationToken token)
+    {
+        Directory.CreateDirectory(directory);
+        string path = Path.Combine(directory, ".install.lock");
+        DateTime deadline = DateTime.UtcNow.AddMinutes(5);
+
+        while (true)
+        {
+            try
+            {
+                return new PluginLock(new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None));
+            }
+            catch (IOException) when (DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(200, token);
+            }
+            catch (IOException exception)
+            {
+                throw new PluginException(
+                    $"Otro proceso de yotsuba lleva más de 5 minutos instalando plugins ({path}): {exception.Message}");
+            }
+        }
+    }
+
+    public void Dispose() => _stream.Dispose();
+}
