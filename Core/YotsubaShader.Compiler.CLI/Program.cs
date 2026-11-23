@@ -77,6 +77,7 @@ using YotsubaShader.IR.Intermediate;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using YotsubaShader.Extensions;
+using YotsubaShader.Roslyn;
 
 
 const string usage = """
@@ -86,7 +87,12 @@ const string usage = """
                        yotsuba plugin list | install <nombre> | update [nombre] | remove <nombre>
                        yotsuba lsp <proyecto.csproj>     (servidor de lenguaje por stdio: diagnósticos en vivo para editores)
 
-                     Destinos incluidos: spirv, hlsl, glsl, gles, msl, cpp.
+                     Destinos incluidos: spirv, hlsl, glsl, gles, msl, cpp, wgsl.
+                     Versión del lenguaje de salida: --target <destino>:<versión>
+                       spirv:1.3 | 1.4 | 1.5 | 1.6 (por defecto 1.6)   glsl:430 | 4.6 ...   gles:300 | 310 | 320
+                       msl:2.4 | 3.1 ... (por defecto 1.2)             hlsl:5.1 | 6.0 ... (por defecto 5.0)
+                       Ej.: yotsuba compile S.csproj --target spirv:1.3 --target glsl:430 --target msl:2.4
+                       Con varias versiones del mismo destino, la versión se añade al nombre del archivo.
                      Destinos por plugin (se instalan solos desde NuGet, última versión): monogame, kni, fna, godot.
                      Ver más con: yotsuba plugin list
                      Usa --help para mostrar esta ayuda.
@@ -174,9 +180,34 @@ if (errors.Length != 0)
     return;
 }
 
-List<CompiledCode> shaders = CSharpToSpirvCompiler.Compile(
-    compilation,
-    token);
+var failures = new List<ShaderFailure>();
+List<CompiledCode> shaders;
+
+try
+{
+    shaders = CSharpToSpirvCompiler.Compile(compilation, failures, token);
+}
+catch (ShaderValidationException exception)
+{
+    // Errores que no pertenecen a ninguna clase de shader: no hay nada que compilar por separado.
+    Console.Error.WriteLine(exception.Message);
+    Environment.ExitCode = 1;
+    return;
+}
+
+// Un shader con errores no impide compilar los demás: se informa de cada uno y se sale con código 1 al final.
+foreach (ShaderFailure failure in failures)
+{
+    Console.Error.WriteLine($"{failure.Shader}: no se compiló.");
+    Console.Error.WriteLine(failure.Message);
+}
+
+if (failures.Count != 0)
+{
+    Environment.ExitCode = 1;
+    Console.Error.WriteLine(
+        $"{failures.Count} shader(s) con errores; se compilaron {shaders.Count}.");
+}
 
 switch (parameters.Command)
 {
@@ -185,16 +216,24 @@ switch (parameters.Command)
 
         foreach (CompiledCode compiledCode in shaders)
         {
-            foreach (ShaderTarget target in parameters.Targets)
+            foreach (TargetRequest request in parameters.Targets)
             {
+                ShaderTarget target = request.Target;
+
+                // Con varias versiones del mismo destino el nombre lleva la versión para no pisarse.
+                string versionTag = request.Version is { } requested &&
+                                    parameters.Targets.Count(other => other.Target == target) > 1
+                    ? $".{requested.Text}"
+                    : string.Empty;
+
                 if (IsBinaryTarget(target))
                 {
-                    foreach ((string extension, Func<byte[]> build) in GetBinaries(target, compiledCode))
+                    foreach ((string extension, Func<byte[]> build) in GetBinaries(target, compiledCode, request.Version))
                     {
                         string binaryPath = GetShaderPath(
                             compiledCode,
                             parameters,
-                            extension,
+                            versionTag + extension,
                             stage: null);
 
                         CreateParentDirectory(binaryPath);
@@ -219,15 +258,28 @@ switch (parameters.Command)
                     string shaderPath = GetShaderPath(
                         compiledCode,
                         parameters,
-                        GetExtension(target),
+                        versionTag + GetExtension(target),
                         stage);
 
                     CreateParentDirectory(shaderPath);
 
-                    string transpilation = GetTranspilation(
-                        target,
-                        compiledCode,
-                        stage);
+                    string transpilation;
+
+                    try
+                    {
+                        transpilation = GetTranspilation(
+                            target,
+                            compiledCode,
+                            stage,
+                            request.Version);
+                    }
+                    catch (Exception exception) when (request.Version is not null)
+                    {
+                        Console.Error.WriteLine(
+                            $"{compiledCode.CSharpFullClassName}.{stage} ({target}:{request.Version}): {exception.Message}");
+                        Environment.ExitCode = 1;
+                        continue;
+                    }
 
                     await File.WriteAllTextAsync(
                         shaderPath,
@@ -381,6 +433,20 @@ switch (parameters.Command)
                 "ToMSL",
                 stage => compiledCode.ToMsl(stage));
 
+            // WGSL lo convierte naga (nativo): sólo se pide y se genera con --target wgsl.
+            if (parameters.Targets.Any(request => request.Target == ShaderTarget.Wgsl))
+            {
+                try
+                {
+                    AppendToWgslMethod(stringBuilder, shaderType, NagaWgsl.FromSpirV(compiledCode.SpirV));
+                }
+                catch (Exception exception)
+                {
+                    Console.Error.WriteLine($"{compiledCode.CSharpFullClassName}.wgsl: {exception.Message}");
+                    Environment.ExitCode = 1;
+                }
+            }
+
             foreach (Plugin plugin in loadedPlugins)
             {
                 AppendPluginMethod(stringBuilder, shaderType, compiledCode, plugin);
@@ -453,15 +519,23 @@ static void CreateParentDirectory(string filePath)
 
 static bool IsBinaryTarget(ShaderTarget target)
 {
-    return target is ShaderTarget.SpirV;
+    return target is ShaderTarget.SpirV or ShaderTarget.Wgsl;
 }
 
 // Cada binario se construye de forma diferida para poder reportar el error de un
 // solo archivo sin abortar el resto.
 static IEnumerable<(string Extension, Func<byte[]> Build)> GetBinaries(
     ShaderTarget target,
-    CompiledCode compiledCode)
+    CompiledCode compiledCode,
+    ShaderVersion? version)
 {
+    if (target == ShaderTarget.Wgsl)
+    {
+        // naga convierte el módulo SPIR-V completo: un .wgsl por clase, con todos sus entry points.
+        yield return (".wgsl", () => System.Text.Encoding.UTF8.GetBytes(NagaWgsl.FromSpirV(compiledCode.SpirV)));
+        yield break;
+    }
+
     if (target != ShaderTarget.SpirV)
     {
         throw new ArgumentOutOfRangeException(
@@ -470,7 +544,9 @@ static IEnumerable<(string Extension, Func<byte[]> Build)> GetBinaries(
             "Target binario no soportado.");
     }
 
-    yield return (".spv", () => compiledCode.SpirV);
+    yield return (".spv", () => version is { } spirvVersion
+        ? compiledCode.ToSpirV(spirvVersion.Major, spirvVersion.Minor)
+        : compiledCode.SpirV);
 }
 
 // Un plugin sin opciones produce un solo archivo; con opciones, uno por cada una.
@@ -491,15 +567,18 @@ static IEnumerable<PluginOption?> GetOptions(PluginMetadata metadata)
 static string GetTranspilation(
     ShaderTarget target,
     CompiledCode compiledCode,
-    Stage stage)
+    Stage stage,
+    ShaderVersion? version)
 {
     return target switch
     {
         ShaderTarget.Cpp => compiledCode.ToCpp(stage),
-        ShaderTarget.Glsl => compiledCode.ToGlsl(stage),
-        ShaderTarget.GlslEs => compiledCode.ToGlslEs(stage),
-        ShaderTarget.Hlsl => compiledCode.ToHlsl(stage),
-        ShaderTarget.Msl => compiledCode.ToMsl(stage),
+        ShaderTarget.Glsl => version is { } glsl ? compiledCode.ToGlsl(stage, glsl.Number) : compiledCode.ToGlsl(stage),
+        ShaderTarget.GlslEs => version is { } gles ? compiledCode.ToGlslEs(stage, gles.Number) : compiledCode.ToGlslEs(stage),
+        ShaderTarget.Hlsl => version is { } hlsl ? compiledCode.ToHlsl(stage, hlsl.Number) : compiledCode.ToHlsl(stage),
+        ShaderTarget.Msl => version is { } msl
+            ? compiledCode.ToMsl(stage, (uint)msl.Major, (uint)msl.Minor, (uint)msl.Patch)
+            : compiledCode.ToMsl(stage),
 
         ShaderTarget.SpirV => throw new InvalidOperationException(
             "SPIR-V binario se escribe directamente como bytes."),
@@ -516,6 +595,7 @@ static string GetExtension(ShaderTarget target)
     return target switch
     {
         ShaderTarget.SpirV => ".spv",
+        ShaderTarget.Wgsl => ".wgsl",
         ShaderTarget.Cpp => ".cpp",
         ShaderTarget.Glsl => ".glsl",
         ShaderTarget.GlslEs => ".gles",
@@ -636,6 +716,18 @@ static void AppendPluginMethod(
         .AppendLine($"                    {metadata.OptionsParameterName},")
         .AppendLine($"                    \"Opción no soportada para {metadata.MethodName}.\");")
         .AppendLine("        }")
+        .AppendLine("    }")
+        .AppendLine();
+}
+
+static void AppendToWgslMethod(StringBuilder builder, string shaderType, string wgsl)
+{
+    builder
+        .AppendLine($"    public static string ToWgsl(this {shaderType} _shader)")
+        .AppendLine("    {")
+        .AppendLine("        return \"\"\"")
+        .AppendLine(wgsl.TrimEnd())
+        .AppendLine("\"\"\";")
         .AppendLine("    }")
         .AppendLine();
 }

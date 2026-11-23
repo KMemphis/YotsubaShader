@@ -120,14 +120,63 @@ public class ShaderProcessor
     /// <summary>La compilación que se está traduciendo (con los polyfills de Math).</summary>
     [ThreadStatic] internal static Compilation? Compilation;
 
-    public (string, Shader)[] Process(Compilation compilation, CancellationToken token)
+    /// <summary>Modo estricto: cualquier error de validación lanza <see cref="ShaderValidationException"/>.</summary>
+    public (string, Shader)[] Process(Compilation compilation, CancellationToken token) =>
+        Process(compilation, token, failures: null);
+
+    /// <summary>
+    /// Con <paramref name="failures"/> no nulo, un shader que no valida o no se puede traducir se registra ahí y se
+    /// omite; el resto se compila. Los errores que no pertenecen a ninguna clase de shader siguen lanzando
+    /// <see cref="ShaderValidationException"/>.
+    /// </summary>
+    public (string, Shader)[] Process(Compilation compilation, CancellationToken token, List<ShaderFailure>? failures)
     {
         // Las mismas reglas que el analizador del IDE: un shader con errores YS no llega a traducirse.
         var validation = YotsubaShader.Rules.ShaderValidator.Validate(compilation, YotsubaShader.Rules.ShaderTargets.All, token);
         var errors = validation.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        var invalid = new HashSet<string>();
         if (errors.Count > 0)
         {
-            throw new ShaderValidationException(errors);
+            if (failures is null)
+            {
+                throw new ShaderValidationException(errors);
+            }
+
+            var unattributed = new List<Diagnostic>();
+            var byShader = new Dictionary<string, List<Diagnostic>>();
+            var declared = ShaderDiscovery.Find(compilation, token);
+
+            foreach (Diagnostic error in errors)
+            {
+                ShaderInfo? owner = error.Location.SourceTree is { } tree
+                    ? declared.FirstOrDefault(info => info.Type.DeclaringSyntaxReferences.Any(reference =>
+                        reference.SyntaxTree == tree && reference.Span.Contains(error.Location.SourceSpan)))
+                    : null;
+
+                if (owner is null)
+                {
+                    unattributed.Add(error);
+                }
+                else if (byShader.TryGetValue(owner.FullName, out var list))
+                {
+                    list.Add(error);
+                }
+                else
+                {
+                    byShader[owner.FullName] = [error];
+                }
+            }
+
+            if (unattributed.Count > 0)
+            {
+                throw new ShaderValidationException(unattributed);
+            }
+
+            foreach ((string name, List<Diagnostic> diagnostics) in byShader)
+            {
+                invalid.Add(name);
+                failures.Add(new ShaderFailure(name, new ShaderValidationException(diagnostics).Message, diagnostics));
+            }
         }
 
         // Math sin instrucción de GPU: su implementación en C# entra en la compilación como código del shader.
@@ -138,39 +187,53 @@ public class ShaderProcessor
             new DecompiledSourceProvider(compilation));
         
         var csharpShaderMetadata = ShaderDiscovery.Find(compilation, token);
-        (string, Shader)[] shaders = new (string, Shader)[csharpShaderMetadata.Length];
-        int i = 0;
+        var shaders = new List<(string, Shader)>(csharpShaderMetadata.Length);
         
         foreach (ShaderInfo shaderInfo in csharpShaderMetadata)
         {
-            
-            functionIds = new Dictionary<SymbolKey, FunctionId>();
-            structTypeNames = new Dictionary<SymbolKey, string>();
-            
-            var globals = new Dictionary<ISymbol, Storage>(SymbolEqualityComparer.Default);
-            
-            var functions = new List<Function>();
-            AddResourceInputs(shaderInfo.Type, globals, compilation);
-
-            PendingFunctionsInfos = new List<FunctionsInfo>();
-            foreach (var shaderInfoEntryPoint in shaderInfo.Functions)
+            if (invalid.Contains(shaderInfo.FullName))
             {
-                ProcessWithChain(compilation, shaderInfoEntryPoint, functions, PendingFunctionsInfos, globals);
+                continue;
             }
 
-            for (int index = 0;
-                 index < PendingFunctionsInfos.Count;
-                 index++)
+            try
             {
-                var functionInfo = PendingFunctionsInfos[index];
-                ProcessWithChain(compilation, functionInfo, functions, PendingFunctionsInfos, globals);
+                shaders.Add((shaderInfo.FullName, ProcessShader(compilation, shaderInfo)));
             }
-
-            var shader = new Shader(functions, globals.Values.ToArray());
-            shaders[i++] = (shaderInfo.FullName, shader);
+            catch (Exception exception) when (failures is not null && exception is not OperationCanceledException)
+            {
+                failures.Add(new ShaderFailure(shaderInfo.FullName, exception.Message, []));
+            }
         }
 
-        return shaders;
+        return shaders.ToArray();
+    }
+
+    private static Shader ProcessShader(Compilation compilation, ShaderInfo shaderInfo)
+    {
+        functionIds = new Dictionary<SymbolKey, FunctionId>();
+        structTypeNames = new Dictionary<SymbolKey, string>();
+
+        var globals = new Dictionary<ISymbol, Storage>(SymbolEqualityComparer.Default);
+
+        var functions = new List<Function>();
+        AddResourceInputs(shaderInfo.Type, globals, compilation);
+
+        PendingFunctionsInfos = new List<FunctionsInfo>();
+        foreach (var shaderInfoEntryPoint in shaderInfo.Functions)
+        {
+            ProcessWithChain(compilation, shaderInfoEntryPoint, functions, PendingFunctionsInfos, globals);
+        }
+
+        for (int index = 0;
+             index < PendingFunctionsInfos.Count;
+             index++)
+        {
+            var functionInfo = PendingFunctionsInfos[index];
+            ProcessWithChain(compilation, functionInfo, functions, PendingFunctionsInfos, globals);
+        }
+
+        return new Shader(functions, globals.Values.ToArray());
     }
 
     private static void ProcessShaderFunction(Compilation compilation, FunctionsInfo shaderInfoEntryPoint, List<Function> shaderFunction, List<FunctionsInfo> extraMethods, Dictionary<ISymbol, Storage> globals)

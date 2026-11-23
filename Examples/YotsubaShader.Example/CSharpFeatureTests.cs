@@ -382,6 +382,55 @@ public class CSharpFeatureTests
     }
 
     [Fact]
+    public void Compound_assignment_and_increment_on_buffer_elements()
+    {
+        string text = SpirvPipeline.Compile("""
+            public struct Item { public uint A; public float B; }
+            public struct Items { public Item[] List; }
+            public class S
+            {
+                [DescriptorSet(0)] [Binding(0)] public RWStructuredBuffer<uint> Counters;
+                [DescriptorSet(0)] [Binding(1)] public RWStructuredBuffer<Item> Output;
+                [StorageBuffer] [DescriptorSet(0)] [Binding(2)] public Items Data;
+                [DescriptorSet(0)] [Binding(3)] public uint[] Plain;
+
+                [ShaderStage(Stage.Compute)]
+                [numthreads(64, 1, 1)]
+                public void CS([SV_DispatchThreadID] uint3 id)
+                {
+                    uint k = id.X;
+                    Counters[k] += 2;
+                    Counters[k]++;
+                    Output[k].A += 1;
+                    Output[k].B *= 2f;
+                    Data.List[(int)k].A -= 1;
+                    Data.List[(int)k].B++;
+                    Plain[(int)k] |= 1u;
+                }
+            }
+            """);
+        Assert.Contains("OpIAdd", text);
+        Assert.Contains("OpFMul", text);
+    }
+
+    [Fact]
+    public void Target_typed_new_builds_the_same_vector_as_the_explicit_constructor()
+    {
+        string text = SpirvPipeline.Compile("""
+            public class S
+            {
+                [ShaderStage(Stage.Fragment)]
+                public float4 FS()
+                {
+                    float4 c = new(1f, 2f, 3f, 4f);
+                    return c;
+                }
+            }
+            """);
+        Assert.Contains("OpCompositeConstruct", text);
+    }
+
+    [Fact]
     public void Arrays_lists_and_immutable_collections_are_storage_buffers()
     {
         string text = SpirvPipeline.Compile("""

@@ -610,6 +610,14 @@ public partial class StatementOperationProcessor
             "The conversion did not produce an expression.");
 
         if (conversionOperation.Conversion.IsIdentity) return operand;
+
+        // float4 c = new(1, 2, 3, 4): la conversión de «new» con el tipo inferido no cambia el valor creado.
+        if (conversionOperation.Operand is IObjectCreationOperation created &&
+            SymbolEqualityComparer.Default.Equals(created.Type, conversionOperation.Type))
+        {
+            return operand;
+        }
+
         if (!conversionOperation.Conversion.IsNumeric || conversionOperation.Type is null)
         {
             throw new NotSupportedException(
@@ -1132,7 +1140,26 @@ public partial class StatementOperationProcessor
             case IInstanceReferenceOperation:
                 return new StorageReference(ThisStorage
                                             ?? throw new NotSupportedException("'this' solo existe dentro de un constructor."));
-            
+
+            // Un campo del propio shader (buffer, uniform, variable de interfaz) no es un campo de 'this' dentro de un
+            // constructor: se resuelve igual que al leerlo. Sin esto, `Buffer[i] += 1` y `Datos.Lista[i].X++` fallaban.
+            case IFieldReferenceOperation { Instance: IInstanceReferenceOperation } shaderField when ThisStorage is null:
+                return ProcessExpression(shaderField, inputs, outputs, compilation, stage)
+                       ?? throw new NotSupportedException("The assignment target did not produce an expression.");
+
+            // StructuredBuffer<T>[i], RWStructuredBuffer<T>[i], List<T>[i]: el elemento del array Items del buffer.
+            case IPropertyReferenceOperation { Instance: { } bufferInstance, Property.IsIndexer: true } bufferElement
+                when ShaderProcessor.IsBufferWrapper(bufferElement.Property.ContainingType):
+            {
+                Expression buffer = ProcessAssignableTarget(bufferInstance, prelude, inputs, outputs, compilation, stage);
+                Expression items = buffer is StorageStructPropertyReference { PropertyName: "Items" }
+                    ? buffer
+                    : new StorageStructPropertyReference(buffer, "Items");
+
+                IOperation indexOperation = bufferElement.Arguments.Single().Value;
+                return new StorageArrayElementReference(items, StableIndex(indexOperation, prelude, inputs, outputs, compilation, stage));
+            }
+
             case IParenthesizedOperation parenthesized:
                 return ProcessAssignableTarget(parenthesized.Operand, prelude, inputs, outputs, compilation, stage);
 
@@ -1153,35 +1180,48 @@ public partial class StatementOperationProcessor
 
                 ValidateArrayIndex(element.Indices[0], array);
 
-                Expression index = ProcessExpression(element.Indices[0], inputs, outputs, compilation, stage)
-                    ?? throw new NotSupportedException("The array index did not produce an expression.");
-
-                if (HasSideEffects(index))
-                {
-                    bool signed = element.Indices[0].Type?.SpecialType switch
-                    {
-                        SpecialType.System_Int32 => true,
-                        SpecialType.System_UInt32 => false,
-                        _ => throw new NotSupportedException("Array indices must be int or uint.")
-                    };
-
-                    Storage temporary = new IRTypes.Int(UniqueLocalName("__index"), StorageKind.Local, null)
-                    {
-                        Bits = 32,
-                        Signed = signed
-                    };
-
-                    prelude.Add(new VariableDeclaration(temporary, index));
-                    index = new StorageReference(temporary);
-                }
-
-                return new StorageArrayElementReference(array, index);
+                return new StorageArrayElementReference(
+                    array, StableIndex(element.Indices[0], prelude, inputs, outputs, compilation, stage));
             }
 
             default:
                 return ProcessExpression(target, inputs, outputs, compilation, stage)
                     ?? throw new NotSupportedException("The assignment target did not produce an expression.");
         }
+    }
+
+    /// <summary>El índice de un elemento; si tiene efectos secundarios se guarda en un temporal para evaluarlo una sola vez.</summary>
+    private Expression StableIndex(
+        IOperation indexOperation,
+        List<Statement> prelude,
+        Dictionary<ISymbol, Storage> inputs,
+        Dictionary<ISymbol, Storage> outputs,
+        Compilation compilation,
+        Stage stage)
+    {
+        Expression index = ProcessExpression(indexOperation, inputs, outputs, compilation, stage)
+            ?? throw new NotSupportedException("The array index did not produce an expression.");
+
+        if (!HasSideEffects(index))
+        {
+            return index;
+        }
+
+        bool signed = indexOperation.Type?.SpecialType switch
+        {
+            SpecialType.System_Int32 => true,
+            SpecialType.System_UInt32 => false,
+            _ => throw new NotSupportedException("Array indices must be int or uint.")
+        };
+
+        Storage temporary = new IRTypes.Int(UniqueLocalName("__index"), StorageKind.Local, null)
+        {
+            Bits = 32,
+            Signed = signed
+        };
+
+        prelude.Add(new VariableDeclaration(temporary, index));
+        return new StorageReference(temporary);
     }
 
     /// <summary>¿Contiene la expresión sentencias con efectos reales (++, --, ?:)? Las llamadas no cuentan: son puras.</summary>
