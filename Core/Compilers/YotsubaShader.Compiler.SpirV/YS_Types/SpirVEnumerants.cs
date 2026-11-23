@@ -140,6 +140,7 @@ public enum SpirVDecoration : uint
     MatrixStride = 7,
     BuiltIn = 11,
     Flat = 14,
+    NonWritable = 24,
     Location = 30,
     Binding = 33,
     DescriptorSet = 34,

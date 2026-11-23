@@ -15,4 +15,5 @@ naga = { version = "30", features = ["spv-in", "wgsl-out"] }
 opt-level = "s"
 lto = true
 strip = true
-panic = "abort"
+# "unwind" para poder capturar un pánico de naga y devolverlo como error: con "abort" se cerraba todo el CLI.
+panic = "unwind"

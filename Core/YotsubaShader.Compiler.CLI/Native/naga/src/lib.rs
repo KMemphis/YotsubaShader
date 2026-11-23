@@ -30,7 +30,16 @@ pub unsafe extern "C" fn ys_naga_spirv_to_wgsl(spirv: *const u8, len: usize, out
         return 2;
     }
     let bytes = std::slice::from_raw_parts(spirv, len);
-    match convert(bytes) {
+    // Un pánico no puede cruzar la frontera C: se captura y se devuelve como un error más de ese shader.
+    let result = std::panic::catch_unwind(|| convert(bytes)).unwrap_or_else(|panic| {
+        let detail = panic
+            .downcast_ref::<&str>()
+            .map(|s| s.to_string())
+            .or_else(|| panic.downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "error interno".to_string());
+        Err(format!("naga fallo al convertir el modulo: {detail}"))
+    });
+    match result {
         Ok(s) => { give(s, out, out_len); 0 }
         Err(e) => { give(e, out, out_len); 1 }
     }

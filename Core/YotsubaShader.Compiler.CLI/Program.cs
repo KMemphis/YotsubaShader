@@ -93,11 +93,30 @@ const string usage = """
                        msl:2.4 | 3.1 ... (por defecto 1.2)             hlsl:5.1 | 6.0 ... (por defecto 5.0)
                        Ej.: yotsuba compile S.csproj --target spirv:1.3 --target glsl:430 --target msl:2.4
                        Con varias versiones del mismo destino, la versión se añade al nombre del archivo.
-                     Destinos por plugin (se instalan solos desde NuGet, última versión): monogame, kni, fna, godot.
+                     Destinos por plugin (se instalan solos desde NuGet, en la versión compatible con este CLI): monogame, kni, fna, godot.
                      Ver más con: yotsuba plugin list
-                     Usa --help para mostrar esta ayuda.
+                     Usa --help para mostrar esta ayuda y --version para ver la versión.
                      Ejecutable del Release: ./YotsubaShader.Compiler.CLI (Linux/macOS) o YotsubaShader.Compiler.CLI.exe (Windows).
                      """;
+
+// Un error inesperado no debe terminar en un volcado de pila: se informa en una línea y se sale con código 1.
+// Con YOTSUBA_DEBUG=1 se muestra la pila completa.
+AppDomain.CurrentDomain.UnhandledException += (_, eventArgs) =>
+{
+    Exception exception = eventArgs.ExceptionObject as Exception ?? new Exception(eventArgs.ExceptionObject?.ToString());
+    Console.Error.WriteLine(Environment.GetEnvironmentVariable("YOTSUBA_DEBUG") is { Length: > 0 }
+        ? $"Error interno: {exception}"
+        : $"Error interno: {exception.GetType().Name}: {exception.Message}\n" +
+          "Define YOTSUBA_DEBUG=1 para ver la pila completa y repórtalo en https://github.com/KMemphis/YotsubaShader/issues.");
+    Console.Error.Flush();
+    Environment.Exit(1);
+};
+
+if (args.Length == 1 && args[0] is "--version" or "version")
+{
+    Console.WriteLine(CliVersion.Informational);
+    return;
+}
 
 if (args.Length > 0 && args[0].Equals("plugin", StringComparison.OrdinalIgnoreCase))
 {
@@ -138,35 +157,75 @@ catch (CliUsageException exception)
 
 if (!File.Exists(parameters.ProjectPath))
 {
-    throw new FileNotFoundException(
-        "El proyecto no existe.",
-        parameters.ProjectPath);
+    Console.Error.WriteLine($"El proyecto no existe: {parameters.ProjectPath}");
+    Environment.ExitCode = 2;
+    return;
 }
 
-if (!MSBuildLocator.IsRegistered)
-{
-    MSBuildLocator.RegisterDefaults();
-}
+string? msbuildPath = MSBuildLocator.IsRegistered
+    ? null
+    : MSBuildLocator.RegisterDefaults().MSBuildPath;
 
 CancellationToken token = CancellationToken.None;
 
-using var workspace = MSBuildWorkspace.Create();
+// Las advertencias de carga (archivos duplicados, referencias de analizadores...) no impiden compilar los shaders;
+// sólo se muestran los fallos, o todo con YOTSUBA_DEBUG.
+bool verboseWorkspace = Environment.GetEnvironmentVariable("YOTSUBA_DEBUG") is { Length: > 0 };
 
-workspace.RegisterWorkspaceFailedHandler(eventArgs =>
-    Console.Error.WriteLine(
-        $"MSBuild: {eventArgs.Diagnostic.Message}"));
+async Task<(MSBuildWorkspace Workspace, Project Project)> OpenAsync()
+{
+    var openedWorkspace = MSBuildWorkspace.Create();
+    openedWorkspace.RegisterWorkspaceFailedHandler(eventArgs =>
+    {
+        if (verboseWorkspace || eventArgs.Diagnostic.Kind == WorkspaceDiagnosticKind.Failure)
+        {
+            Console.Error.WriteLine($"MSBuild: {eventArgs.Diagnostic.Message}");
+        }
+    });
 
-Project project = await workspace.OpenProjectAsync(
-    parameters.ProjectPath,
-    cancellationToken: token);
+    return (openedWorkspace, await openedWorkspace.OpenProjectAsync(parameters.ProjectPath, cancellationToken: token));
+}
+
+(MSBuildWorkspace workspace, Project project) = await OpenAsync();
+
+// El YotsubaShader.g.cs anterior no forma parte de los shaders. Si una clase shader cambió de nombre o se borró,
+// ese archivo ya no compila y, sin quitarlo, nunca se podría regenerar.
+(project, IReadOnlySet<string> generatedNames) = await GeneratedAccessors.RemoveAsync(project, token);
 
 Compilation compilation = await project.GetCompilationAsync(token)
     ?? throw new InvalidOperationException(
         $"No se pudo crear la compilación de '{parameters.ProjectPath}'.");
 
-Diagnostic[] errors = compilation
+// Sin restaurar, Roslyn abre el proyecto sin ninguna referencia y cada tipo da error (proyecto recién clonado o
+// creado sin compilar): se restaura una vez y se vuelve a abrir.
+if (ProjectRestore.NeedsRestore(compilation))
+{
+    workspace.Dispose();
+
+    if (!await ProjectRestore.RestoreAsync(parameters.ProjectPath, msbuildPath, token))
+    {
+        Environment.ExitCode = 1;
+        return;
+    }
+
+    (workspace, project) = await OpenAsync();
+    (project, generatedNames) = await GeneratedAccessors.RemoveAsync(project, token);
+    compilation = await project.GetCompilationAsync(token)
+        ?? throw new InvalidOperationException(
+            $"No se pudo crear la compilación de '{parameters.ProjectPath}'.");
+}
+
+using MSBuildWorkspace openWorkspace = workspace;
+
+Diagnostic[] allErrors = compilation
     .GetDiagnostics(token)
     .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
+    .ToArray();
+
+// El código del proyecto que llama a ToSpirV(), ToMGFX()... no compila sin el archivo generado; esos errores
+// desaparecen al regenerarlo y no afectan a los shaders.
+Diagnostic[] errors = allErrors
+    .Where(diagnostic => !GeneratedAccessors.IsMissingGeneratedMember(diagnostic, generatedNames))
     .ToArray();
 
 if (errors.Length != 0)
@@ -208,6 +267,11 @@ if (failures.Count != 0)
     Console.Error.WriteLine(
         $"{failures.Count} shader(s) con errores; se compilaron {shaders.Count}.");
 }
+else if (shaders.Count == 0)
+{
+    Console.Error.WriteLine(
+        $"Aviso: '{Path.GetFileName(parameters.ProjectPath)}' no tiene ningún método con [ShaderStage]; no hay shaders que compilar.");
+}
 
 switch (parameters.Command)
 {
@@ -242,10 +306,12 @@ switch (parameters.Command)
                         {
                             await File.WriteAllBytesAsync(binaryPath, build(), token);
                         }
-                        catch (Exception exception) when (target != ShaderTarget.SpirV)
+                        catch (Exception exception) when (exception is not OperationCanceledException)
                         {
+                            // p. ej. spirv:1.3 con una instrucción de 1.4, o naga sin soporte para algo del módulo.
                             Console.Error.WriteLine(
-                                $"{compiledCode.CSharpFullClassName}{extension}: {exception.Message}");
+                                $"{compiledCode.CSharpFullClassName}{versionTag}{extension}: {exception.Message}");
+                            DeleteStale(binaryPath);
                             Environment.ExitCode = 1;
                         }
                     }
@@ -273,10 +339,14 @@ switch (parameters.Command)
                             stage,
                             request.Version);
                     }
-                    catch (Exception exception) when (request.Version is not null)
+                    catch (Exception exception) when (exception is not OperationCanceledException)
                     {
+                        // Un stage que no se puede expresar en ese lenguaje (double en GLSL ES, PrimitiveId en MSL 1.2...)
+                        // se informa y no impide escribir los demás archivos.
+                        string requestText = request.Version is { } version ? $"{TargetName(target)}:{version}" : TargetName(target);
                         Console.Error.WriteLine(
-                            $"{compiledCode.CSharpFullClassName}.{stage} ({target}:{request.Version}): {exception.Message}");
+                            $"{compiledCode.CSharpFullClassName}.{stage} ({requestText}): {exception.Message}");
+                        DeleteStale(shaderPath);
                         Environment.ExitCode = 1;
                         continue;
                     }
@@ -328,10 +398,11 @@ switch (parameters.Command)
                             CreateParentDirectory(pluginPath);
                             await File.WriteAllBytesAsync(pluginPath, bytes, token);
                         }
-                        catch (Exception exception)
+                        catch (Exception exception) when (exception is not OperationCanceledException)
                         {
                             Console.Error.WriteLine(
-                                $"{compiledCode.CSharpFullClassName}{suffix}: {exception.Message}");
+                                $"{compiledCode.CSharpFullClassName}{suffix}: {PluginErrors.Describe(exception)}");
+                            DeleteStale(pluginPath);
                             Environment.ExitCode = 1;
                         }
                     }
@@ -359,6 +430,14 @@ switch (parameters.Command)
                     Console.Error.WriteLine(exception.Message);
                     Environment.ExitCode = 1;
                 }
+            }
+
+            // Sin el plugin faltarían sus métodos (ToMGFX...) y el código que los usa dejaría de compilar:
+            // mejor conservar el YotsubaShader.g.cs anterior.
+            if (loadedPlugins.Count != parameters.PluginTargets.Count)
+            {
+                Console.Error.WriteLine("No se regeneró YotsubaShader.g.cs porque faltan plugins; se conserva el anterior.");
+                return;
             }
         }
 
@@ -410,28 +489,32 @@ switch (parameters.Command)
                 shaderType,
                 compiledCode,
                 "ToHlsl",
-                stage => compiledCode.ToHlsl(stage));
+                stage => compiledCode.ToHlsl(stage),
+                parameters.Targets.Any(request => request.Target == ShaderTarget.Hlsl));
 
             AppendTranspilationMethod(
                 stringBuilder,
                 shaderType,
                 compiledCode,
                 "ToGlsl",
-                stage => compiledCode.ToGlsl(stage));
+                stage => compiledCode.ToGlsl(stage),
+                parameters.Targets.Any(request => request.Target == ShaderTarget.Glsl));
 
             AppendTranspilationMethod(
                 stringBuilder,
                 shaderType,
                 compiledCode,
                 "ToGlslEs",
-                stage => compiledCode.ToGlslEs(stage));
+                stage => compiledCode.ToGlslEs(stage),
+                parameters.Targets.Any(request => request.Target == ShaderTarget.GlslEs));
 
             AppendTranspilationMethod(
                 stringBuilder,
                 shaderType,
                 compiledCode,
                 "ToMSL",
-                stage => compiledCode.ToMsl(stage));
+                stage => compiledCode.ToMsl(stage),
+                parameters.Targets.Any(request => request.Target == ShaderTarget.Msl));
 
             // WGSL lo convierte naga (nativo): sólo se pide y se genera con --target wgsl.
             if (parameters.Targets.Any(request => request.Target == ShaderTarget.Wgsl))
@@ -440,9 +523,11 @@ switch (parameters.Command)
                 {
                     AppendToWgslMethod(stringBuilder, shaderType, NagaWgsl.FromSpirV(compiledCode.SpirV));
                 }
-                catch (Exception exception)
+                catch (Exception exception) when (exception is not OperationCanceledException)
                 {
+                    // El método existe igual (lanza con el motivo) para que el código que lo llama siga compilando.
                     Console.Error.WriteLine($"{compiledCode.CSharpFullClassName}.wgsl: {exception.Message}");
+                    AppendThrowingMethod(stringBuilder, "string", "ToWgsl", shaderType, $"{compiledCode.CSharpFullClassName}.ToWgsl: {exception.Message}");
                     Environment.ExitCode = 1;
                 }
             }
@@ -464,10 +549,20 @@ switch (parameters.Command)
             projectDirectory,
             "YotsubaShader.g.cs");
 
-        await File.WriteAllTextAsync(
-            generatedFilePath,
-            stringBuilder.ToString(),
-            token);
+        string generated = stringBuilder.ToString();
+
+        // Reescribirlo con el mismo contenido cambiaría la fecha y obligaría a recompilar el proyecto en cada build.
+        if (File.Exists(generatedFilePath) &&
+            string.Equals(await File.ReadAllTextAsync(generatedFilePath, token), generated, StringComparison.Ordinal))
+        {
+            Console.WriteLine($"Sin cambios: {generatedFilePath}");
+            break;
+        }
+
+        // Se escribe en un temporal y se reemplaza, para no dejar un archivo a medias si el proceso se corta.
+        string temporaryPath = generatedFilePath + ".tmp";
+        await File.WriteAllTextAsync(temporaryPath, generated, token);
+        File.Move(temporaryPath, generatedFilePath, overwrite: true);
 
         Console.WriteLine(
             $"Archivo generado: {generatedFilePath}");
@@ -754,7 +849,8 @@ static void AppendTranspilationMethod(
     string shaderType,
     CompiledCode compiledCode,
     string methodName,
-    Func<Stage, string> getTranspilation)
+    Func<Stage, string> getTranspilation,
+    bool requested)
 {
     builder
         .AppendLine($"    public static string {methodName}(")
@@ -768,10 +864,31 @@ static void AppendTranspilationMethod(
     foreach (Stage irStage in GetStages(compiledCode)
                  .OrderBy(stage => stage))
     {
-        string transpilation = getTranspilation(irStage);
-
         builder.AppendLine(
             $"            global::YotsubaShader.Language.Stage.{irStage} =>");
+
+        string transpilation;
+
+        try
+        {
+            transpilation = getTranspilation(irStage);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Ese stage no se puede expresar en ese lenguaje (double en GLSL ES, PrimitiveId en MSL 1.2...): el método
+            // lanza con el motivo y el resto del archivo se genera igual. Sólo es un error si se pidió ese destino.
+            string description = $"{compiledCode.CSharpFullClassName}.{methodName}({irStage}): {exception.Message}";
+            Console.Error.WriteLine(requested ? description : $"Aviso: {description}");
+
+            if (requested)
+            {
+                Environment.ExitCode = 1;
+            }
+
+            string message = Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(description, quote: true);
+            builder.AppendLine($"                throw new global::System.NotSupportedException({message}),");
+            continue;
+        }
 
         AppendRawStringLiteral(
             builder,
@@ -843,3 +960,45 @@ static void AppendRawStringLiteral(
         .Append(delimiter)
         .AppendLine();
 }
+
+static void AppendThrowingMethod(StringBuilder builder, string returnType, string methodName, string shaderType, string description)
+{
+    string message = Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(description, quote: true);
+
+    builder
+        .AppendLine($"    public static {returnType} {methodName}(this {shaderType} _shader)")
+        .AppendLine("    {")
+        .AppendLine($"        throw new global::System.NotSupportedException({message});")
+        .AppendLine("    }")
+        .AppendLine();
+}
+
+// Un archivo de una ejecución anterior que ahora no se pudo generar no debe quedarse como si estuviera al día.
+static void DeleteStale(string path)
+{
+    try
+    {
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+    catch (IOException)
+    {
+    }
+    catch (UnauthorizedAccessException)
+    {
+    }
+}
+
+static string TargetName(ShaderTarget target) => target switch
+{
+    ShaderTarget.SpirV => "spirv",
+    ShaderTarget.Hlsl => "hlsl",
+    ShaderTarget.Glsl => "glsl",
+    ShaderTarget.GlslEs => "gles",
+    ShaderTarget.Msl => "msl",
+    ShaderTarget.Cpp => "cpp",
+    ShaderTarget.Wgsl => "wgsl",
+    _ => target.ToString().ToLowerInvariant()
+};

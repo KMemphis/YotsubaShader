@@ -92,6 +92,9 @@ internal static unsafe partial class NagaWgsl
 
     public static string FromSpirV(byte[] spirv)
     {
+        // naga no conoce OpCopyLogical (las copias de structs de buffers): se reescribe antes con instrucciones de 1.0.
+        spirv = YotsubaShader.Extensions.SpirvVersion.LowerCopyLogical(spirv);
+
         byte* output = null;
         nuint outputLength = 0;
         int status;

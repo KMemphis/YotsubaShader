@@ -1328,6 +1328,12 @@ public class ShaderProcessor
             HasConcept<ReadOnlyStorageBuffer>(attribute));
     }
 
+    /// <summary>
+    /// ImmutableArray/ImmutableList, StructuredBuffer&lt;T&gt;, <c>device(readOnly: true)</c>, <c>storage(read)</c>...: el mismo
+    /// criterio que la regla YS0308, que impide escribir en ellos.
+    /// </summary>
+    private static bool IsReadOnlyBuffer(IFieldSymbol field) => YotsubaShader.Rules.ResourceRules.IsReadOnlyBuffer(field);
+
     private static bool IsUniform(ImmutableArray<AttributeData> attributes, ISymbol symbol, Compilation compilation)
     {
 
@@ -1841,6 +1847,11 @@ public class ShaderProcessor
             Storage resource = TryBuildBufferWrapper((IFieldSymbol)member, slot, compilation)
                                ?? GetStorage(member, null, slot, compilation, Stage.None);
             if (isBuffer) resource = WithLayoutKind(resource, kind);
+            if (kind == StorageKind.StorageBuffer && IsReadOnlyBuffer((IFieldSymbol)member))
+            {
+                resource = resource with { ReadOnly = true };
+            }
+
             inputs.TryAdd(member, resource);
         }
     }

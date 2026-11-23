@@ -106,6 +106,15 @@ public record CompiledCode(
     /// </summary>
     public byte[] ToSpirV(int major, int minor) => SpirvVersion.Retarget(SpirV, major, minor);
 
+    // Las firmas de un solo parámetro existían en 0.9.x y los plugins publicados (MonoGame, KNI, FNA) las llaman.
+    // Se mantienen para que un plugin compilado contra esa versión siga cargando en este CLI.
+
+    /// <summary>Metal Shading Language con la versión por defecto de SPIRV-Cross (MSL 1.2).</summary>
+    public string ToMsl(Stage stage) => ToMsl(stage, majorVersion: null);
+
+    /// <summary>HLSL para Shader Model 5.0.</summary>
+    public string ToHlsl(Stage stage) => ToHlsl(stage, shaderModel: 50);
+
     /// <summary>
     /// Metal Shading Language. Sin versión usa la que fija SPIRV-Cross por defecto, MSL 1.2; para usar funciones más
     /// nuevas (p. ej. 2.1 para texturas de lectura/escritura) pide una versión mayor.
@@ -181,6 +190,14 @@ public record CompiledCode(
 
         compiler.set_common_options(options);
 
+        // gl_PrimitiveID in a fragment shader is core only from GLSL ES 3.20; ES 3.10 gets it from GL_EXT_geometry_shader,
+        // which SPIRV-Cross does not request by itself (the output would not compile on the device).
+        const uint builtInPrimitiveId = 7;
+        if (es && version < 320 && stage == Stage.Fragment && UsesBuiltIn(builtInPrimitiveId))
+        {
+            compiler.require_extension(new CppString("GL_EXT_geometry_shader"));
+        }
+
         // OpenGL has no separate textures and samplers: join each pair into one combined sampler,
         // named after the texture and with the texture's binding.
         compiler.build_combined_image_samplers();
@@ -217,6 +234,33 @@ public record CompiledCode(
         return compiler.compile().str();
     }
 
+    // OpDecorate / OpMemberDecorate ... BuiltIn <builtIn> en el módulo.
+    private bool UsesBuiltIn(uint builtIn)
+    {
+        ReadOnlySpan<uint> words = MemoryMarshal.Cast<byte, uint>(FullSpirV);
+        const uint decorationBuiltIn = 11;
+
+        for (int at = 5; at < words.Length;)
+        {
+            uint opcode = words[at] & 0xFFFF;
+            int count = (int)(words[at] >> 16);
+            if (count == 0)
+            {
+                break;
+            }
+
+            if ((opcode == 71 && count >= 4 && words[at + 2] == decorationBuiltIn && words[at + 3] == builtIn) ||
+                (opcode == 72 && count >= 5 && words[at + 3] == decorationBuiltIn && words[at + 4] == builtIn))
+            {
+                return true;
+            }
+
+            at += count;
+        }
+
+        return false;
+    }
+
     public string ToCpp(Stage stage)
     {
         (string entryPoint, YotsubaShaderCross.Spv.ExecutionModel executionModel) =
@@ -225,6 +269,16 @@ public record CompiledCode(
         var compiler = new CompilerCPP(ByteArrToCppVector());
 
         compiler.set_entry_point(entryPoint, executionModel);
+
+        // El backend C++ deriva del de GLSL y, como él, no sabe escribir una textura y su sampler por separado:
+        // sin unirlos falla con cualquier shader que muestree una textura.
+        compiler.build_combined_image_samplers();
+        foreach (CombinedImageSampler pair in compiler.get_combined_image_samplers())
+        {
+            compiler.set_name(
+                new TypedID_TypeNone(pair.combined_id),
+                compiler.get_name(new TypedID_TypeNone(pair.image_id)));
+        }
 
         return compiler.compile().str();
     }

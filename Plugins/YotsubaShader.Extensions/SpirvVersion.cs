@@ -120,7 +120,8 @@ public static class SpirvVersion
                 $"SPIR-V {major}.{minor} no está soportado. Versiones disponibles: 1.{MinMinor} a 1.{MaxMinor}.");
         }
 
-        uint[] words = ToWords(spirv);
+        // OpCopyLogical (1.4) se puede expresar con instrucciones de 1.0: se reescribe en vez de rechazar el shader.
+        uint[] words = ToWords(minor < 4 ? LowerCopyLogical(spirv) : spirv);
         uint[] result = new uint[words.Length];
         Array.Copy(words, result, 5);
         result[1] = (uint)((major << 16) | (minor << 8));
@@ -208,6 +209,183 @@ public static class SpirvVersion
 
         return bytes;
     }
+
+    private const ushort OpTypeArray = 28;
+    private const ushort OpTypeStruct = 30;
+    private const ushort OpConstant = 43;
+    private const ushort OpCompositeConstruct = 80;
+    private const ushort OpCompositeExtract = 81;
+    private const ushort OpCopyLogical = 400;
+
+    /// <summary>
+    /// Reescribe cada <c>OpCopyLogical</c> (copia entre dos tipos con la misma forma y distinto layout, como un struct
+    /// de un buffer y el mismo struct en una variable local) con <c>OpCompositeExtract</c> + <c>OpCompositeConstruct</c>
+    /// miembro a miembro. Es equivalente, existe desde SPIR-V 1.0, y lo aceptan los consumidores que no conocen
+    /// <c>OpCopyLogical</c> (naga para WGSL) o las versiones anteriores a 1.4.
+    /// </summary>
+    public static byte[] LowerCopyLogical(byte[] spirv)
+    {
+        uint[] words = ToWords(spirv);
+        var structs = new Dictionary<uint, uint[]>();
+        var arrays = new Dictionary<uint, (uint Element, uint Length)>();
+        var constants = new Dictionary<uint, uint>();
+        bool found = false;
+
+        for (int at = 5; at < words.Length;)
+        {
+            ushort opcode = (ushort)(words[at] & 0xFFFF);
+            int count = (int)(words[at] >> 16);
+            if (count == 0 || at + count > words.Length)
+            {
+                throw new InvalidDataException("El módulo SPIR-V está truncado o malformado.");
+            }
+
+            switch (opcode)
+            {
+                case OpTypeStruct:
+                    structs[words[at + 1]] = words[(at + 2)..(at + count)];
+                    break;
+                case OpTypeArray:
+                    arrays[words[at + 1]] = (words[at + 2], words[at + 3]);
+                    break;
+                case OpConstant when count == 4:
+                    constants[words[at + 2]] = words[at + 3];
+                    break;
+                case OpCopyLogical:
+                    found = true;
+                    break;
+            }
+
+            at += count;
+        }
+
+        if (!found)
+        {
+            return spirv;
+        }
+
+        // Tipo de cada id de resultado (para conocer el tipo del operando de cada OpCopyLogical).
+        var resultTypes = new Dictionary<uint, uint>();
+        for (int at = 5; at < words.Length;)
+        {
+            ushort opcode = (ushort)(words[at] & 0xFFFF);
+            int count = (int)(words[at] >> 16);
+            if (HasResultType(opcode) && count >= 3)
+            {
+                resultTypes[words[at + 2]] = words[at + 1];
+            }
+
+            at += count;
+        }
+
+        uint bound = words[3];
+        var output = new List<uint>(words.Length * 2);
+        output.AddRange(words.Take(5));
+
+        for (int at = 5; at < words.Length;)
+        {
+            ushort opcode = (ushort)(words[at] & 0xFFFF);
+            int count = (int)(words[at] >> 16);
+
+            if (opcode != OpCopyLogical)
+            {
+                output.AddRange(words.AsSpan(at, count).ToArray());
+                at += count;
+                continue;
+            }
+
+            uint targetType = words[at + 1];
+            uint result = words[at + 2];
+            uint operand = words[at + 3];
+            uint sourceType = resultTypes.TryGetValue(operand, out uint type)
+                ? type
+                : throw new InvalidDataException($"OpCopyLogical: no se conoce el tipo de %{operand}.");
+
+            Convert(targetType, sourceType, operand, result);
+            at += count;
+        }
+
+        output[3] = bound;
+
+        byte[] bytes = new byte[output.Count * sizeof(uint)];
+        for (int index = 0; index < output.Count; index++)
+        {
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(index * sizeof(uint)), output[index]);
+        }
+
+        return bytes;
+
+        // Emite las instrucciones que dejan en `result` (o en un id nuevo) el valor de `value` convertido a `target`.
+        uint Convert(uint target, uint source, uint value, uint? result = null)
+        {
+            if (target == source)
+            {
+                if (result is null)
+                {
+                    return value;
+                }
+
+                // Mismo tipo: el resultado es una copia del valor (OpCopyObject, opcode 83).
+                Emit(83, target, result.Value, value);
+                return result.Value;
+            }
+
+            uint[] targetMembers;
+            uint[] sourceMembers;
+
+            if (structs.TryGetValue(target, out uint[]? targetStruct) &&
+                structs.TryGetValue(source, out uint[]? sourceStruct) &&
+                targetStruct.Length == sourceStruct.Length)
+            {
+                targetMembers = targetStruct;
+                sourceMembers = sourceStruct;
+            }
+            else if (arrays.TryGetValue(target, out var targetArray) &&
+                     arrays.TryGetValue(source, out var sourceArray) &&
+                     constants.TryGetValue(targetArray.Length, out uint length) &&
+                     constants.TryGetValue(sourceArray.Length, out uint sourceLength) &&
+                     length == sourceLength)
+            {
+                targetMembers = Enumerable.Repeat(targetArray.Element, (int)length).ToArray();
+                sourceMembers = Enumerable.Repeat(sourceArray.Element, (int)length).ToArray();
+            }
+            else
+            {
+                throw new NotSupportedException(
+                    $"OpCopyLogical entre %{source} y %{target}: los tipos no tienen la misma forma.");
+            }
+
+            var parts = new uint[targetMembers.Length];
+            for (int index = 0; index < targetMembers.Length; index++)
+            {
+                uint extracted = bound++;
+                Emit(OpCompositeExtract, sourceMembers[index], extracted, value, (uint)index);
+                parts[index] = Convert(targetMembers[index], sourceMembers[index], extracted);
+            }
+
+            uint id = result ?? bound++;
+            Emit(OpCompositeConstruct, target, id, parts);
+            return id;
+        }
+
+        void Emit(ushort code, uint resultType, uint resultId, params uint[] operands)
+        {
+            output.Add((uint)((3 + operands.Length) << 16) | code);
+            output.Add(resultType);
+            output.Add(resultId);
+            output.AddRange(operands);
+        }
+    }
+
+    // Instrucciones con <tipo de resultado, id de resultado> que pueden ser el operando de un OpCopyLogical.
+    private static bool HasResultType(ushort opcode) => opcode is
+        43 or 44 or 46 // OpConstant, OpConstantComposite, OpConstantNull
+        or 57 // OpFunctionCall
+        or 61 // OpLoad
+        or 80 or 81 or 82 or 83 // OpCompositeConstruct, Extract, Insert, OpCopyObject
+        or 245 // OpPhi
+        or 169 // OpSelect
+        or OpCopyLogical;
 
     /// <summary>
     /// Quita las extensiones <c>SPV_GOOGLE_decorate_string</c> / <c>SPV_GOOGLE_hlsl_functionality1</c> y las

@@ -281,6 +281,8 @@ The `spirv`, `hlsl`, `glsl`, `gles`, `msl`, and `cpp` targets come from the SPIR
 
 The `mgfx`, `kni`, and `fna` targets compile the vertex and fragment stages through ShadowDusk, which needs its native DXC and vkd3d-shader libraries. They are not in the repository: run `ThirdParty/ShadowDusk/tools/restore.sh` once (it downloads them and verifies their SHA-256) before using them. If one binary fails to compile, the CLI reports the reason, keeps going with the others, and exits with code 1. Loading and rendering the generated effects is exercised by the load tests in `Examples/` (MonoGame, KNI, and FNA); CI runs the MonoGame and KNI ones on Linux. The current compiler path covers the `Vertex`, `Fragment`, and `Compute` stages and the supported subset of shader-body operations.
 
+`mgfx`, `kni`, `fna` and `godot` come from plugins (`YotsubaShader.Extensions.*` NuGet packages). The CLI installs each one into `~/.yotsuba/plugins` (or `$YOTSUBA_HOME/plugins`) the first time it is used, together with its dependencies and the native libraries for the current platform; `yotsuba plugin list | install | update | remove` manages them by hand. The version installed is the newest one with the same major and minor version as the CLI and not newer than it, because a plugin built against a newer `YotsubaShader.Extensions` does not load in an older CLI. When the installed plugin already has the CLI's version no network request is made, and without a connection the installed copy is used. Several `yotsuba` processes (a parallel build) can install plugins at the same time: they wait for each other.
+
 The `godot` target translates the SPIR-V module to Godot Shading Language: `main` becomes `vertex()` and `fragment()`, vertex inputs map to `VERTEX`, `NORMAL`, `UV`, `UV2` and `COLOR` by semantic, vertex outputs become `varying`s, `SV_Target0` is written to `ALBEDO`/`ALPHA` (`spatial`, emitted with `render_mode unshaded, cull_disabled`) or `COLOR` (`canvas_item`), and `[Uniform]` structs become one `uniform` per field named `<Field>_<Member>`. It has no ShadowDusk dependency. Compute shaders, storage buffers, several render targets and built-ins without a Godot counterpart are reported as errors for that file. The plugin also ships an editor addon (`addons/yotsubashader`) that regenerates the `.gdshader` files whenever the project is built; see `Plugins/YotsubaShader.Extensions.Godot/addon/README.md`.
 
 ### Choosing the output language version
@@ -300,14 +302,15 @@ yotsuba compile Game.csproj --target spirv:1.3 --target glsl:430 --target msl:2.
 ```
 
 - **MSL default.** MSL is produced by YotsubaShaderCross (a port of SPIRV-Cross) and, when no version is given, it keeps SPIRV-Cross's default: MSL 1.2. The compiler never raises it on its own, so shaders that need features from a newer MSL version must request it (for example `msl:2.4` or `msl:3.1`) and the device must support that version.
-- **SPIR-V.** The compiler always emits SPIR-V 1.6. `spirv:1.3` to `1.5` rewrite the module for older drivers: the header version changes and, before 1.4, the entry-point interface lists are reduced to Input/Output variables. If the shader uses an instruction that does not exist in the requested version (`OpCopyLogical` and the pointer comparisons need 1.4, `OpTerminateInvocation` and `OpDemoteToHelperInvocation` need 1.6), the CLI reports an error for that file instead of emitting an invalid module.
+- **SPIR-V.** The compiler always emits SPIR-V 1.6. `spirv:1.3` to `1.5` rewrite the module for older drivers: the header version changes and, before 1.4, the entry-point interface lists are reduced to Input/Output variables. Before 1.4, `OpCopyLogical` (the copy between a buffer struct and the same struct in a local variable) is rewritten member by member with `OpCompositeExtract`/`OpCompositeConstruct`, which is equivalent. If the shader uses another instruction that does not exist in the requested version (the pointer comparisons need 1.4, `OpTerminateInvocation` and `OpDemoteToHelperInvocation` need 1.6), the CLI reports an error for that file instead of emitting an invalid module.
 - **GLSL ES 300.** ESSL 3.00 has no compute shaders; compute stages requested with `gles:300` are reported as errors while graphics stages are emitted.
+- **What a language cannot express is an error for that file, not for the command.** For example `double` in GLSL ES, `PrimitiveId` in MSL below 2.2, `SV_SamplePosition` in HLSL, `BaseVertex` in GLSL ES or WGSL. `compile` prints `Class.Stage (target): reason`, writes every other file, deletes the stale file from a previous run, and exits with code 1.
 - **Several versions of one target** in the same command are written side by side; the version is added to the file name (`Shader.Vertex.430.glsl`).
 - From code, `CompiledCode` has the same options: `ToSpirV(major, minor)`, `ToGlsl(stage, version)`, `ToGlslEs(stage, version)`, `ToHlsl(stage, shaderModel)` and `ToMsl(stage, major, minor, patch)`.
 
 ### WGSL output (CLI only)
 
-`--target wgsl` writes `Shader.wgsl` for each shader class, containing every entry point. It converts the compiled SPIR-V with [naga](https://github.com/gfx-rs/wgpu/tree/trunk/naga), which is native code (Rust), so it is a dependency of the CLI only: the compiler library (`YotsubaShader.Compiler.Library`) stays pure C# and does not emit WGSL. The `SPV_GOOGLE_*` extensions and the decorations they add are removed before the conversion, since naga rejects them.
+`--target wgsl` writes `Shader.wgsl` for each shader class, containing every entry point. It converts the compiled SPIR-V with [naga](https://github.com/gfx-rs/wgpu/tree/trunk/naga), which is native code (Rust), so it is a dependency of the CLI only: the compiler library (`YotsubaShader.Compiler.Library`) stays pure C# and does not emit WGSL. The `SPV_GOOGLE_*` extensions and the decorations they add are removed before the conversion, since naga rejects them, and `OpCopyLogical` is rewritten with instructions naga knows. Read-only buffers (`StructuredBuffer<T>`, `ImmutableArray<T>`, `storage(read)`...) become `var<storage, read>`, which WebGPU requires in the vertex stage. What WGSL cannot express is reported for that shader: built-ins such as `BaseVertex` or `SV_SamplePosition`, and copying a whole struct that has a field used with atomics (WGSL makes that field `atomic<u32>`).
 
 The native library is looked up in `runtimes/<rid>/native/` next to the CLI (or in the path given by `YOTSUBA_NAGA_PATH`). Release builds ship it for `win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`, `osx-x64` and `osx-arm64`; the sources are in `Core/YotsubaShader.Compiler.CLI/Native/naga` and `Native/naga/build.sh` builds the one for the current machine (requires a Rust toolchain). `wgsl` does not take a version.
 
@@ -328,6 +331,10 @@ The command discovers and compiles the shader classes, then writes `YotsubaShade
 - `ToMGFX(this ShaderType shader, MonoGamePlatform platform)`, `ToKNIWebGL_FX(this ShaderType shader)`, and `ToFNA_FX(this ShaderType shader)`, returning the embedded engine effect `byte[]`; `ToGodotShader(this ShaderType shader, GodotShaderType type)` returns the `.gdshader` source as a `string`. `MonoGamePlatform` is an enum declared inside the generated file. If ShadowDusk cannot compile a target while the file is generated, that method throws `NotSupportedException` with the reason instead of failing the whole command.
 
 The generated source uses raw string literals so the emitted shader text remains readable. `CompilerGenerated` and `EditorBrowsable(Never)` keep the helper out of normal IntelliSense lists while leaving the generated file and its methods available to the project. The `add` command currently requires at least one `--target` for CLI argument compatibility; its generated helper set is not filtered by that value. Use `compile` when you need target-specific files in an output directory.
+
+`add` always generates `ToHlsl`, `ToGlsl`, `ToGlslEs` and `ToMSL`. When one stage cannot be written in one of those languages (for example a shader that uses `double`, which GLSL ES does not have), that case of the method throws `NotSupportedException` with the reason and the command prints a warning; it is an error (exit code 1) only when that target was requested with `--target`. The file is rewritten only when its content changes, so an unchanged project is not recompiled.
+
+The previous `YotsubaShader.g.cs` is left out when the project is analyzed: renaming or deleting a shader class does not block the next `add`, and errors in code that calls a generated method that does not exist yet (`ToSpirV`, `ToMGFX`...) are ignored. If the project was never restored, the CLI runs `dotnet restore` once before opening it.
 
 ### Compiler library
 
@@ -368,7 +375,7 @@ The repository brings together:
 
 Requirements:
 
-- .NET 8 SDK
+- .NET 10 SDK to build the whole solution (the CLI targets `net10.0`; the libraries and analyzers target `net8.0`/`netstandard2.0` and work in .NET 8 projects)
 - macOS, Linux, or Windows with a compatible SDK
 
 ```bash
