@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://yotsubashader.com">Website</a> ·
-  <a href="https://yotsubashader.com/documentation/">Documentation</a> ·
+  <a href="https://learn.yotsubashader.com">Documentation</a> ·
   <a href="https://yotsubashader.com/playground/">Playground</a> ·
   <a href="https://github.com/KMemphis/YotsubaShader">Repository</a>
 </p>
@@ -92,7 +92,6 @@ public class BasicColorShader
     }
 
     [ShaderStage(Stage.Fragment)]
-    [return: SV_Target(0)]
     public Vector4 Fragment(VertexOutput input)
     {
         return input.Color;
