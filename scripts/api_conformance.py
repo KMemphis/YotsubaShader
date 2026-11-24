@@ -11,7 +11,8 @@ CLI at that API's language version, runs the real validator for that language, a
 Mismatch rules:
   * works-expected but fails            -> error (a real incompatibility or a broken backend).
   * fails-expected but passes           -> error where the validator is strict, warning where the language has
-                                           extension fallbacks (desktop GLSL) or no real validator is available
+                                           extension fallbacks (desktop GLSL), where the transpiler lowers the feature (Metal's
+                                           `double`) or no real validator is available
                                            (the CLI succeeding is then the only evidence).
 
 Usage:
@@ -93,7 +94,9 @@ def validate(entry: dict, path: pathlib.Path) -> Result:
     if kind == "msl":
         if metal_available():
             done = run(["xcrun", "-sdk", "macosx", "metal", f"-std={METAL_STD[entry['target']]}", "-c", str(path), "-o", os.devnull])
-            return Result(done.returncode == 0, done.stderr.strip().splitlines()[:1].__str__(), True)
+            # Not strict: the Metal compiler accepts what the transpiler lowers (SPIRV-Cross turns `double` into
+            # `float`), so a pass does not prove that the language has the feature.
+            return Result(done.returncode == 0, done.stderr.strip().splitlines()[:1].__str__(), False)
         return Result(True, "sin Metal Toolchain", False)
 
     return Result(True, "sin validador", False)
@@ -119,13 +122,14 @@ def compile_all(cli: str, entry: dict, scratch: pathlib.Path) -> dict:
     target = entry["output"] + (":" + entry["version"] if entry["version"] else "")
     output = scratch / "out"
     shutil.rmtree(output, ignore_errors=True)
-    run([cli, "compile", str(PROJECT), "--target", target, "--output", str(output)], cwd=scratch)
+    compiled = run([cli, "compile", str(PROJECT), "--target", target, "--output", str(output)], cwd=scratch)
+    cli_output = " | ".join((compiled.stdout + compiled.stderr).strip().splitlines()[-3:])
 
     results = {}
     for name in WITNESSES:
         files = sorted(p for p in output.rglob(name + ".*") if p.suffix == EXTENSION[entry["output"]] and p.stat().st_size)
         if not files:
-            results[name] = Result(False, "el CLI no generó el archivo", True)
+            results[name] = Result(False, "el CLI no generó el archivo" + (f" ({cli_output})" if cli_output else ""), True)
             continue
         checked = [validate(entry, path) for path in files]
         failed = next((r for r in checked if not r.ok), None)

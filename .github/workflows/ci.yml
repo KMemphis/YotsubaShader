@@ -345,6 +345,10 @@ jobs:
       - name: Install naga (WGSL validator)
         if: runner.os == 'Linux' && steps.naga-cache.outputs.cache-hit != 'true'
         run: cargo install naga-cli --version 30.0.1 --locked
+      - name: Build the naga native (the CLI needs it for --target wgsl)
+        if: runner.os == 'Linux'
+        # The natives are not committed; naga-native.yml builds one per RID. The macOS job does not generate WGSL.
+        run: bash Core/YotsubaShader.Compiler.CLI/Native/naga/build.sh linux-x64
       - name: Install the Metal toolchain
         if: runner.os == 'macOS'
         # Without it the script reports the Metal results as unverified (warnings) instead of failing.
