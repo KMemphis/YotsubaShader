@@ -95,6 +95,14 @@ internal static unsafe partial class NagaWgsl
         // naga no conoce OpCopyLogical (las copias de structs de buffers): se reescribe antes con instrucciones de 1.0.
         spirv = YotsubaShader.Extensions.SpirvVersion.LowerCopyLogical(spirv);
 
+        // WGSL no tiene texturas con el sampler incluido; naga solo respondería "invalid id".
+        if (CombinedSamplerNames(spirv) is { Count: > 0 } combined)
+        {
+            throw new InvalidOperationException(
+                $"WGSL no tiene texturas con el sampler incluido (sampler2D de GLSL): {string.Join(", ", combined)}. " +
+                "Declara la textura y el sampler por separado (Texture2D y SamplerState en el estilo HLSL).");
+        }
+
         byte* output = null;
         nuint outputLength = 0;
         int status;
@@ -126,6 +134,69 @@ internal static unsafe partial class NagaWgsl
         {
             ys_naga_free(output, outputLength);
         }
+    }
+
+    // Variables UniformConstant cuyo tipo es OpTypeSampledImage (o un array de ellos): el sampler2D de GLSL.
+    private static List<string> CombinedSamplerNames(byte[] spirv)
+    {
+        ReadOnlySpan<uint> words = MemoryMarshal.Cast<byte, uint>(spirv);
+        var combined = new HashSet<uint>();
+        var pointers = new HashSet<uint>();
+        var names = new Dictionary<uint, string>();
+        var found = new List<string>();
+
+        for (int at = 5; at < words.Length;)
+        {
+            uint opcode = words[at] & 0xFFFF;
+            int count = (int)(words[at] >> 16);
+            if (count == 0 || at + count > words.Length)
+            {
+                break;
+            }
+
+            switch (opcode)
+            {
+                case 5 when count >= 3: // OpName
+                    names[words[at + 1]] = ReadString(words.Slice(at + 2, count - 2));
+                    break;
+                case 27: // OpTypeSampledImage
+                    combined.Add(words[at + 1]);
+                    break;
+                case 28 or 29 when combined.Contains(words[at + 2]): // OpTypeArray / OpTypeRuntimeArray
+                    combined.Add(words[at + 1]);
+                    break;
+                case 32 when combined.Contains(words[at + 3]): // OpTypePointer
+                    pointers.Add(words[at + 1]);
+                    break;
+                case 59 when pointers.Contains(words[at + 1]): // OpVariable
+                    found.Add(names.TryGetValue(words[at + 2], out string? name) ? name : $"%{words[at + 2]}");
+                    break;
+            }
+
+            at += count;
+        }
+
+        return found;
+    }
+
+    private static string ReadString(ReadOnlySpan<uint> words)
+    {
+        var bytes = new List<byte>();
+        foreach (uint word in words)
+        {
+            for (int shift = 0; shift < 32; shift += 8)
+            {
+                byte value = (byte)(word >> shift);
+                if (value == 0)
+                {
+                    return Encoding.UTF8.GetString(bytes.ToArray());
+                }
+
+                bytes.Add(value);
+            }
+        }
+
+        return Encoding.UTF8.GetString(bytes.ToArray());
     }
 
     private static nint Resolve(string name, Assembly assembly, DllImportSearchPath? searchPath)
