@@ -479,17 +479,32 @@ switch (parameters.Command)
             string shaderType =
                 $"global::{compiledCode.CSharpFullClassName}";
 
-            AppendToSpirVMethod(
-                stringBuilder,
-                shaderType,
-                compiledCode);
+            // Con `--target spirv:1.3` (u otra versión) el método devuelve ese módulo.
+            if (VersionOf(parameters, ShaderTarget.SpirV) is { } spirvVersion)
+            {
+                try
+                {
+                    AppendToSpirVMethod(stringBuilder, shaderType, compiledCode.ToSpirV(spirvVersion.Major, spirvVersion.Minor));
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    string description = $"{compiledCode.CSharpFullClassName}.ToSpirV (spirv:{spirvVersion}): {exception.Message}";
+                    Console.Error.WriteLine(description);
+                    AppendThrowingMethod(stringBuilder, "byte[]", "ToSpirV", shaderType, description);
+                    Environment.ExitCode = 1;
+                }
+            }
+            else
+            {
+                AppendToSpirVMethod(stringBuilder, shaderType, compiledCode.SpirV);
+            }
 
             AppendTranspilationMethod(
                 stringBuilder,
                 shaderType,
                 compiledCode,
                 "ToHlsl",
-                stage => compiledCode.ToHlsl(stage),
+                stage => GetTranspilation(ShaderTarget.Hlsl, compiledCode, stage, VersionOf(parameters, ShaderTarget.Hlsl)),
                 parameters.Targets.Any(request => request.Target == ShaderTarget.Hlsl));
 
             AppendTranspilationMethod(
@@ -497,7 +512,7 @@ switch (parameters.Command)
                 shaderType,
                 compiledCode,
                 "ToGlsl",
-                stage => compiledCode.ToGlsl(stage),
+                stage => GetTranspilation(ShaderTarget.Glsl, compiledCode, stage, VersionOf(parameters, ShaderTarget.Glsl)),
                 parameters.Targets.Any(request => request.Target == ShaderTarget.Glsl));
 
             AppendTranspilationMethod(
@@ -505,7 +520,7 @@ switch (parameters.Command)
                 shaderType,
                 compiledCode,
                 "ToGlslEs",
-                stage => compiledCode.ToGlslEs(stage),
+                stage => GetTranspilation(ShaderTarget.GlslEs, compiledCode, stage, VersionOf(parameters, ShaderTarget.GlslEs)),
                 parameters.Targets.Any(request => request.Target == ShaderTarget.GlslEs));
 
             AppendTranspilationMethod(
@@ -513,7 +528,7 @@ switch (parameters.Command)
                 shaderType,
                 compiledCode,
                 "ToMSL",
-                stage => compiledCode.ToMsl(stage),
+                stage => GetTranspilation(ShaderTarget.Msl, compiledCode, stage, VersionOf(parameters, ShaderTarget.Msl)),
                 parameters.Targets.Any(request => request.Target == ShaderTarget.Msl));
 
             // WGSL lo convierte naga (nativo): sólo se pide y se genera con --target wgsl.
@@ -827,13 +842,16 @@ static void AppendToWgslMethod(StringBuilder builder, string shaderType, string 
         .AppendLine();
 }
 
+// La versión pedida con `--target nombre:versión` (Args ya garantiza que `add` lleva como mucho una por destino).
+static ShaderVersion? VersionOf(Args parameters, ShaderTarget target) =>
+    parameters.Targets.FirstOrDefault(request => request.Target == target).Version;
+
 static void AppendToSpirVMethod(
     StringBuilder builder,
     string shaderType,
-    CompiledCode compiledCode)
+    byte[] spirv)
 {
-    string base64 = Convert.ToBase64String(
-        compiledCode.SpirV);
+    string base64 = Convert.ToBase64String(spirv);
 
     builder
         .AppendLine(

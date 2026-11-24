@@ -24,10 +24,19 @@ almacena una API key en GitHub.
 
 El submódulo usa el fork `KMemphis/YotsubaShader-ShadowDusk`. Sus cuatro paquetes
 `YotsubaShader.ShadowDusk.*` se empaquetan junto con los paquetes de este repositorio
-con la misma versión. Los binarios ARM64 de vkd3d y DXC se restauran desde los
-GitHub Releases del fork; `tools/restore.*` comprueba sus SHA-256 y los cargadores
-comprueban la identidad nativa antes de usarlos. El verificador del Release exige
-que los seis RID incluyan los binarios requeridos.
+con la misma versión. El fork sigue a ShadowDusk upstream (`kaltinril/ShadowDusk`):
+cada actualización se fusiona en una rama del fork y se enlaza el submódulo antes del
+Release. El DXC fijado (1.9.2607) de Linux (x64 y ARM64) y macOS sale del paquete
+`MonoGame.Tool.Dxc`, y el de Windows de los releases de upstream. Solo los binarios
+ARM64 de vkd3d (Linux y Windows) se restauran desde los GitHub Releases del fork;
+`tools/restore.*` comprueba sus SHA-256 y los cargadores comprueban la identidad
+nativa antes de usarlos. El verificador del Release exige que los seis RID incluyan
+los binarios requeridos, con los hashes de `scripts/verify_release.py`: si cambia
+la versión de DXC o de vkd3d, hay que actualizarlos allí.
+
+El CI (`ci.yml`, job `plugin-smoke`) construye los plugins FNA, MonoGame y KNI desde
+el commit y compila un shader a todos sus destinos en los seis RID, antes de que
+existan en NuGet (`scripts/stage_plugins.py`).
 
 Si un Release se publicó accidentalmente como preliminar, primero cámbialo a
 estable. Reejecutar el workflow omitido conserva el evento original y lo vuelve

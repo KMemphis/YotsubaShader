@@ -58,7 +58,8 @@ VKD3D_SHA256 = {
     "osx-x64": "0fcd4e99d7c4c9b0375535ccfd0c27cf2f72fe60fb28ca7ffc770616d58c09f6",
     "osx-arm64": "b624db5641469c34bc44849cbc42201ffd7cdd26bfc8bb6a4c8f5f6757f8d34b",
 }
-LINUX_ARM64_DXC_SHA256 = "7ecc3bc115efd6e34904992c310a6779032b579d41cdc0f9c66edf7292295cd5"
+# MonoGame.Tool.Dxc 1.9.2607.1 binaries/linux-arm64/lib/libdxcompiler.so: the DXC ShadowDusk pins for Linux ARM64.
+LINUX_ARM64_DXC_SHA256 = "b3cec73ebcada16b98707a61bacf04e450ff5b98c8978a7f7ce0f0cd9164094f"
 
 
 def check_native_hash(package: zipfile.ZipFile, asset: str, expected: str) -> None:
@@ -150,10 +151,18 @@ def smoke(executable: pathlib.Path, project: pathlib.Path) -> None:
         "glsl": ".glsl",
         "msl": ".msl",
     }
-    # Plugin targets are fetched from NuGet (latest version), so they can only be
-    # smoke-tested once the plugin packages are published.
-    if os.environ.get("YOTSUBA_SMOKE_PLUGINS") == "1":
-        targets.update({"monogame": ".mgfx", "kni": ".knifx", "fna": ".fxb", "godot": ".gdshader"})
+    # Plugin targets come from the plugins installed under YOTSUBA_HOME (scripts/stage_plugins.py stages the ones of
+    # this checkout) or are fetched from NuGet, so without staging they can only be smoke-tested once the plugin
+    # packages are published. YOTSUBA_SMOKE_PLUGINS is "1" for all of them or a list such as "fna,monogame,kni".
+    plugin_extensions = {"monogame": ".mgfx", "kni": ".knifx", "fna": ".fxb", "godot": ".gdshader"}
+    requested = os.environ.get("YOTSUBA_SMOKE_PLUGINS", "")
+    if requested == "1":
+        targets.update(plugin_extensions)
+    elif requested:
+        for name in (item.strip() for item in requested.split(",") if item.strip()):
+            if name not in plugin_extensions:
+                raise ValueError(f"YOTSUBA_SMOKE_PLUGINS names an unknown plugin '{name}'")
+            targets[name] = plugin_extensions[name]
     with tempfile.TemporaryDirectory(prefix="yotsuba-release-smoke-") as scratch:
         output = pathlib.Path(scratch) / "output"
         args = [str(executable), "compile", str(project)]

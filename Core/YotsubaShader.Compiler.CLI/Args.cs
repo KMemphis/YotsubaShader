@@ -190,6 +190,14 @@ public sealed class Args
             }
         }
 
+        // `add` escribe un solo método por destino (ToGlslEs, ToHlsl...): no puede llevar dos versiones del mismo.
+        if (Command == Command.Add &&
+            Targets.GroupBy(request => request.Target).FirstOrDefault(group => group.Count() > 1) is { } repeated)
+        {
+            throw new CliUsageException(
+                $"'add' genera un solo método por destino; pide una sola versión de '{repeated.Key.ToString().ToLowerInvariant()}'.");
+        }
+
         PluginTargets = pluginTargets
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();

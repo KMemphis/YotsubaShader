@@ -19,7 +19,7 @@
 
 YotsubaShader is the shader authoring layer for your engine, framework, or content tool. Your team writes shaders in C# using types, structures, and attributes. The compiler interprets their interfaces and stages, lowers the supported shader subset to a shared intermediate representation, and generates output for the selected backend.
 
-The central idea is simple: **the attribute style you use does not determine the output target**. HLSL, GLSL, Metal, Vulkan, and WGSL provide equivalent authoring vocabularies. Choose the one your team knows best, then select SPIR-V or another backend when compiling. WGSL-style authoring is available; WGSL output itself remains planned.
+The central idea is simple: **the attribute style you use does not determine the output target**. HLSL, GLSL, Metal, Vulkan, and WGSL provide equivalent authoring vocabularies. Choose the one your team knows best, then select SPIR-V or another backend when compiling. WGSL works both ways: you can author with WGSL-style attributes, and `--target wgsl` generates WGSL for WebGPU.
 
 ```text
 C# with familiar attributes
@@ -28,7 +28,7 @@ semantic analysis and validation
           ↓
 Yotsuba IR
           ↓
-SPIR-V · HLSL · GLSL · GLSL ES · MSL · C++
+SPIR-V · HLSL · GLSL · GLSL ES · MSL · WGSL · C++
 ```
 
 ## Why YotsubaShader
