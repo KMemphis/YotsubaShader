@@ -45,15 +45,17 @@ internal sealed class MethodFacts
 /// <summary>Reglas sobre el cuerpo de los métodos: C# sin traducción, intrínsecas por etapa y portabilidad.</summary>
 internal sealed class BodyRules
 {
+    private readonly TargetSet _set;
     private readonly ShaderTargets _targets;
     private readonly Func<IMethodSymbol, MethodFacts> _factsFor;
     private readonly IMethodSymbol _root;
     private readonly HashSet<string> _portableTypesReported = new();
 
-    private BodyRules(IMethodSymbol root, ShaderTargets targets, Func<IMethodSymbol, MethodFacts> factsFor)
+    private BodyRules(IMethodSymbol root, TargetSet targets, Func<IMethodSymbol, MethodFacts> factsFor)
     {
         _root = root;
-        _targets = targets;
+        _set = targets;
+        _targets = targets.Coarse;
         _factsFor = factsFor;
     }
 
@@ -61,7 +63,7 @@ internal sealed class BodyRules
     /// Recorre <paramref name="body"/>. Los diagnósticos van a los <see cref="MethodFacts"/> del método (o de la función
     /// local) donde aparecen; quien llama decide cuándo publicarlos.
     /// </summary>
-    public static void Analyze(IMethodSymbol method, IOperation body, ShaderTargets targets, Func<IMethodSymbol, MethodFacts> factsFor)
+    public static void Analyze(IMethodSymbol method, IOperation body, TargetSet targets, Func<IMethodSymbol, MethodFacts> factsFor)
     {
         var rules = new BodyRules(method, targets, factsFor);
         MethodFacts facts = factsFor(method);
@@ -122,8 +124,8 @@ internal sealed class BodyRules
             case ILocalFunctionOperation localFunction:
                 if (!SupportedFeatures.LocalFunctions)
                 {
-                    Report(facts, ShaderRules.UnsupportedStatement, operation.Syntax.GetLocation(), "función local",
-                        "Las funciones locales todavía no están soportadas; muévela a un método de la clase.");
+                    Report(facts, ShaderRules.UnsupportedStatement, operation.Syntax.GetLocation(), Loc.T("local function"),
+                        Loc.T("Local functions are not supported yet; move it to a method of the class."));
                     return;
                 }
 
@@ -134,76 +136,76 @@ internal sealed class BodyRules
                 return;
 
             case ITryOperation:
-                Unsupported(facts, operation, "try/catch/finally", "La GPU no tiene excepciones.");
+                Unsupported(facts, operation, "try/catch/finally", Loc.T("The GPU has no exceptions."));
                 return;
             case IThrowOperation:
-                Unsupported(facts, operation, "throw", "La GPU no tiene excepciones; usa un valor por defecto o discard.");
+                Unsupported(facts, operation, "throw", Loc.T("The GPU has no exceptions; use a default value or discard."));
                 return;
             case IBranchOperation { BranchKind: BranchKind.GoTo }:
             case ILabeledOperation:
-                Unsupported(facts, operation, "goto", "Usa bucles y break/continue.");
+                Unsupported(facts, operation, "goto", Loc.T("Use loops and break/continue."));
                 return;
             case ILockOperation:
-                Unsupported(facts, operation, "lock", "Para sincronizar hilos de un compute shader usa una barrera.");
+                Unsupported(facts, operation, "lock", Loc.T("To synchronize threads in a compute shader use a barrier."));
                 return;
             case IUsingOperation:
             case IUsingDeclarationOperation:
-                Unsupported(facts, operation, "using", "La GPU no tiene recursos desechables.");
+                Unsupported(facts, operation, "using", Loc.T("The GPU has no disposable resources."));
                 return;
             case IReturnOperation { Kind: OperationKind.YieldReturn or OperationKind.YieldBreak }:
-                Unsupported(facts, operation, "yield", "Los shaders no tienen iteradores.");
+                Unsupported(facts, operation, "yield", Loc.T("Shaders have no iterators."));
                 return;
             case IAwaitOperation:
-                Unsupported(facts, operation, "await", "Los shaders no tienen código asíncrono.", expression: true);
+                Unsupported(facts, operation, "await", Loc.T("Shaders have no asynchronous code."), expression: true);
                 return;
             case IAnonymousFunctionOperation:
             case IDelegateCreationOperation:
-                Unsupported(facts, operation, "lambda", "Los shaders no tienen delegados; escribe un método.", expression: true);
+                Unsupported(facts, operation, "lambda", Loc.T("Shaders have no delegates; write a method."), expression: true);
                 return;
             case IDynamicInvocationOperation:
             case IDynamicMemberReferenceOperation:
             case IDynamicObjectCreationOperation:
             case IDynamicIndexerAccessOperation:
-                Unsupported(facts, operation, "dynamic", "Los tipos se resuelven al compilar el shader.", expression: true);
+                Unsupported(facts, operation, "dynamic", Loc.T("Types are resolved when the shader is compiled."), expression: true);
                 return;
             case IFunctionPointerInvocationOperation:
-                Unsupported(facts, operation, "puntero a función", "La GPU no tiene llamadas indirectas.", expression: true);
+                Unsupported(facts, operation, Loc.T("function pointer"), Loc.T("The GPU has no indirect calls."), expression: true);
                 return;
             case IConditionalAccessOperation:
-                Unsupported(facts, operation, "?.", "En la GPU no hay valores null.", expression: true);
+                Unsupported(facts, operation, "?.", Loc.T("There are no null values on the GPU."), expression: true);
                 return;
             case ICoalesceOperation:
             case ICoalesceAssignmentOperation:
-                Unsupported(facts, operation, "??", "En la GPU no hay valores null.", expression: true);
+                Unsupported(facts, operation, "??", Loc.T("There are no null values on the GPU."), expression: true);
                 return;
             case IEventReferenceOperation:
             case IEventAssignmentOperation:
-                Unsupported(facts, operation, "evento", "Los shaders no tienen eventos.", expression: true);
+                Unsupported(facts, operation, Loc.T("event"), Loc.T("Shaders have no events."), expression: true);
                 return;
             case ITypeOfOperation:
-                Unsupported(facts, operation, "typeof", "Los shaders no tienen reflexión.", expression: true);
+                Unsupported(facts, operation, "typeof", Loc.T("Shaders have no reflection."), expression: true);
                 return;
             case IInterpolatedStringOperation:
-                Unsupported(facts, operation, "cadena interpolada", "La GPU no tiene strings.", expression: true);
+                Unsupported(facts, operation, Loc.T("interpolated string"), Loc.T("The GPU has no strings."), expression: true);
                 return;
             case IAnonymousObjectCreationOperation:
-                Unsupported(facts, operation, "tipo anónimo", "Declara un struct.", expression: true);
+                Unsupported(facts, operation, Loc.T("anonymous type"), Loc.T("Declare a struct."), expression: true);
                 return;
             case ITranslatedQueryOperation:
-                Unsupported(facts, operation, "consulta LINQ", "Usa un bucle.", expression: true);
+                Unsupported(facts, operation, Loc.T("LINQ query"), Loc.T("Use a loop."), expression: true);
                 return;
             case IIsTypeOperation:
             case IDeclarationPatternOperation:
             case ITypePatternOperation:
-                Unsupported(facts, operation, "patrón de tipo", "Los tipos de un shader se conocen al compilar.", expression: true);
+                Unsupported(facts, operation, Loc.T("type pattern"), Loc.T("The types of a shader are known at compile time."), expression: true);
                 return;
             case ISwitchOperation when !SupportedFeatures.Switch:
-                Unsupported(facts, operation, "switch", "Todavía no está soportado; usa if/else.");
+                Unsupported(facts, operation, "switch", Loc.T("Not supported yet; use if/else."));
                 return;
             case ISwitchExpressionOperation switchExpression:
                 if (!SupportedFeatures.Switch)
                 {
-                    Unsupported(facts, operation, "expresión switch", "Todavía no está soportada; usa el operador ?:.", expression: true);
+                    Unsupported(facts, operation, Loc.T("switch expression"), Loc.T("Not supported yet; use the ?: operator."), expression: true);
                     return;
                 }
 
@@ -214,11 +216,11 @@ internal sealed class BodyRules
 
                 break;
             case IDefaultValueOperation when !SupportedFeatures.DefaultValue:
-                Unsupported(facts, operation, "default", "Todavía no está soportado; inicializa con un valor explícito.", expression: true);
+                Unsupported(facts, operation, "default", Loc.T("Not supported yet; initialize with an explicit value."), expression: true);
                 return;
             case IDeconstructionAssignmentOperation when !SupportedFeatures.Deconstruction:
             case ITupleOperation when !SupportedFeatures.Deconstruction:
-                Unsupported(facts, operation, "tupla", "Las tuplas y la deconstrucción todavía no están soportadas.", expression: true);
+                Unsupported(facts, operation, Loc.T("tuple"), Loc.T("Tuples and deconstruction are not supported yet."), expression: true);
                 return;
             case IForEachLoopOperation forEach:
                 CheckForEach(forEach, facts);
@@ -258,18 +260,18 @@ internal sealed class BodyRules
             case IConversionOperation { Type.SpecialType: SpecialType.System_Int64 or SpecialType.System_UInt64 } longConversion
                 when !SupportedFeatures.Int64:
                 Report(facts, ShaderRules.UnsupportedTypeUse, operation.Syntax.GetLocation(), operation.Syntax.ToString(),
-                    longConversion.Type!.ToDisplayString() + " (en C#, mezclar uint con int da long: convierte uno de los dos)");
+                    longConversion.Type!.ToDisplayString() + Loc.T(" (in C#, mixing uint with int gives long: convert one of them)"));
                 return;
             case IAddressOfOperation:
             case { Syntax: var pointerSyntax } when pointerSyntax.GetType().Name == "PrefixUnaryExpressionSyntax" && pointerSyntax.ToString().StartsWith("*"):
-                Unsupported(facts, operation, "puntero", "La GPU no tiene punteros en el código del shader.", expression: true);
+                Unsupported(facts, operation, Loc.T("pointer"), Loc.T("The GPU has no pointers in shader code."), expression: true);
                 return;
             case { Syntax: var unsafeSyntax } when unsafeSyntax.GetType().Name is "StackAllocArrayCreationExpressionSyntax" or "FixedStatementSyntax" or "UnsafeStatementSyntax":
                 Unsupported(facts, operation, unsafeSyntax.GetType().Name.StartsWith("StackAlloc") ? "stackalloc" : unsafeSyntax.GetType().Name.StartsWith("Fixed") ? "fixed" : "unsafe",
-                    "La GPU no tiene memoria sin gestionar.");
+                    Loc.T("The GPU has no unmanaged memory."));
                 return;
             case IConversionOperation { IsChecked: true }:
-                Unsupported(facts, operation, "checked", "La GPU no detecta desbordamientos.", expression: true);
+                Unsupported(facts, operation, "checked", Loc.T("The GPU does not detect overflows."), expression: true);
                 return;
             case ISimpleAssignmentOperation or ICompoundAssignmentOperation or IIncrementOrDecrementOperation:
                 CheckWriteToInput(operation, facts);
@@ -327,7 +329,7 @@ internal sealed class BodyRules
         GpuScalar scalar = gpuType.Kind == GpuTypeKind.Array ? GpuType.ScalarOf(((IArrayTypeSymbol)type).ElementType) : gpuType.Scalar;
         if (scalar is GpuScalar.Int64 or GpuScalar.UInt64 && !SupportedFeatures.Int64)
         {
-            Report(facts, ShaderRules.UnsupportedTypeUse, location, name, type.ToDisplayString() + " (los enteros de 64 bits todavía no están soportados)");
+            Report(facts, ShaderRules.UnsupportedTypeUse, location, name, type.ToDisplayString() + Loc.T(" (64-bit integers are not supported yet)"));
             return;
         }
 
@@ -344,31 +346,27 @@ internal sealed class BodyRules
 
     private void ReportPortableScalar(GpuScalar scalar, string typeName, Location location, MethodFacts facts)
     {
-        (string? why, ShaderTargets affected) = scalar switch
+        ApiFeature? feature = scalar switch
         {
-            GpuScalar.Double => ("no existe en WGSL ni en MSL y es opcional en Vulkan (shaderFloat64), Direct3D 12 y OpenGL ES",
-                ShaderTargets.WebGPU | ShaderTargets.Metal | ShaderTargets.Vulkan | ShaderTargets.D3D12 | ShaderTargets.OpenGL),
-            GpuScalar.Half => ("necesita 'shader-f16' en WebGPU, shaderFloat16 en Vulkan, SM 6.2 con -enable-16bit-types en Direct3D 12 y una extensión en OpenGL",
-                ShaderTargets.WebGPU | ShaderTargets.Vulkan | ShaderTargets.D3D12 | ShaderTargets.OpenGL),
-            GpuScalar.Int16 or GpuScalar.UInt16 => ("no existe en WGSL y necesita shaderInt16 en Vulkan, SM 6.2 en Direct3D 12 y una extensión en OpenGL",
-                ShaderTargets.WebGPU | ShaderTargets.Vulkan | ShaderTargets.D3D12 | ShaderTargets.OpenGL),
-            GpuScalar.Int64 or GpuScalar.UInt64 => ("no existe en WGSL y es opcional en Vulkan (shaderInt64), Direct3D 12 y OpenGL",
-                ShaderTargets.WebGPU | ShaderTargets.Vulkan | ShaderTargets.D3D12 | ShaderTargets.OpenGL),
-            _ => (null, ShaderTargets.None)
+            GpuScalar.Double => ApiFeature.Float64,
+            GpuScalar.Half => ApiFeature.Float16,
+            GpuScalar.Int16 or GpuScalar.UInt16 => ApiFeature.Int16,
+            GpuScalar.Int64 or GpuScalar.UInt64 => ApiFeature.Int64,
+            _ => null
         };
 
-        affected &= _targets;
-        if (why is null || affected == ShaderTargets.None) return;
-        if (!_portableTypesReported.Add(scalar.ToString())) return;
+        if (feature is null || !_portableTypesReported.Add(scalar.ToString())) return;
+        if (_set.Check(feature.Value) is not { } issue) return;
 
-        Report(facts, ShaderRules.PortableType, location, typeName, why, ShaderTargetsParser.Describe(affected));
+        DiagnosticDescriptor descriptor = issue.Unavailable ? ShaderRules.AsError(ShaderRules.PortableType) : ShaderRules.PortableType;
+        Report(facts, descriptor, location, typeName, issue.Reasons, issue.Targets);
     }
 
     private void CheckBinary(IBinaryOperation binary, MethodFacts facts)
     {
         if (binary.IsChecked)
         {
-            Unsupported(facts, binary, "checked", "La GPU no detecta desbordamientos.", expression: true);
+            Unsupported(facts, binary, "checked", Loc.T("The GPU does not detect overflows."), expression: true);
         }
 
         if (binary.OperatorKind is BinaryOperatorKind.Divide or BinaryOperatorKind.Remainder &&
@@ -402,15 +400,15 @@ internal sealed class BodyRules
     {
         if (creation.Type is IArrayTypeSymbol { Rank: > 1 })
         {
-            Report(facts, ShaderRules.UnsupportedArray, creation.Syntax.GetLocation(), "Los arrays multidimensionales no existen en la GPU");
+            Report(facts, ShaderRules.UnsupportedArray, creation.Syntax.GetLocation(), Loc.T("Multidimensional arrays do not exist on the GPU"));
         }
         else if (creation.Type is IArrayTypeSymbol { ElementType: IArrayTypeSymbol })
         {
-            Report(facts, ShaderRules.UnsupportedArray, creation.Syntax.GetLocation(), "Los arrays de arrays no existen en la GPU");
+            Report(facts, ShaderRules.UnsupportedArray, creation.Syntax.GetLocation(), Loc.T("Arrays of arrays do not exist on the GPU"));
         }
         else if (creation.DimensionSizes.Length == 1 && !creation.DimensionSizes[0].ConstantValue.HasValue)
         {
-            Report(facts, ShaderRules.UnsupportedArray, creation.Syntax.GetLocation(), "La longitud del array no es constante");
+            Report(facts, ShaderRules.UnsupportedArray, creation.Syntax.GetLocation(), Loc.T("The array length is not constant"));
         }
     }
 
@@ -430,8 +428,7 @@ internal sealed class BodyRules
         {
             if (!(SupportedFeatures.ForEachOverVectors && GpuType.Of(collection.Type).Kind == GpuTypeKind.Vector))
             {
-                Report(facts, ShaderRules.UnsupportedStatement, forEach.Collection.Syntax.GetLocation(), "foreach sobre " +
-                    (collection.Type?.ToDisplayString() ?? "?"), "Solo se puede recorrer un array.");
+                Report(facts, ShaderRules.UnsupportedStatement, forEach.Collection.Syntax.GetLocation(), Loc.F("foreach over {0}", collection.Type?.ToDisplayString() ?? "?"), Loc.T("Only an array can be iterated."));
             }
 
             return;
@@ -439,8 +436,8 @@ internal sealed class BodyRules
 
         if (!HasKnownLength(collection))
         {
-            Report(facts, ShaderRules.UnsupportedStatement, forEach.Collection.Syntax.GetLocation(), "foreach sobre este array",
-                "Su longitud no se conoce al compilar: usa un array local new T[N], un parámetro o un campo con [ArrayLength(n)].");
+            Report(facts, ShaderRules.UnsupportedStatement, forEach.Collection.Syntax.GetLocation(), Loc.T("foreach over this array"),
+                Loc.T("Its length is not known at compile time: use a local array new T[N], a parameter or a field with [ArrayLength(n)]."));
         }
     }
 
@@ -449,7 +446,7 @@ internal sealed class BodyRules
         if (!HasKnownLength(length.Instance!))
         {
             Report(facts, ShaderRules.UnsupportedExpression, length.Syntax.GetLocation(), "Length",
-                "La longitud no se conoce al compilar: usa un array local new T[N], un parámetro o un campo con [ArrayLength(n)].");
+                Loc.T("The length is not known at compile time: use a local array new T[N], a parameter or a field with [ArrayLength(n)]."));
         }
     }
 
@@ -616,7 +613,7 @@ internal sealed class BodyRules
             if (!method.ContainingType!.IsValueType || method.IsAbstract || method.ContainingType.TypeKind == TypeKind.Interface)
             {
                 Report(facts, ShaderRules.VirtualCall, location, method.Name,
-                    method.ContainingType.TypeKind == TypeKind.Interface ? "un método de interfaz" : "virtual");
+                    method.ContainingType.TypeKind == TypeKind.Interface ? Loc.T("an interface method") : "virtual");
             }
         }
 
@@ -645,7 +642,7 @@ internal sealed class BodyRules
             if (argument.Parameter?.Type is IArrayTypeSymbol && !HasKnownLength(argument.Value))
             {
                 Report(facts, ShaderRules.UnsupportedArray, argument.Syntax.GetLocation(),
-                    $"La longitud del array que se pasa a '{method.Name}' no se conoce al compilar");
+                    Loc.F("The length of the array passed to '{0}' is not known at compile time", method.Name));
             }
         }
 
@@ -698,20 +695,20 @@ internal sealed class BodyRules
 
         if (implicitLod)
         {
-            facts.StageUsages.Add(new StageUsage(StageRequirement.FragmentOnly, name, "(muestreo con LOD implícito, usa derivadas)", location));
+            facts.StageUsages.Add(new StageUsage(StageRequirement.FragmentOnly, name, Loc.T("(sampling with implicit LOD, uses derivatives)"), location));
         }
         else if (derivative)
         {
-            facts.StageUsages.Add(new StageUsage(StageRequirement.FragmentOnly, name, "(derivada en pantalla)", location));
+            facts.StageUsages.Add(new StageUsage(StageRequirement.FragmentOnly, name, Loc.T("(screen-space derivative)"), location));
         }
         else if (intrinsic is "Discard" or "DiscardIfNegative")
         {
-            facts.StageUsages.Add(new StageUsage(StageRequirement.FragmentOnly, name, "(descarta el fragmento)", location));
+            facts.StageUsages.Add(new StageUsage(StageRequirement.FragmentOnly, name, Loc.T("(discards the fragment)"), location));
         }
         else if (intrinsic.StartsWith("InterpolateAt"))
         {
-            facts.StageUsages.Add(new StageUsage(StageRequirement.FragmentOnly, name, "(interpola una entrada del fragment)", location));
-            ReportPortableIntrinsic(name, "no existe en WGSL", ShaderTargets.WebGPU, location, facts);
+            facts.StageUsages.Add(new StageUsage(StageRequirement.FragmentOnly, name, Loc.T("(interpolates a fragment input)"), location));
+            ReportPortableIntrinsic(name, Loc.T("does not exist in WGSL"), ShaderTargets.WebGPU, location, facts);
         }
         else if (intrinsic is "ThreadGroupBarrier" or "MemoryBarrierShared" or "MemoryBarrierGroup")
         {
@@ -748,7 +745,7 @@ internal sealed class BodyRules
 
         if (intrinsic == "TexelFetchCube")
         {
-            Report(facts, ShaderRules.UnsupportedIntrinsic, location, name, "lee un texel de un texture cube, y SPIR-V no lo permite (OpImageFetch no admite cube)");
+            Report(facts, ShaderRules.UnsupportedIntrinsic, location, name, Loc.T("reads a texel from a cube texture, and SPIR-V does not allow it (OpImageFetch does not support cube)"));
         }
     }
 
@@ -772,7 +769,7 @@ internal sealed class BodyRules
                 if (affected != ShaderTargets.None)
                 {
                     Report(facts, ShaderRules.PortableIntrinsic, argument.Syntax.GetLocation(), invocation.TargetMethod.Name,
-                        "usa un offset de texels que no es constante: HLSL, WGSL y GLSL exigen un valor conocido al compilar",
+                        Loc.T("uses a texel offset that is not constant: HLSL, WGSL and GLSL require a value known at compile time"),
                         ShaderTargetsParser.Describe(affected));
                 }
             }
@@ -781,12 +778,12 @@ internal sealed class BodyRules
         if (offsets >= 4)
         {
             Report(facts, ShaderRules.UnsupportedIntrinsic, invocation.Syntax.GetLocation(), invocation.TargetMethod.Name,
-                "con cuatro offsets distintos todavía no está soportada");
+                Loc.T("with four different offsets is not supported yet"));
         }
         else if (offsets > 0 && intrinsic.Contains("Cube"))
         {
             Report(facts, ShaderRules.UnsupportedIntrinsic, invocation.Syntax.GetLocation(), invocation.TargetMethod.Name,
-                "no admite offsets sobre un texture cube");
+                Loc.T("does not support offsets on a cube texture"));
         }
     }
 

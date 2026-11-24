@@ -53,7 +53,7 @@ internal sealed class InterfaceSignature
 
 internal static class InterfaceRules
 {
-    public static InterfaceSignature Analyze(IMethodSymbol method, ShaderStageKind stage, ShaderTargets targets, Action<Diagnostic> report)
+    public static InterfaceSignature Analyze(IMethodSymbol method, ShaderStageKind stage, TargetSet targets, Action<Diagnostic> report)
     {
         var members = new List<InterfaceMember>();
 
@@ -126,7 +126,7 @@ internal static class InterfaceRules
         }
     }
 
-    private static void Validate(IMethodSymbol method, ShaderStageKind stage, ShaderTargets targets, List<InterfaceMember> members,
+    private static void Validate(IMethodSymbol method, ShaderStageKind stage, TargetSet targets, List<InterfaceMember> members,
         Action<Diagnostic> report)
     {
         string stageName = DeclarationRules.StageName(stage);
@@ -166,7 +166,7 @@ internal static class InterfaceRules
                 case GpuTypeKind.Texture:
                 case GpuTypeKind.Sampler:
                     report(Diagnostic.Create(ShaderRules.ResourceInInterface, member.Location, member.Name,
-                        member.Type.Kind == GpuTypeKind.Texture ? "una textura" : "un sampler"));
+                        Loc.T(member.Type.Kind == GpuTypeKind.Texture ? "a texture" : "a sampler")));
                     continue;
                 case GpuTypeKind.Unsupported:
                     report(Diagnostic.Create(ShaderRules.InterfaceUnsupportedType, member.Location, member.Name, member.TypeName));
@@ -174,7 +174,7 @@ internal static class InterfaceRules
             }
 
             ConceptAttribute? slot = slotAttributes.FirstOrDefault();
-            string direction = member.Direction == InterfaceDirection.Input ? "entrada" : "salida";
+            string direction = member.Direction == InterfaceDirection.Input ? Loc.T("input") : Loc.T("output");
 
             if (slot is not null && BuiltInTable.Resolve(slot, stage) is { } builtIn)
             {
@@ -183,14 +183,14 @@ internal static class InterfaceRules
                 {
                     if (builtIn.Allowed.Any(a => a.Stage == stage))
                     {
-                        string expected = builtIn.Allowed.First(a => a.Stage == stage).Direction == InterfaceDirection.Input ? "una entrada" : "una salida";
+                        string expected = Loc.T(builtIn.Allowed.First(a => a.Stage == stage).Direction == InterfaceDirection.Input ? "an input" : "an output");
                         report(Diagnostic.Create(ShaderRules.BuiltInWrongDirection, slot.GetLocation() ?? member.Location,
-                            slot.Name, builtIn.SpirvName, expected, stageName, member.Direction == InterfaceDirection.Input ? "una entrada" : "una salida"));
+                            slot.Name, builtIn.SpirvName, expected, stageName, Loc.T(member.Direction == InterfaceDirection.Input ? "an input" : "an output")));
                     }
                     else
                     {
                         string where = string.Join(", ", builtIn.Allowed.Select(a =>
-                            DeclarationRules.StageName(a.Stage) + (a.Direction == InterfaceDirection.Input ? " (entrada)" : " (salida)")));
+                            DeclarationRules.StageName(a.Stage) + Loc.T(a.Direction == InterfaceDirection.Input ? " (input)" : " (output)")));
                         report(Diagnostic.Create(ShaderRules.BuiltInWrongStage, slot.GetLocation() ?? member.Location,
                             slot.Name, builtIn.SpirvName, stageName, where));
                     }
@@ -225,7 +225,7 @@ internal static class InterfaceRules
                 if (missing != ShaderTargets.None && builtIn.PortabilityNote is not null)
                 {
                     report(Diagnostic.Create(ShaderRules.PortableBuiltIn, slot.GetLocation() ?? member.Location, slot.Name,
-                        builtIn.SpirvName, builtIn.PortabilityNote, ShaderTargetsParser.Describe(missing)));
+                        builtIn.SpirvName, Loc.T(builtIn.PortabilityNote), ShaderTargetsParser.Describe(missing)));
                 }
 
                 continue;
@@ -339,7 +339,7 @@ internal static class InterfaceRules
             if (locations.TryGetValue((member.Direction, location), out InterfaceMember? other))
             {
                 report(Diagnostic.Create(ShaderRules.LocationOverlap, member.Location, location, member.Name, other.Name,
-                    member.Direction == InterfaceDirection.Input ? "entradas" : "salidas", method.Name));
+                    Loc.T(member.Direction == InterfaceDirection.Input ? "inputs" : "outputs"), method.Name));
                 return;
             }
 
@@ -347,42 +347,36 @@ internal static class InterfaceRules
         }
     }
 
-    private static void ReportInterfaceLimits(IMethodSymbol method, ShaderStageKind stage, ShaderTargets targets,
+    private static void ReportInterfaceLimits(IMethodSymbol method, ShaderStageKind stage, TargetSet targets,
         List<InterfaceMember> members, Action<Diagnostic> report)
     {
         int Count(InterfaceDirection direction) => members
             .Where(m => m.Direction == direction && m.LinkKey is not null)
             .Sum(m => m.Type.LocationCount);
 
+        void Limit(int used, Func<ApiProfile, int?> limit, string what)
+        {
+            var exceeding = targets.Exceeding(used, limit);
+            if (exceeding.Count == 0) return;
+            report(Diagnostic.Create(ShaderRules.PortableLimit, DeclarationRules.LocationOf(method),
+                Loc.F("'{0}' uses {1} {2}; ", method.Name, used, Loc.T(what)) +
+                string.Join(", ", exceeding.Select(p => Loc.F("{0} guarantees {1}", p.Name, limit(p)))) + ".",
+                TargetSet.Describe(exceeding)));
+        }
+
         if (stage == ShaderStageKind.Fragment)
         {
-            int targetsUsed = Count(InterfaceDirection.Output);
-            if (targetsUsed > 4 && (targets & ShaderTargets.Vulkan) != 0)
-            {
-                report(Diagnostic.Create(ShaderRules.PortableLimit, DeclarationRules.LocationOf(method),
-                    $"'{method.Name}' escribe {targetsUsed} render targets; Vulkan solo garantiza 4.", "Vulkan"));
-            }
+            Limit(Count(InterfaceDirection.Output), p => p.MaxColorAttachments, "render targets");
         }
 
         if (stage == ShaderStageKind.Vertex)
         {
-            int inputs = Count(InterfaceDirection.Input);
-            ShaderTargets limited = targets & (ShaderTargets.Vulkan | ShaderTargets.WebGPU);
-            if (inputs > 16 && limited != 0)
-            {
-                report(Diagnostic.Create(ShaderRules.PortableLimit, DeclarationRules.LocationOf(method),
-                    $"'{method.Name}' usa {inputs} entradas de vértice; Vulkan y WebGPU solo garantizan 16.", ShaderTargetsParser.Describe(limited)));
-            }
+            Limit(Count(InterfaceDirection.Input), p => p.MaxVertexInputs, "vertex inputs");
         }
 
         int interStage = stage == ShaderStageKind.Vertex ? Count(InterfaceDirection.Output)
             : stage == ShaderStageKind.Fragment ? Count(InterfaceDirection.Input) : 0;
-        if (interStage > 16 && (targets & (ShaderTargets.WebGPU | ShaderTargets.Vulkan)) != 0)
-        {
-            report(Diagnostic.Create(ShaderRules.PortableLimit, DeclarationRules.LocationOf(method),
-                $"'{method.Name}' usa {interStage} variables entre etapas; WebGPU y Vulkan solo garantizan 16.",
-                ShaderTargetsParser.Describe(targets & (ShaderTargets.WebGPU | ShaderTargets.Vulkan))));
-        }
+        Limit(interStage, p => p.MaxInterStageVariables, "inter-stage variables");
     }
 
     // Los arrays de interfaz necesitan una longitud conocida; el compilador todavía no la acepta en la interfaz.

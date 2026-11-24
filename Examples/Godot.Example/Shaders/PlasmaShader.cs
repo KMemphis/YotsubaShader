@@ -1,3 +1,4 @@
+using YotsubaShader.Compiler.Metadata;
 using YotsubaShader.Language;
 using YotsubaShader.HlslSyntax;
 using YotsubaShader.HlslSyntax.Types;
@@ -21,6 +22,7 @@ public struct PlasmaParams
 /// Un efecto a pantalla completa: el vértice pasa la posición tal cual (espacio de recorte) y el fragmento pinta
 /// un plasma animado. Se aplica a un QuadMesh de 2x2 en Godot. La hora y el tinte llegan como uniforms.
 /// </summary>
+[ShaderEngines(GameEngine.Godot)]
 public class PlasmaShader
 {
     [Uniform] [DescriptorSet(0)] [Binding(0)] public PlasmaParams P;

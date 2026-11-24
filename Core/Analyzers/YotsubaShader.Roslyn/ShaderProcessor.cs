@@ -132,7 +132,7 @@ public class ShaderProcessor
     public (string, Shader)[] Process(Compilation compilation, CancellationToken token, List<ShaderFailure>? failures)
     {
         // Las mismas reglas que el analizador del IDE: un shader con errores YS no llega a traducirse.
-        var validation = YotsubaShader.Rules.ShaderValidator.Validate(compilation, YotsubaShader.Rules.ShaderTargets.All, token);
+        var validation = YotsubaShader.Rules.ShaderValidator.Validate(compilation, token);
         var errors = validation.Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         var invalid = new HashSet<string>();
         if (errors.Count > 0)

@@ -30,8 +30,7 @@ public sealed class ShaderAnalyzer : BaseAnalyser
                 return;
             }
 
-            start.Options.AnalyzerConfigOptionsProvider.GlobalOptions.TryGetValue(ShaderTargetsParser.MSBuildProperty, out string? targetsText);
-            var session = new ShaderSession(ShaderTargetsParser.Parse(targetsText));
+            var session = new ShaderSession();
             var shaderTypes = new ConcurrentBag<INamedTypeSymbol>();
 
             start.RegisterSymbolAction(symbolContext =>
@@ -42,7 +41,7 @@ public sealed class ShaderAnalyzer : BaseAnalyser
                 if (ShaderSymbols.IsShaderType(type))
                 {
                     shaderTypes.Add(type);
-                    DeclarationRules.AnalyzeShaderType(type, session.Targets, symbolContext.ReportDiagnostic);
+                    DeclarationRules.AnalyzeShaderType(type, TargetResolver.For(type), symbolContext.ReportDiagnostic);
                 }
             }, SymbolKind.NamedType);
 

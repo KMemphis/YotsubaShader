@@ -18,9 +18,8 @@ internal sealed class ShaderSession
     private readonly ConcurrentDictionary<IMethodSymbol, MethodFacts> _facts = new(SymbolEqualityComparer.Default);
     private readonly ConcurrentDictionary<IMethodSymbol, bool> _published = new(SymbolEqualityComparer.Default);
 
-    public ShaderSession(ShaderTargets targets) => Targets = targets;
-
-    public ShaderTargets Targets { get; }
+    /// <summary>Los destinos de un método: los de su clase shader, los del ensamblado o Vulkan 1.3.</summary>
+    public static TargetSet TargetsFor(IMethodSymbol method) => TargetResolver.For(method.ContainingType);
 
     public MethodFacts FactsFor(IMethodSymbol method) => _facts.GetOrAdd(method.OriginalDefinition, m => new MethodFacts(m));
 
@@ -28,7 +27,7 @@ internal sealed class ShaderSession
 
     /// <summary>Analiza el cuerpo de un método (y de sus funciones locales).</summary>
     public void AnalyzeBody(IMethodSymbol method, IOperation body) =>
-        BodyRules.Analyze(method.OriginalDefinition, body, Targets, FactsFor);
+        BodyRules.Analyze(method.OriginalDefinition, body, TargetsFor(method), FactsFor);
 
     /// <summary>Publica ya los diagnósticos del cuerpo de un método (y de sus funciones locales).</summary>
     public void Publish(IMethodSymbol method, Action<Diagnostic> report)
@@ -158,10 +157,10 @@ internal sealed class ShaderSession
 /// </summary>
 internal static class ShaderValidator
 {
-    public static IReadOnlyList<Diagnostic> Validate(Compilation compilation, ShaderTargets targets, CancellationToken cancellationToken = default)
+    public static IReadOnlyList<Diagnostic> Validate(Compilation compilation, CancellationToken cancellationToken = default)
     {
         var diagnostics = new List<Diagnostic>();
-        var session = new ShaderSession(targets);
+        var session = new ShaderSession();
         var shaderTypes = AllTypes(compilation.Assembly.GlobalNamespace).Where(ShaderSymbols.IsShaderType).ToList();
 
         foreach (INamedTypeSymbol type in AllTypes(compilation.Assembly.GlobalNamespace))
@@ -172,7 +171,7 @@ internal static class ShaderValidator
         foreach (INamedTypeSymbol type in shaderTypes)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            DeclarationRules.AnalyzeShaderType(type, targets, diagnostics.Add);
+            DeclarationRules.AnalyzeShaderType(type, TargetResolver.For(type), diagnostics.Add);
 
             var queue = new Queue<IMethodSymbol>(ShaderSymbols.EntryPoints(type));
             var analyzed = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);

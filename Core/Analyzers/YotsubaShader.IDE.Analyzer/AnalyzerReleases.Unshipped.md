@@ -86,3 +86,5 @@ YS0707 | YotsubaShader.Portability | Warning | Operación con derivadas en contr
 YS0708 | YotsubaShader.Portability | Warning | NaN e infinito no fiables
 YS0709 | YotsubaShader | Warning | División entera por cero
 YS0710 | YotsubaShader.Portability | Warning | No disponible en Godot
+YS0711 | YotsubaShader.Portability | Warning | Característica no disponible en la API declarada
+YS0712 | YotsubaShader | Error | Destino sin backend

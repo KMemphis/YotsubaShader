@@ -14,10 +14,13 @@ internal static class DeclarationRules
     // Máximos de Direct3D 12 / Metal (los más altos del mercado). Por encima no compila en ninguna API.
     private const int MaxWorkgroupX = 1024, MaxWorkgroupY = 1024, MaxWorkgroupZ = 64, MaxWorkgroupInvocations = 1024;
 
-    public static void AnalyzeShaderType(INamedTypeSymbol type, ShaderTargets targets, Action<Diagnostic> report)
+    public static void AnalyzeShaderType(INamedTypeSymbol type, TargetSet targets, Action<Diagnostic> report)
     {
         var entryPoints = ShaderSymbols.EntryPoints(type).ToList();
         if (entryPoints.Count == 0) return;
+
+        // El atributo puesto en esta clase. El del ensamblado se comprueba una vez, no por cada shader.
+        TargetRules.AnalyzeAttribute(type.GetAttributes().FirstOrDefault(a => ShaderSymbols.FullName(a.AttributeClass) == TargetResolver.TargetsAttributeName), report);
 
         foreach (IGrouping<string, IMethodSymbol> group in entryPoints.GroupBy(m => m.Name).Where(g => g.Count() > 1))
         {
@@ -39,7 +42,7 @@ internal static class DeclarationRules
         ResourceRules.Analyze(type, targets, report);
     }
 
-    private static InterfaceSignature? AnalyzeEntryPoint(IMethodSymbol method, ShaderTargets targets, Action<Diagnostic> report)
+    private static InterfaceSignature? AnalyzeEntryPoint(IMethodSymbol method, TargetSet targets, Action<Diagnostic> report)
     {
         var stages = ShaderSymbols.GetStages(method);
         if (stages.Count > 1)
@@ -49,11 +52,11 @@ internal static class DeclarationRules
 
         ShaderStageKind stage = stages[0].Stage;
 
-        string? invalid = method.MethodKind != MethodKind.Ordinary ? "no es un método normal"
-            : method.IsGenericMethod ? "es genérico"
-            : method.IsAbstract ? "es abstracto"
-            : method.IsAsync ? "es async"
-            : method.ReturnsByRef || method.ReturnsByRefReadonly ? "devuelve por referencia"
+        string? invalid = method.MethodKind != MethodKind.Ordinary ? Loc.T("is not an ordinary method")
+            : method.IsGenericMethod ? Loc.T("is generic")
+            : method.IsAbstract ? Loc.T("is abstract")
+            : method.IsAsync ? Loc.T("is async")
+            : method.ReturnsByRef || method.ReturnsByRefReadonly ? Loc.T("returns by reference")
             : null;
         if (invalid is not null)
         {
@@ -75,11 +78,16 @@ internal static class DeclarationRules
             }
         }
 
+        if (stage == ShaderStageKind.Compute)
+        {
+            TargetRules.ReportFeature(targets, ApiFeature.Compute, LocationOf(method), Loc.F("The compute shader '{0}'", method.Name), report);
+        }
+
         AnalyzeWorkgroupSize(method, stage, targets, report);
         return InterfaceRules.Analyze(method, stage, targets, report);
     }
 
-    private static void AnalyzeWorkgroupSize(IMethodSymbol method, ShaderStageKind stage, ShaderTargets targets, Action<Diagnostic> report)
+    private static void AnalyzeWorkgroupSize(IMethodSymbol method, ShaderStageKind stage, TargetSet targets, Action<Diagnostic> report)
     {
         ConceptAttribute? size = ShaderSymbols.GetConceptAttributes(method)
             .FirstOrDefault(a => a.Is(Concepts.WorkgroupSizeMethod));
@@ -128,26 +136,21 @@ internal static class DeclarationRules
         if (values[0] > MaxWorkgroupX || values[1] > MaxWorkgroupY || values[2] > MaxWorkgroupZ || total > MaxWorkgroupInvocations)
         {
             report(Diagnostic.Create(ShaderRules.WorkgroupSizeTooLarge, location, values[0], values[1], values[2], method.Name,
-                "x ≤ 1024, y ≤ 1024, z ≤ 64 y como mucho 1024 invocaciones en total"));
+                Loc.T("x ≤ 1024, y ≤ 1024, z ≤ 64 and at most 1024 invocations in total")));
             return;
         }
 
-        ShaderTargets limited = ShaderTargets.None;
-        string detail = "";
-        if (total > 256 || values[0] > 256 || values[1] > 256)
+        var limited = targets.Profiles
+            .Where(profile => profile.Workgroup is { } limit &&
+                              (total > limit.Invocations || values[0] > limit.X || values[1] > limit.Y || values[2] > limit.Z))
+            .ToList();
+        if (limited.Count > 0)
         {
-            limited |= ShaderTargets.WebGPU | ShaderTargets.Vulkan;
-            detail = $"El grupo de {total} invocaciones supera el límite por defecto de WebGPU (256, con x/y ≤ 256) y el mínimo garantizado de Vulkan (128).";
-        }
-        else if (total > 128 || values[0] > 128 || values[1] > 128)
-        {
-            limited |= ShaderTargets.Vulkan;
-            detail = $"El grupo de {total} invocaciones supera el mínimo garantizado de Vulkan (128 invocaciones, 128x128x64).";
-        }
-
-        if ((limited & targets) != 0)
-        {
-            report(Diagnostic.Create(ShaderRules.PortableLimit, location, detail, ShaderTargetsParser.Describe(limited & targets)));
+            string detail = Loc.F("The group of {0}x{1}x{2} ({3} invocations) exceeds what is guaranteed by ", values[0], values[1], values[2], total) +
+                            string.Join(", ", limited.Select(profile =>
+                                Loc.F("{0} ({1} invocations, {2}x{3}x{4})", profile.Name, profile.Workgroup!.Value.Invocations,
+                                    profile.Workgroup.Value.X, profile.Workgroup.Value.Y, profile.Workgroup.Value.Z))) + ".";
+            report(Diagnostic.Create(ShaderRules.PortableLimit, location, detail, TargetSet.Describe(limited)));
         }
     }
 

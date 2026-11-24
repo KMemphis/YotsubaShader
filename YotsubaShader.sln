@@ -87,6 +87,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{0AB3BF05
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.IDE.Analyzer.Tests", "Core\Analyzers\YotsubaShader.IDE.Analyzer.Tests\YotsubaShader.IDE.Analyzer.Tests.csproj", "{FBA1495C-94E0-4971-AD2E-C744BB4C23C7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "YotsubaShader.Compiler.Metadata", "Core\Syntax\YotsubaShader.Compiler.Metadata\YotsubaShader.Compiler.Metadata.csproj", "{19800D30-600B-4299-8309-55F6BFAD1EAE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -457,6 +459,18 @@ Global
 		{FBA1495C-94E0-4971-AD2E-C744BB4C23C7}.Release|x64.Build.0 = Release|Any CPU
 		{FBA1495C-94E0-4971-AD2E-C744BB4C23C7}.Release|x86.ActiveCfg = Release|Any CPU
 		{FBA1495C-94E0-4971-AD2E-C744BB4C23C7}.Release|x86.Build.0 = Release|Any CPU
+		{19800D30-600B-4299-8309-55F6BFAD1EAE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{19800D30-600B-4299-8309-55F6BFAD1EAE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{19800D30-600B-4299-8309-55F6BFAD1EAE}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{19800D30-600B-4299-8309-55F6BFAD1EAE}.Debug|x64.Build.0 = Debug|Any CPU
+		{19800D30-600B-4299-8309-55F6BFAD1EAE}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{19800D30-600B-4299-8309-55F6BFAD1EAE}.Debug|x86.Build.0 = Debug|Any CPU
+		{19800D30-600B-4299-8309-55F6BFAD1EAE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{19800D30-600B-4299-8309-55F6BFAD1EAE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{19800D30-600B-4299-8309-55F6BFAD1EAE}.Release|x64.ActiveCfg = Release|Any CPU
+		{19800D30-600B-4299-8309-55F6BFAD1EAE}.Release|x64.Build.0 = Release|Any CPU
+		{19800D30-600B-4299-8309-55F6BFAD1EAE}.Release|x86.ActiveCfg = Release|Any CPU
+		{19800D30-600B-4299-8309-55F6BFAD1EAE}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -498,5 +512,6 @@ Global
 		{A562F350-5847-4D4B-98A0-B2CBC90B2B5C} = {0D6C0C87-CB0E-4760-AB97-D864DC0680A0}
 		{5C1F0176-3F9B-4AEE-A3A8-F4E9FC3F826C} = {0D6C0C87-CB0E-4760-AB97-D864DC0680A0}
 		{FBA1495C-94E0-4971-AD2E-C744BB4C23C7} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{19800D30-600B-4299-8309-55F6BFAD1EAE} = {947AC75B-8408-481F-B8D7-F9BA55A27959}
 	EndGlobalSection
 EndGlobal

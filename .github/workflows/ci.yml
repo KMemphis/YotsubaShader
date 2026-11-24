@@ -300,3 +300,69 @@ jobs:
             chmod +x "$exe"
           fi
           python scripts/verify_release.py smoke "$exe" scripts/smoke/PluginSmoke/PluginSmoke.csproj
+
+  api-conformance:
+    name: Graphics API conformance (${{ matrix.name }})
+    # Every `Target` has a profile (Core/Analyzers/YotsubaShader.IDE.Analyzer/GraphicsApi). This compiles one tiny
+    # shader per feature at each API's language version and runs the real validator, so what the analyzer says each
+    # API version has or lacks is checked against spirv-val, glslang, naga, DXC and the Metal compiler.
+    # A feature that must work and fails is an error; one that must fail and passes is an error where the validator
+    # is strict and only a warning where the language has extension fallbacks or no validator exists here.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {name: Vulkan OpenGL WebGPU Direct3D, os: ubuntu-24.04, only: 'Vulkan,OpenGL,OpenGLES,DirectX,WebGpu'}
+          - {name: Metal, os: macos-15, only: 'Metal'}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore ShadowDusk natives
+        run: bash ThirdParty/ShadowDusk/tools/restore.sh
+      - name: Install SPIR-V and GLSL validators
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y spirv-tools glslang-tools
+      - name: Cache naga
+        if: runner.os == 'Linux'
+        id: naga-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/naga
+          key: naga-cli-30.0.1-${{ runner.os }}
+      - name: Install naga (WGSL validator)
+        if: runner.os == 'Linux' && steps.naga-cache.outputs.cache-hit != 'true'
+        run: cargo install naga-cli --version 30.0.1 --locked
+      - name: Build the naga native (the CLI needs it for --target wgsl)
+        if: runner.os == 'Linux'
+        # The natives are not committed; naga-native.yml builds one per RID. The macOS job does not generate WGSL.
+        run: bash Core/YotsubaShader.Compiler.CLI/Native/naga/build.sh linux-x64
+      - name: Install the Metal toolchain
+        if: runner.os == 'macOS'
+        # Without it the script reports the Metal results as unverified (warnings) instead of failing.
+        run: sudo xcodebuild -downloadComponent MetalToolchain || echo "::warning::Metal toolchain unavailable"
+      - name: Build the CLI
+        run: dotnet build Core/YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj
+      - name: Build the witness shaders
+        run: dotnet build scripts/conformance/ApiConformance/ApiConformance.csproj
+      - name: Export what each profile promises
+        env:
+          YOTSUBA_API_MATRIX: ${{ runner.temp }}/api-matrix.json
+        run: dotnet test Core/Analyzers/YotsubaShader.IDE.Analyzer.Tests --filter Export_the_matrix
+      - name: Compare with the real validators
+        run: >
+          python3 scripts/api_conformance.py
+          Core/YotsubaShader.Compiler.CLI/bin/Debug/net10.0/YotsubaShader.Compiler.CLI
+          "$RUNNER_TEMP/api-matrix.json" --only '${{ matrix.only }}'

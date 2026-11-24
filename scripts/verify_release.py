@@ -18,6 +18,7 @@ PACKAGES = (
     "YotsubaShader.ShadowDusk.GLSL",
     "YotsubaShader.ShadowDusk.Compiler",
     "YotsubaShader.Concepts",
+    "YotsubaShader.Compiler.Metadata",
     "YotsubaShader.Language",
     "YotsubaShader.IR",
     "YotsubaShader.Roslyn",
@@ -101,6 +102,10 @@ def check_packages(feed: pathlib.Path, version: str, require_six_natives: bool) 
                 for notice in ("LICENSE", "LICENSES/SPIRV-Cross-MIT.txt", "LICENSES/Khronos-FreeUse.txt"):
                     if notice not in files:
                         raise ValueError(f"{package_id}: {notice} missing")
+            dependency_ids = {node.attrib["id"] for node in metadata.iter() if node.tag.endswith("dependency")}
+            if package_id.endswith("Syntax") and "YotsubaShader.Compiler.Metadata" not in dependency_ids:
+                # [ShaderTargets] y [ShaderEngines] viven en Metadata: quien instala una sintaxis debe recibirlo sin pedirlo.
+                raise ValueError(f"{package_id}: must depend on YotsubaShader.Compiler.Metadata")
             for dependency in metadata.iter():
                 if not dependency.tag.endswith("dependency"):
                     continue

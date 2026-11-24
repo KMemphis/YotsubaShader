@@ -85,3 +85,5 @@ Generado por `scripts/generate-rule-docs.py` desde `ShaderRules.cs`.
 | [YS0708](YS0708.md) | NaN e infinito no fiables | Warning | Portabilidad |
 | [YS0709](YS0709.md) | División entera por cero | Warning | Portabilidad |
 | [YS0710](YS0710.md) | No disponible en Godot | Warning | Portabilidad |
+| [YS0711](YS0711.md) | Característica no disponible en la API declarada | Warning | Portabilidad |
+| [YS0712](YS0712.md) | Versión de API gráfica sin backend | Error | Portabilidad |

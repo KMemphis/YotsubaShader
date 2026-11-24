@@ -1,3 +1,4 @@
+using YotsubaShader.Compiler.Metadata;
 using YotsubaShader.HlslSyntax;
 using YotsubaShader.Language;
 using YotsubaShader.Language.Native.Types.Vector;
@@ -5,6 +6,8 @@ using YotsubaShader.Language.Native.Types.Vector;
 namespace Examples.Shaders;
 
 /// <summary>Dibuja cada vértice con su color: lo mínimo para comprobar que un efecto carga y renderiza.</summary>
+// Usa compute: OpenGL desde 4.3, OpenGL ES desde 3.1 y Direct3D desde 11. Target.All incluiría Direct3D 8/9, que ningún backend genera.
+[ShaderTargets(Target.Vulkan_11 | Target.Vulkan_12 | Target.Vulkan_13 | Target.Vulkan_14 | Target.OpenGL_43 | Target.OpenGLES_31 | Target.DirectX_11 | Target.DirectX_12 | Target.AllMetal | Target.WebGpu)]
 public class TriangleShader
 {
     public struct VSInput

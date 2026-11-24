@@ -28,11 +28,14 @@
       <Compile Include="..\YotsubaShader.Rules\**\*.cs" LinkBase="Rules" />
       <Compile Include="..\..\Syntax\YotsubaShader.Concepts\Methods\Intrinsic.cs" LinkBase="Rules\Concepts" />
       <Compile Include="..\..\Syntax\YotsubaShader.Concepts\Methods\CSharpIntrinsicToIntrinsicGPU.cs" LinkBase="Rules\Concepts" />
+      <!-- Target y GameEngine son los valores de [ShaderTargets] y [ShaderEngines]; el analizador no puede referenciar ese ensamblado. -->
+      <Compile Include="..\..\Syntax\YotsubaShader.Compiler.Metadata\Target.cs" LinkBase="Rules\Metadata" />
+      <Compile Include="..\..\Syntax\YotsubaShader.Compiler.Metadata\GameEngine.cs" LinkBase="Rules\Metadata" />
     </ItemGroup>
 
-    <!-- YotsubaShaderTargets llega al analizador como build_property.YotsubaShaderTargets. -->
+
     <ItemGroup>
-      <None Include="build\YotsubaShader.IDE.Analyzer.props" Pack="true" PackagePath="build/" />
+      <InternalsVisibleTo Include="YotsubaShader.IDE.Analyzer.Tests" />
     </ItemGroup>
 
     <ItemGroup>

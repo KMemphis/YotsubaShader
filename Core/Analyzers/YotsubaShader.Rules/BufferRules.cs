@@ -37,9 +37,9 @@ internal static class BufferRules
 
         string? problem = gpuType.Kind switch
         {
-            GpuTypeKind.Unsupported or GpuTypeKind.Array => "no puede ser el elemento de un StructuredBuffer",
-            GpuTypeKind.Texture or GpuTypeKind.Sampler => "las texturas y samplers no pueden ir dentro de un buffer",
-            _ when gpuType.Scalar == GpuScalar.Bool => "bool no está permitido en un buffer compartido con la CPU; usa uint",
+            GpuTypeKind.Unsupported or GpuTypeKind.Array => Loc.T("cannot be the element of a StructuredBuffer"),
+            GpuTypeKind.Texture or GpuTypeKind.Sampler => Loc.T("textures and samplers cannot go inside a buffer"),
+            _ when gpuType.Scalar == GpuScalar.Bool => Loc.T("bool is not allowed in a buffer shared with the CPU; use uint"),
             _ => null
         };
 
@@ -81,18 +81,18 @@ internal static class BufferRules
             switch (gpuType.Kind)
             {
                 case GpuTypeKind.Unsupported:
-                    problem = "no tiene representación en la GPU";
+                    problem = Loc.T("has no GPU representation");
                     break;
                 case GpuTypeKind.Texture:
                 case GpuTypeKind.Sampler:
-                    problem = "las texturas y samplers no pueden ir dentro de un buffer; decláralos como campos del shader";
+                    problem = Loc.T("textures and samplers cannot go inside a buffer; declare them as fields of the shader");
                     break;
                 case GpuTypeKind.Scalar when gpuType.Scalar == GpuScalar.Bool:
                 case GpuTypeKind.Vector when gpuType.Scalar == GpuScalar.Bool:
-                    problem = "bool no está permitido en un buffer compartido con la CPU; usa uint";
+                    problem = Loc.T("bool is not allowed in a buffer shared with the CPU; use uint");
                     break;
                 case GpuTypeKind.Matrix when !SupportedFeatures.MatricesInBuffers:
-                    problem = "las matrices dentro de buffers todavía no están soportadas por el compilador";
+                    problem = Loc.T("matrices inside buffers are not supported by the compiler yet");
                     break;
                 case GpuTypeKind.Array:
                     problem = ArrayProblem(member, gpuType, kind, i == members.Count - 1, structure, report);
@@ -114,8 +114,7 @@ internal static class BufferRules
                 if (affected != ShaderTargets.None)
                 {
                     report(Diagnostic.Create(ShaderRules.PortableLayout, location, member.Name, bufferName,
-                        "es de 16 bits: en un buffer necesita storageBuffer16BitAccess/uniformAndStorageBuffer16BitAccess en Vulkan, " +
-                        "-enable-16bit-types en Direct3D 12 y 'shader-f16' en WebGPU (que no tiene enteros de 16 bits)",
+                        Loc.T("is 16-bit: in a buffer it needs storageBuffer16BitAccess/uniformAndStorageBuffer16BitAccess in Vulkan, -enable-16bit-types in Direct3D 12 and 'shader-f16' in WebGPU (which has no 16-bit integers)"),
                         ShaderTargetsParser.Describe(affected)));
                 }
             }
@@ -130,25 +129,25 @@ internal static class BufferRules
         GpuType element = GpuType.Of(array.Element);
         if (element.Kind is GpuTypeKind.Unsupported or GpuTypeKind.Array or GpuTypeKind.Texture or GpuTypeKind.Sampler)
         {
-            return "los elementos de un array en un buffer deben ser escalares, vectores, matrices o structs";
+            return Loc.T("the elements of an array in a buffer must be scalars, vectors, matrices or structs");
         }
 
         if (element.Kind == GpuTypeKind.Scalar && element.Scalar == GpuScalar.Bool)
         {
-            return "bool no está permitido en un buffer compartido con la CPU; usa uint";
+            return Loc.T("bool is not allowed in a buffer shared with the CPU; use uint");
         }
 
         bool hasLength = ShaderSymbols.HasAttribute(member, ShaderNames.ArrayLength);
-        if (hasLength) return SupportedFeatures.FixedArraysInBuffers ? null : "los arrays dentro de buffers todavía no están soportados por el compilador";
+        if (hasLength) return SupportedFeatures.FixedArraysInBuffers ? null : Loc.T("arrays inside buffers are not supported by the compiler yet");
 
         if (kind == ResourceKind.UniformBuffer)
         {
-            return "un uniform buffer necesita la longitud del array: añade [ArrayLength(n)]";
+            return Loc.T("a uniform buffer needs the array length: add [ArrayLength(n)]");
         }
 
         if (!SupportedFeatures.RuntimeArrays)
         {
-            return "los arrays sin tamaño todavía no están soportados por el compilador";
+            return Loc.T("unsized arrays are not supported by the compiler yet");
         }
 
         if (!isLast)

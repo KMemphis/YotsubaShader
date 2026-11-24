@@ -32,11 +32,4 @@
         <Exec Command="dotnet run --project &quot;$(YotsubaCliProject)&quot; -- add &quot;$(MSBuildProjectFullPath)&quot; --target spirv" />
     </Target>
 
-    <!-- APIs de destino: las alertas de portabilidad (YS07xx) solo nombran estas. -->
-    <PropertyGroup>
-        <YotsubaShaderTargets>Vulkan;D3D12;Metal;WebGPU;OpenGL</YotsubaShaderTargets>
-    </PropertyGroup>
-    <ItemGroup>
-        <CompilerVisibleProperty Include="YotsubaShaderTargets" />
-    </ItemGroup>
 </Project>

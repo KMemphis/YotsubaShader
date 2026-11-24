@@ -115,7 +115,13 @@ jobs:
             </ItemGroup>
           </Project>
           EOF
-          echo 'public class Consumer {}' > "$RUNNER_TEMP/consumer/Consumer.cs"
+          # Metadata no está en la lista de arriba: llega como dependencia de las sintaxis.
+          cat > "$RUNNER_TEMP/consumer/Consumer.cs" <<'EOF'
+          using YotsubaShader.Compiler.Metadata;
+          [ShaderTargets(Target.Vulkan_13 | Target.WebGpu)]
+          [ShaderEngines(GameEngine.Godot)]
+          public class Consumer {}
+          EOF
           dotnet restore "$RUNNER_TEMP/consumer/Consumer.csproj" --source "$PWD/nupkg" --source https://api.nuget.org/v3/index.json
           dotnet build "$RUNNER_TEMP/consumer/Consumer.csproj" -c Release --no-restore
           dotnet msbuild "$RUNNER_TEMP/consumer/Consumer.csproj" -target:ResolveReferences -getItem:Analyzer \
