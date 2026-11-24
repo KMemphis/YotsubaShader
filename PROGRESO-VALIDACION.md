@@ -17,7 +17,7 @@ Se enlazan como código fuente en el analizador del IDE y en `YotsubaShader.Rosl
   - `ShaderModel.cs`: detección de conceptos por meta-atributos y de la etapa (`[ShaderStage]`).
   - `GpuType.cs`: clasificación de tipos de C# para la GPU.
   - `BuiltInTable.cs`: tabla de built-ins por stage, dirección y tipo, con `Supported` y portabilidad.
-  - `ShaderTargets.cs`: propiedad MSBuild `YotsubaShaderTargets`.
+  - `ShaderTargets.cs`: enum grueso interno; los destinos ya no vienen de la propiedad MSBuild `YotsubaShaderTargets` (retirada) sino de `[ShaderTargets]` / `[ShaderEngines]` (ver `GraphicsApi/`).
 - **Reglas:**
   - `DeclarationRules.cs`, `InterfaceRules.cs`, `ResourceRules.cs`, `BufferRules.cs`, `VectorRules.cs`: entry points, interfaz, recursos y layouts.
   - `BodyRules.cs`: C# no soportado, uso por stage, portabilidad y control de flujo no uniforme.
@@ -77,7 +77,7 @@ Se enlazan como código fuente en el analizador del IDE y en `YotsubaShader.Rosl
   - `StructuredBuffer<T>`/`ConstantBuffer<T>` todavía no están soportados (YS0306).
   - Campos del shader con semántica o built-in, validados contra las etapas del shader.
 - **Documentación:** `docs/rules/YSxxxx.md`, 80 páginas más un índice, generadas con `scripts/generate-rule-docs.py`. `AnalyzerReleases.Unshipped.md` se regenera del catálogo.
-- **Ejemplo:** `Examples/Shaders/Shaders.csproj` declara `YotsubaShaderTargets` y `CompilerVisibleProperty`.
+- **Ejemplo:** `Examples/Shaders/TriangleShader.cs` declara `[ShaderTargets(...)]`; la propiedad `YotsubaShaderTargets` ya no existe.
 
 ### Paso 6: HECHO
 - `Examples/YotsubaShader.Example/InvariantTests.cs`: 62 shaders raros o mal hechos (slots, etiquetas, etapas, recursos, C# extraño, operaciones de otra etapa).
@@ -109,3 +109,10 @@ Se enlazan como código fuente en el analizador del IDE y en `YotsubaShader.Rosl
 ## Siguiente paso sugerido
 - Ampliar el corpus de `InvariantTests` cada vez que se encuentre un caso nuevo.
 - Re-ejecutar el probe de intrínsecas del scratchpad contra `vulkan1.3`, porque hasta ahora usaba el entorno universal.
+
+## Idioma de los diagnósticos
+- **Base:** los textos de los diagnósticos del analizador están en inglés en el código (`ShaderRules.cs`, notas de los perfiles de `GraphicsApi` y mensajes de las reglas).
+- **Español:** `YotsubaShader.Rules/Localization/Loc.Es.cs` traduce cada texto (la clave es el inglés). Se usa cuando la cultura de la interfaz es `es*`; con otra cultura sale el inglés.
+- **Código:** `Loc.T("...")` y `Loc.F("... {0}", arg)` en las reglas; los descriptores usan `Loc.Text`. Los datos estáticos (notas de perfiles y de `BuiltInTable`) se traducen donde se consumen.
+- **Cobertura:** `LocalizationTests` recorre las fuentes y falla si falta una traducción o si un texto no está en inglés.
+- **Fuera de alcance:** los mensajes de excepción del compilador (`YotsubaShader.Roslyn`, `Compiler.SpirV`) siguen en español.

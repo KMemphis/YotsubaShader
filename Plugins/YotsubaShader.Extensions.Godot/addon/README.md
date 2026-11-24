@@ -53,7 +53,7 @@ material.set_shader_parameter("P_Tint", Color.RED)
 - Textures become `uniform sampler2D`; the sampler state comes from the Godot texture hints, not from the C# `SamplerState`.
 
 Compute shaders, storage buffers and several render targets have no equivalent in Godot Shading Language and are reported
-as errors by the CLI. Add `<YotsubaShaderTargets>Godot</YotsubaShaderTargets>` to the shaders `.csproj` to see them in the IDE (YS0710).
+as errors by the CLI. Put `[ShaderEngines(GameEngine.Godot)]` on the shader class (or `[assembly: ShaderEngines(...)]`) to see them in the IDE (YS0710).
 
 ## C# editor tab (prototype)
 
