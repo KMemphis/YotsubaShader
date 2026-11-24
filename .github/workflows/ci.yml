@@ -281,6 +281,9 @@ jobs:
           dotnet publish Core/YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj \
             -c Release -r '${{ matrix.rid }}' --self-contained \
             -p:RestoreLockedMode=false -o 'publish/${{ matrix.rid }}'
+      - name: Build the smoke shader project (the CLI reads the referenced projects' builds)
+        shell: bash
+        run: dotnet build scripts/smoke/PluginSmoke/PluginSmoke.csproj -c Release -p:CompileYotsubaShaders=false
       - name: Stage the plugins of this commit
         shell: bash
         run: python scripts/stage_plugins.py "$RUNNER_TEMP/yotsuba-home" fna monogame kni
