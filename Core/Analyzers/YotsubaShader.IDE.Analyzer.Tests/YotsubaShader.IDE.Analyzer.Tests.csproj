@@ -26,6 +26,7 @@
     <ItemGroup>
         <ProjectReference Include="..\YotsubaShader.IDE.Analyzer\YotsubaShader.IDE.Analyzer.csproj" />
         <ProjectReference Include="..\..\Representations\YotsubaShader.Language\YotsubaShader.Language.csproj" />
+        <ProjectReference Include="..\..\Syntax\YotsubaShader.Compiler.Metadata\YotsubaShader.Compiler.Metadata.csproj" />
         <ProjectReference Include="..\..\Syntax\YotsubaShader.HlslSyntax\YotsubaShader.HlslSyntax.csproj" />
         <ProjectReference Include="..\..\Syntax\YotsubaShader.SpirvSyntax\YotsubaShader.SpirvSyntax.csproj" />
         <ProjectReference Include="..\..\Syntax\YotsubaShader.GlslSyntax\YotsubaShader.GlslSyntax.csproj" />

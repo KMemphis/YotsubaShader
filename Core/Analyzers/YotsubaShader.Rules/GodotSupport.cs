@@ -6,7 +6,7 @@ using Microsoft.CodeAnalysis;
 namespace YotsubaShader.Rules;
 
 /// <summary>
-/// Lo que Godot Shading Language (.gdshader) no tiene. Solo se avisa si <c>YotsubaShaderTargets</c> incluye Godot,
+/// Lo que Godot Shading Language (.gdshader) no tiene. Solo se avisa si el shader lleva <c>[ShaderEngines(GameEngine.Godot)]</c>,
 /// porque el plugin <c>godot</c> del compilador lo rechaza con un error.
 /// </summary>
 internal static class GodotSupport
@@ -22,7 +22,7 @@ internal static class GodotSupport
             if (signature.Stage == ShaderStageKind.Compute)
             {
                 report(Diagnostic.Create(ShaderRules.NotInGodot, location, signature.Method.Name,
-                    "es un compute shader y Godot Shading Language no tiene compute (solo vertex y fragment)"));
+                    Loc.T("is a compute shader and Godot Shading Language has no compute (only vertex and fragment)")));
                 continue;
             }
 
@@ -34,7 +34,7 @@ internal static class GodotSupport
                 if (targetOutputs.Count > 1)
                 {
                     report(Diagnostic.Create(ShaderRules.NotInGodot, targetOutputs[1].Location, signature.Method.Name,
-                        $"escribe {targetOutputs.Count} render targets y un shader de Godot solo escribe un color por fragment"));
+                        Loc.F("writes {0} render targets and a Godot shader only writes one color per fragment", targetOutputs.Count)));
                 }
             }
 
@@ -45,7 +45,7 @@ internal static class GodotSupport
                     if (member.Attributes.Any(a => a.Is(Concepts.Location)))
                     {
                         report(Diagnostic.Create(ShaderRules.NotInGodot, member.Location, member.Name,
-                            "usa [Location]: Godot entrega los atributos de vértice por nombre (VERTEX, NORMAL, UV...), así que usa una semántica como [POSITION] o [TEXCOORD(0)]"));
+                            Loc.T("uses [Location]: Godot delivers vertex attributes by name (VERTEX, NORMAL, UV...), so use a semantic such as [POSITION] or [TEXCOORD(0)]")));
                     }
                 }
             }
@@ -58,8 +58,8 @@ internal static class GodotSupport
 
         string? why = kind switch
         {
-            ResourceKind.StorageBuffer => "es un storage buffer y Godot Shading Language no los tiene; usa un uniform o una textura",
-            ResourceKind.StorageTexture => "es una textura de almacenamiento y Godot Shading Language no tiene imágenes de escritura",
+            ResourceKind.StorageBuffer => Loc.T("is a storage buffer and Godot Shading Language does not have them; use a uniform or a texture"),
+            ResourceKind.StorageTexture => Loc.T("is a storage texture and Godot Shading Language has no write images"),
             _ => null
         };
 

@@ -2,7 +2,7 @@ using static YotsubaShader.IDE.Analyzer.Tests.AnalyzerHarness;
 
 namespace YotsubaShader.IDE.Analyzer.Tests;
 
-/// <summary>Con <c>YotsubaShaderTargets=godot</c> se avisa de lo que .gdshader no tiene (YS0710).</summary>
+/// <summary>Con <c>[ShaderEngines(GameEngine.Godot)]</c> se avisa de lo que .gdshader no tiene (YS0710).</summary>
 public class GodotRuleTests
 {
     public static TheoryData<string> Unsupported => new()
@@ -15,11 +15,11 @@ public class GodotRuleTests
 
     [Theory]
     [MemberData(nameof(Unsupported))]
-    public void Godot_target_warns(string code) => Expect(code, "YS0710", "godot");
+    public void Godot_target_warns(string code) => Expect(code, "YS0710", engines: "GameEngine.Godot");
 
     [Theory]
     [MemberData(nameof(Unsupported))]
-    public void Other_targets_do_not_warn(string code) => ExpectNone(code, "YS0710", "vulkan");
+    public void Other_targets_do_not_warn(string code) => ExpectNone(code, "YS0710", "Target.AllVulkan");
 
     [Theory]
     [MemberData(nameof(Unsupported))]
@@ -35,5 +35,5 @@ public class GodotRuleTests
             [ShaderStage(Stage.Vertex)] public VsOut VS([POSITION] float4 p, [TEXCOORD(0)] float2 uv) { VsOut o; o.Pos = p; o.Uv = uv; return o; }
             [ShaderStage(Stage.Fragment)] [return: SV_Target] public float4 FS(VsOut i) { return Tex.Sample(Smp, i.Uv); }
         }
-        """, "YS0710", "godot");
+        """, "YS0710", engines: "GameEngine.Godot");
 }

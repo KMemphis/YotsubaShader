@@ -79,15 +79,15 @@ internal static class ResourceRules
 
     private static string Describe(ResourceKind kind) => kind switch
     {
-        ResourceKind.SampledTexture => "una textura",
-        ResourceKind.StorageTexture => "una textura de almacenamiento",
-        ResourceKind.Sampler => "un sampler",
-        ResourceKind.UniformBuffer => "un uniform buffer",
-        ResourceKind.StorageBuffer => "un storage buffer",
-        _ => "un recurso"
+        ResourceKind.SampledTexture => Loc.T("a texture"),
+        ResourceKind.StorageTexture => Loc.T("a storage texture"),
+        ResourceKind.Sampler => Loc.T("a sampler"),
+        ResourceKind.UniformBuffer => Loc.T("a uniform buffer"),
+        ResourceKind.StorageBuffer => Loc.T("a storage buffer"),
+        _ => Loc.T("a resource")
     };
 
-    public static void Analyze(INamedTypeSymbol shader, ShaderTargets targets, Action<Diagnostic> report)
+    public static void Analyze(INamedTypeSymbol shader, TargetSet targets, Action<Diagnostic> report)
     {
         var bindings = new Dictionary<(int Set, int Binding), ISymbol>();
         int textures = 0, samplers = 0, buffers = 0;
@@ -133,13 +133,13 @@ internal static class ResourceRules
 
             if (member is IPropertySymbol)
             {
-                report(Diagnostic.Create(ShaderRules.ResourceDeclaration, DeclarationRules.LocationOf(member), member.Name, "es una propiedad"));
+                report(Diagnostic.Create(ShaderRules.ResourceDeclaration, DeclarationRules.LocationOf(member), member.Name, Loc.T("is a property")));
                 continue;
             }
 
             if (member.IsStatic)
             {
-                report(Diagnostic.Create(ShaderRules.ResourceDeclaration, DeclarationRules.LocationOf(member), member.Name, "es estático"));
+                report(Diagnostic.Create(ShaderRules.ResourceDeclaration, DeclarationRules.LocationOf(member), member.Name, Loc.T("is static")));
                 continue;
             }
 
@@ -185,12 +185,21 @@ internal static class ResourceRules
                 }
             }
 
-            if (kind == ResourceKind.StorageTexture && TextureFormat(type) == 0 &&
-                (targets & (ShaderTargets.WebGPU | ShaderTargets.Vulkan)) != 0)
+            if (kind == ResourceKind.StorageBuffer)
             {
-                report(Diagnostic.Create(ShaderRules.PortableResource, DeclarationRules.LocationOf(member), member.Name,
-                    "es una textura de almacenamiento sin formato: WGSL exige el formato y Vulkan necesita shaderStorageImageReadWithoutFormat/WriteWithoutFormat",
-                    ShaderTargetsParser.Describe(targets & (ShaderTargets.WebGPU | ShaderTargets.Vulkan))));
+                TargetRules.ReportFeature(targets, ApiFeature.StorageBuffer, DeclarationRules.LocationOf(member), Loc.F("The storage buffer '{0}'", member.Name), report);
+            }
+
+            if (kind == ResourceKind.StorageTexture)
+            {
+                TargetRules.ReportFeature(targets, ApiFeature.StorageTexture, DeclarationRules.LocationOf(member), Loc.F("The storage texture '{0}'", member.Name), report);
+
+                if (TextureFormat(type) == 0 && targets.Check(ApiFeature.StorageTextureWithoutFormat) is { } noFormat)
+                {
+                    DiagnosticDescriptor descriptor = noFormat.Unavailable ? ShaderRules.AsError(ShaderRules.PortableResource) : ShaderRules.PortableResource;
+                    report(Diagnostic.Create(descriptor, DeclarationRules.LocationOf(member), member.Name,
+                        Loc.F("is a storage texture without a format: {0}", noFormat.Reasons), noFormat.Targets));
+                }
             }
 
             AnalyzeBinding(member, kind, attributes, bindings, targets, report);
@@ -201,7 +210,7 @@ internal static class ResourceRules
             if (textures > 31 || samplers > 16 || buffers > 31)
             {
                 report(Diagnostic.Create(ShaderRules.PortableLimit, DeclarationRules.LocationOf(shader),
-                    $"'{shader.Name}' usa {textures} texturas, {samplers} samplers y {buffers} buffers; Metal admite 31, 16 y 31 por etapa.",
+                    Loc.F("'{0}' uses {1} textures, {2} samplers and {3} buffers; Metal supports 31, 16 and 31 per stage.", shader.Name, textures, samplers, buffers),
                     "Metal"));
             }
         }
@@ -221,7 +230,7 @@ internal static class ResourceRules
         if (member.IsStatic || member is IPropertySymbol)
         {
             report(Diagnostic.Create(ShaderRules.ResourceDeclaration, DeclarationRules.LocationOf(member), member.Name,
-                "es una entrada del shader y debe ser un campo de instancia"));
+                Loc.T("is a shader input and must be an instance field")));
             return;
         }
 
@@ -262,7 +271,7 @@ internal static class ResourceRules
     }
 
     private static void AnalyzeBinding(ISymbol member, ResourceKind kind, IReadOnlyList<ConceptAttribute> attributes,
-        Dictionary<(int, int), ISymbol> bindings, ShaderTargets targets, Action<Diagnostic> report)
+        Dictionary<(int, int), ISymbol> bindings, TargetSet targets, Action<Diagnostic> report)
     {
         int? set = null, binding = null;
         ConceptAttribute? register = null;
@@ -294,7 +303,7 @@ internal static class ResourceRules
         set ??= 0;
         if (set < 0 || binding < 0)
         {
-            report(Diagnostic.Create(ShaderRules.NegativeBinding, location, member.Name, set < 0 ? "el set" : "el binding",
+            report(Diagnostic.Create(ShaderRules.NegativeBinding, location, member.Name, Loc.T(set < 0 ? "the set" : "the binding"),
                 set < 0 ? set : binding));
             return;
         }
@@ -327,11 +336,11 @@ internal static class ResourceRules
             bindings[(set.Value, binding.Value)] = member;
         }
 
-        if (set >= 4 && (targets & (ShaderTargets.WebGPU | ShaderTargets.Vulkan)) != 0)
+        if (set is { } setIndex && targets.Exceeding(setIndex + 1, p => p.MaxDescriptorSets) is { Count: > 0 } exceeding)
         {
             report(Diagnostic.Create(ShaderRules.PortableResource, location, member.Name,
-                $"usa el set {set}; WebGPU admite 4 grupos (0-3) y Vulkan solo garantiza 4",
-                ShaderTargetsParser.Describe(targets & (ShaderTargets.WebGPU | ShaderTargets.Vulkan))));
+                Loc.F("uses set {0}; ", setIndex) + string.Join(", ", exceeding.Select(p => Loc.F("{0} guarantees {1} sets", p.Name, p.MaxDescriptorSets))),
+                TargetSet.Describe(exceeding)));
         }
     }
 

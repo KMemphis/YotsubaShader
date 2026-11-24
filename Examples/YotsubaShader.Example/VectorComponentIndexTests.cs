@@ -134,7 +134,7 @@ public class VectorComponentIndexTests
             "[VectorComponent(2)] public float Z;");
 
         Assert.Contains("YS0004", error.Message);
-        Assert.Contains("falta el componente 1", error.Message);
+        Assert.Contains("missing component 1", error.Message);
     }
 
     [Fact]

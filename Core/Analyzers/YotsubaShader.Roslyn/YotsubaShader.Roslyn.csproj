@@ -23,6 +23,9 @@
     <!-- Las mismas reglas que el analizador del IDE (YotsubaShader.IDE.Analyzer). -->
     <ItemGroup>
         <Compile Include="..\YotsubaShader.Rules\**\*.cs" LinkBase="Rules" />
+        <Compile Include="..\YotsubaShader.IDE.Analyzer\GraphicsApi\**\*.cs" LinkBase="Rules\GraphicsApi" />
+        <Compile Include="..\..\Syntax\YotsubaShader.Compiler.Metadata\Target.cs" LinkBase="Rules\Metadata" />
+        <Compile Include="..\..\Syntax\YotsubaShader.Compiler.Metadata\GameEngine.cs" LinkBase="Rules\Metadata" />
     </ItemGroup>
 
     <ItemGroup>

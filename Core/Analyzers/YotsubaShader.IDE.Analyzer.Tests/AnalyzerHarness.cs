@@ -17,6 +17,7 @@ internal static class AnalyzerHarness
         using YotsubaShader.HlslSyntax.Resources;
         using YotsubaShader.HlslSyntax.Resources.Types;
         using YotsubaShader.SpirvSyntax.Resources;
+        using YotsubaShader.Compiler.Metadata;
 
         """;
 
@@ -29,14 +30,24 @@ internal static class AnalyzerHarness
             typeof(YotsubaShader.SpirvSyntax.Resources.Binding).Assembly.Location,
             typeof(YotsubaShader.Concepts.YotsubaShaderConcept).Assembly.Location,
             typeof(YotsubaShader.WgslSyntax.Resources.storage).Assembly.Location,
+            typeof(YotsubaShader.Compiler.Metadata.ShaderTargetsAttribute).Assembly.Location,
         })
         .Distinct()
+        // El analizador lleva copias internas de Target y GameEngine: la compilación del shader usa las de Metadata.
+        .Where(path => Path.GetFileName(path) != "YotsubaShader.IDE.Analyzer.dll")
         .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
         .ToArray();
 
-    public static ImmutableArray<Diagnostic> Analyze(string code, string? targets = null)
+    /// <summary>
+    /// <paramref name="targets"/> es el valor de <c>[assembly: ShaderTargets(...)]</c> (p. ej. <c>"Target.WebGpu"</c>) y
+    /// <paramref name="engines"/> el de <c>[assembly: ShaderEngines(...)]</c> (<c>"GameEngine.Godot"</c>). Sin ellos
+    /// el shader no declara nada y se valida contra Vulkan 1.3.
+    /// </summary>
+    public static ImmutableArray<Diagnostic> Analyze(string code, string? targets = null, string? engines = null)
     {
-        var tree = CSharpSyntaxTree.ParseText(Usings + code, new CSharpParseOptions(LanguageVersion.Latest), path: "Shader.cs");
+        string header = (targets is null ? "" : $"[assembly: ShaderTargets({targets})]\n") +
+                        (engines is null ? "" : $"[assembly: ShaderEngines({engines})]\n");
+        var tree = CSharpSyntaxTree.ParseText(Usings + header + code, new CSharpParseOptions(LanguageVersion.Latest), path: "Shader.cs");
         var compilation = CSharpCompilation.Create("Test", new[] { tree }, References,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Disable, allowUnsafe: true));
 
@@ -46,7 +57,7 @@ internal static class AnalyzerHarness
             throw new InvalidOperationException("El shader de prueba no compila en C#:\n" + string.Join("\n", errors));
         }
 
-        var options = new AnalyzerOptions(ImmutableArray<AdditionalText>.Empty, new TargetsOptionsProvider(targets));
+        var options = new AnalyzerOptions(ImmutableArray<AdditionalText>.Empty);
         return compilation
             .WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new ShaderAnalyzer()), options)
             .GetAnalyzerDiagnosticsAsync().Result
@@ -55,18 +66,18 @@ internal static class AnalyzerHarness
     }
 
     /// <summary>Comprueba que aparece el diagnóstico <paramref name="id"/> y devuelve el primero.</summary>
-    public static Diagnostic Expect(string code, string id, string? targets = null)
+    public static Diagnostic Expect(string code, string id, string? targets = null, string? engines = null)
     {
-        var diagnostics = Analyze(code, targets);
+        var diagnostics = Analyze(code, targets, engines);
         Diagnostic? found = diagnostics.FirstOrDefault(d => d.Id == id);
         Assert.True(found is not null,
             $"Se esperaba {id}. Diagnósticos: {(diagnostics.IsEmpty ? "ninguno" : string.Join("; ", diagnostics.Select(d => d.Id + " " + d.GetMessage())))}");
         return found!;
     }
 
-    public static void ExpectNone(string code, string id, string? targets = null)
+    public static void ExpectNone(string code, string id, string? targets = null, string? engines = null)
     {
-        var diagnostics = Analyze(code, targets);
+        var diagnostics = Analyze(code, targets, engines);
         Assert.DoesNotContain(diagnostics, d => d.Id == id);
     }
 
@@ -75,26 +86,5 @@ internal static class AnalyzerHarness
     {
         var errors = Analyze(code).Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
         Assert.True(errors.Count == 0, "Errores inesperados: " + string.Join("; ", errors.Select(d => d.Id + " " + d.GetMessage())));
-    }
-
-    private sealed class TargetsOptionsProvider : AnalyzerConfigOptionsProvider
-    {
-        private readonly Options _options;
-        public TargetsOptionsProvider(string? targets) => _options = new Options(targets);
-        public override AnalyzerConfigOptions GlobalOptions => _options;
-        public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => _options;
-        public override AnalyzerConfigOptions GetOptions(AdditionalText textFile) => _options;
-
-        private sealed class Options : AnalyzerConfigOptions
-        {
-            private readonly string? _targets;
-            public Options(string? targets) => _targets = targets;
-
-            public override bool TryGetValue(string key, out string value)
-            {
-                value = _targets ?? "";
-                return key == "build_property.YotsubaShaderTargets" && _targets is not null;
-            }
-        }
     }
 }

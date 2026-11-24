@@ -51,7 +51,7 @@ done
 
 # Each entry is the project's folder; the .csproj inside has the folder's name.
 for directory in \
-  Core/Syntax/YotsubaShader.Concepts Core/Representations/YotsubaShader.Language Core/Representations/YotsubaShader.IR \
+  Core/Syntax/YotsubaShader.Concepts Core/Syntax/YotsubaShader.Compiler.Metadata Core/Representations/YotsubaShader.Language Core/Representations/YotsubaShader.IR \
   Core/Analyzers/YotsubaShader.Roslyn Core/Compilers/YotsubaShader.Compiler.SpirV \
   Core/Syntax/YotsubaShader.GlslSyntax Core/Syntax/YotsubaShader.HlslSyntax Core/Syntax/YotsubaShader.MslSyntax \
   Core/Syntax/YotsubaShader.SpirvSyntax Core/Syntax/YotsubaShader.WgslSyntax \

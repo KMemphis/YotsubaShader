@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!-- Shaders testigo de `scripts/api_conformance.py`: una clase por característica que cambia entre versiones de una API.
+         Cada una es tan pequeña como se puede, así un fallo en CI señala la característica y no el shader. -->
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\..\Core\Syntax\YotsubaShader.HlslSyntax\YotsubaShader.HlslSyntax.csproj" />
+    </ItemGroup>
+
+</Project>
