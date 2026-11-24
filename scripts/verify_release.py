@@ -150,10 +150,18 @@ def smoke(executable: pathlib.Path, project: pathlib.Path) -> None:
         "glsl": ".glsl",
         "msl": ".msl",
     }
-    # Plugin targets are fetched from NuGet (latest version), so they can only be
-    # smoke-tested once the plugin packages are published.
-    if os.environ.get("YOTSUBA_SMOKE_PLUGINS") == "1":
-        targets.update({"monogame": ".mgfx", "kni": ".knifx", "fna": ".fxb", "godot": ".gdshader"})
+    # Plugin targets come from the plugins installed under YOTSUBA_HOME (scripts/stage_plugins.py stages the ones of
+    # this checkout) or are fetched from NuGet, so without staging they can only be smoke-tested once the plugin
+    # packages are published. YOTSUBA_SMOKE_PLUGINS is "1" for all of them or a list such as "fna,monogame,kni".
+    plugin_extensions = {"monogame": ".mgfx", "kni": ".knifx", "fna": ".fxb", "godot": ".gdshader"}
+    requested = os.environ.get("YOTSUBA_SMOKE_PLUGINS", "")
+    if requested == "1":
+        targets.update(plugin_extensions)
+    elif requested:
+        for name in (item.strip() for item in requested.split(",") if item.strip()):
+            if name not in plugin_extensions:
+                raise ValueError(f"YOTSUBA_SMOKE_PLUGINS names an unknown plugin '{name}'")
+            targets[name] = plugin_extensions[name]
     with tempfile.TemporaryDirectory(prefix="yotsuba-release-smoke-") as scratch:
         output = pathlib.Path(scratch) / "output"
         args = [str(executable), "compile", str(project)]

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <!-- A tiny shader project for `scripts/verify_release.py smoke`: one vertex and one fragment stage that every
+         plugin target (FNA, MonoGame, KNI) can express, so a failure in CI means the platform broke, not the shader. -->
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\..\Core\Syntax\YotsubaShader.GlslSyntax\YotsubaShader.GlslSyntax.csproj" />
+    </ItemGroup>
+
+</Project>
