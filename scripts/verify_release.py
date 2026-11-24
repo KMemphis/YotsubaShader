@@ -58,7 +58,8 @@ VKD3D_SHA256 = {
     "osx-x64": "0fcd4e99d7c4c9b0375535ccfd0c27cf2f72fe60fb28ca7ffc770616d58c09f6",
     "osx-arm64": "b624db5641469c34bc44849cbc42201ffd7cdd26bfc8bb6a4c8f5f6757f8d34b",
 }
-LINUX_ARM64_DXC_SHA256 = "7ecc3bc115efd6e34904992c310a6779032b579d41cdc0f9c66edf7292295cd5"
+# MonoGame.Tool.Dxc 1.9.2607.1 binaries/linux-arm64/lib/libdxcompiler.so: the DXC ShadowDusk pins for Linux ARM64.
+LINUX_ARM64_DXC_SHA256 = "b3cec73ebcada16b98707a61bacf04e450ff5b98c8978a7f7ce0f0cd9164094f"
 
 
 def check_native_hash(package: zipfile.ZipFile, asset: str, expected: str) -> None:
