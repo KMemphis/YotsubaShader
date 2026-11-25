@@ -24,7 +24,16 @@ public sealed class PluginManager : IDisposable
     };
 
     private readonly string NuGetFlatContainer;
-    private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(30) };
+
+    // Sin límite total en el HttpClient: un paquete de plugin puede pesar cientos de MB (YotsubaShader.ShadowDusk.HLSL
+    // trae DXC) y con una conexión normal tarda más de 30 s. Los límites son por petición (cabeceras y metadatos) y por
+    // inactividad (una descarga sin recibir un solo byte), así que una descarga lenta termina y una colgada falla.
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan StallTimeout = TimeSpan.FromSeconds(30);
+    private const int DownloadAttempts = 3;
+    private const long ProgressThreshold = 5 * 1024 * 1024;
+
+    private readonly HttpClient _http = new() { Timeout = Timeout.InfiniteTimeSpan };
     private readonly string _home;
     private readonly string _catalogSource;
     private PluginMetadata[]? _catalog;
@@ -125,12 +134,148 @@ public sealed class PluginManager : IDisposable
         File.Move(temporary, path, overwrite: true);
     }
 
+    /// <summary>Envía una petición y espera solo las cabeceras, con <see cref="RequestTimeout"/>.</summary>
+    private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeout.CancelAfter(RequestTimeout);
+
+        try
+        {
+            return await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+        }
+        catch (OperationCanceledException) when (!token.IsCancellationRequested)
+        {
+            throw new HttpRequestException(
+                $"Sin respuesta de {request.RequestUri?.Host} en {RequestTimeout.TotalSeconds:0} s. Comprueba la conexión.");
+        }
+    }
+
+    /// <summary>Lee un cuerpo pequeño (JSON de catálogo o de versiones) con <see cref="RequestTimeout"/>.</summary>
+    private static async Task<string> ReadWithTimeoutAsync(Func<CancellationToken, Task<string>> read, CancellationToken token)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeout.CancelAfter(RequestTimeout);
+
+        try
+        {
+            return await read(timeout.Token);
+        }
+        catch (OperationCanceledException) when (!token.IsCancellationRequested)
+        {
+            throw new HttpRequestException($"La respuesta no terminó de llegar en {RequestTimeout.TotalSeconds:0} s.");
+        }
+    }
+
+    /// <summary>
+    /// Descarga un paquete. No hay límite de tiempo total: solo falla si pasan <see cref="StallTimeout"/> sin recibir
+    /// datos, y entonces reintenta. Los paquetes grandes muestran el avance cada 10 %.
+    /// </summary>
+    private async Task<byte[]> DownloadAsync(string url, string label, CancellationToken token)
+    {
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await DownloadOnceAsync(url, label, token);
+            }
+            catch (Exception exception) when (
+                attempt < DownloadAttempts &&
+                !token.IsCancellationRequested &&
+                exception is HttpRequestException or IOException)
+            {
+                Console.Error.WriteLine(
+                    $"Se interrumpió la descarga de {label} ({exception.Message}). Reintento {attempt}/{DownloadAttempts - 1}...");
+                await Task.Delay(TimeSpan.FromSeconds(2 * attempt), token);
+            }
+        }
+    }
+
+    private async Task<byte[]> DownloadOnceAsync(string url, string label, CancellationToken token)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        using HttpResponseMessage response = await SendAsync(request, token);
+        response.EnsureSuccessStatusCode();
+
+        long? total = response.Content.Headers.ContentLength;
+        bool showProgress = total is >= ProgressThreshold;
+        bool announce = total is >= 1024 * 1024;
+
+        // Líneas completas y no '\r': el CLI se llama desde un csproj (Exec) o un IDE, que registran la salida por líneas.
+        // Con 10 % de paso o 5 s sin novedad siempre se ve que sigue vivo, aunque la conexión sea lenta.
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        TimeSpan lastReport = TimeSpan.Zero;
+        int reportedStep = 0;
+
+        if (announce)
+        {
+            Console.WriteLine($"Descargando {label} ({FormatMegabytes(total!.Value)})...");
+        }
+
+        using var stall = CancellationTokenSource.CreateLinkedTokenSource(token);
+        stall.CancelAfter(StallTimeout);
+
+        await using Stream stream = await response.Content.ReadAsStreamAsync(stall.Token);
+        using var data = new MemoryStream(total is > 0 and < int.MaxValue ? (int)total.Value : 0);
+        byte[] chunk = new byte[81920];
+
+        while (true)
+        {
+            int read;
+
+            try
+            {
+                read = await stream.ReadAsync(chunk, stall.Token);
+            }
+            catch (OperationCanceledException) when (!token.IsCancellationRequested)
+            {
+                throw new IOException($"sin datos durante {StallTimeout.TotalSeconds:0} s");
+            }
+
+            if (read == 0)
+            {
+                break;
+            }
+
+            stall.CancelAfter(StallTimeout);
+            data.Write(chunk, 0, read);
+
+            if (showProgress)
+            {
+                int percent = (int)(data.Length * 100 / total!.Value);
+                int step = percent / 10;
+
+                if (percent < 100 && (step > reportedStep || (clock.Elapsed - lastReport).TotalSeconds >= 5))
+                {
+                    reportedStep = Math.Max(reportedStep, step);
+                    lastReport = clock.Elapsed;
+                    double speed = data.Length / 1048576.0 / Math.Max(clock.Elapsed.TotalSeconds, 0.001);
+                    Console.WriteLine(
+                        $"  {label}: {percent} % ({FormatMegabytes(data.Length)} de {FormatMegabytes(total.Value)}, {speed:0.0} MB/s)");
+                }
+            }
+        }
+
+        if (showProgress)
+        {
+            Console.WriteLine($"  {label}: 100 % ({FormatMegabytes(data.Length)} en {clock.Elapsed.TotalSeconds:0} s)");
+        }
+
+        // Con el tamaño anunciado el búfer ya es exacto: se evita copiar un paquete de cientos de MB.
+        return data.Length == data.Capacity ? data.GetBuffer() : data.ToArray();
+    }
+
+    private static string FormatMegabytes(long bytes) => $"{bytes / 1048576.0:0.#} MB";
+
     private async Task<string> ReadTextAsync(string source, CancellationToken token)
     {
         if (Uri.TryCreate(source, UriKind.Absolute, out Uri? uri) &&
             uri.Scheme is "http" or "https")
         {
-            return await _http.GetStringAsync(uri, token);
+            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            using HttpResponseMessage response = await SendAsync(request, token);
+            response.EnsureSuccessStatusCode();
+            return await ReadWithTimeoutAsync(response.Content.ReadAsStringAsync, token);
         }
 
         string path = source.StartsWith("file:", StringComparison.OrdinalIgnoreCase)
@@ -172,6 +317,7 @@ public sealed class PluginManager : IDisposable
     /// <summary>Instala el plugin con la última versión de su paquete NuGet (o la actualiza).</summary>
     public async Task<InstalledPlugin> InstallAsync(string name, CancellationToken token)
     {
+        Console.WriteLine($"Buscando la versión del plugin {name} compatible con el CLI {HostVersion.Major}.{HostVersion.Minor}.x...");
         PluginMetadata metadata = await FindAsync(name, token);
         string latest = await GetCompatibleVersionAsync(metadata.Package, token);
 
@@ -188,7 +334,9 @@ public sealed class PluginManager : IDisposable
             return installed;
         }
 
-        Console.WriteLine($"Instalando plugin {metadata.Name} ({metadata.Package} {latest})...");
+        Console.WriteLine(installed is null
+            ? $"Instalando plugin {metadata.Name} ({metadata.Package} {latest})..."
+            : $"Actualizando plugin {metadata.Name} de {installed.Version} a {latest} ({metadata.Package})...");
 
         string target = PluginDirectory(metadata.Name);
         string staging = $"{target}.{Environment.ProcessId}.tmp";
@@ -232,7 +380,7 @@ public sealed class PluginManager : IDisposable
             }
 
             Directory.Move(staging, target);
-            Console.WriteLine($"Plugin {metadata.Name} {latest} instalado.");
+            Console.WriteLine($"Plugin {metadata.Name} {latest} {(installed is null ? "instalado" : "actualizado")}.");
             return result;
         }
         catch
@@ -304,11 +452,15 @@ public sealed class PluginManager : IDisposable
                 await InstallAsync(metadata.Name, token);
             }
             catch (Exception exception) when (
-                exception is HttpRequestException or TaskCanceledException &&
+                exception is HttpRequestException or TaskCanceledException or IOException &&
                 current is not null)
             {
                 Console.Error.WriteLine(
-                    $"No se pudo buscar actualizaciones de '{name}', se usa la versión instalada. ({exception.Message})");
+                    $"No se pudo actualizar el plugin '{name}' ({exception.Message}). Se usa la versión instalada {current.Version}" +
+                    (TryParseVersion(current.Version, out Version? old) && old != HostVersion
+                        ? $", distinta de la {HostVersion} de este CLI: el código generado puede ser de una versión anterior. " +
+                          $"Reintenta con 'yotsuba plugin update {name}'."
+                        : "."));
 
                 metadata = await FindAsync(name, token);
             }
@@ -394,7 +546,8 @@ public sealed class PluginManager : IDisposable
     {
         string url = $"{NuGetFlatContainer}{package.ToLowerInvariant()}/index.json";
 
-        using HttpResponseMessage response = await _http.GetAsync(url, token);
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        using HttpResponseMessage response = await SendAsync(request, token);
 
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
@@ -403,7 +556,8 @@ public sealed class PluginManager : IDisposable
 
         response.EnsureSuccessStatusCode();
 
-        using JsonDocument document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token));
+        using JsonDocument document = JsonDocument.Parse(
+            await ReadWithTimeoutAsync(response.Content.ReadAsStringAsync, token));
         return document.RootElement
             .GetProperty("versions")
             .EnumerateArray()
@@ -442,7 +596,7 @@ public sealed class PluginManager : IDisposable
         string id = package.ToLowerInvariant();
         string url = $"{NuGetFlatContainer}{id}/{version.ToLowerInvariant()}/{id}.{version.ToLowerInvariant()}.nupkg";
 
-        byte[] data = await _http.GetByteArrayAsync(url, token);
+        byte[] data = await DownloadAsync(url, $"{package} {version}", token);
         using var archive = new ZipArchive(new MemoryStream(data), ZipArchiveMode.Read);
 
         string mainAssembly = ExtractLibraries(archive, package, directory);
@@ -479,7 +633,7 @@ public sealed class PluginManager : IDisposable
             using var request = new HttpRequestMessage(
                 HttpMethod.Head,
                 $"{NuGetFlatContainer}{id}/{minimum.ToLowerInvariant()}/{id}.{minimum.ToLowerInvariant()}.nupkg");
-            using HttpResponseMessage response = await _http.SendAsync(request, token);
+            using HttpResponseMessage response = await SendAsync(request, token);
 
             if (response.IsSuccessStatusCode)
             {
