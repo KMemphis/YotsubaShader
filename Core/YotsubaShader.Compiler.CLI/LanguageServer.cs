@@ -234,6 +234,22 @@ internal sealed class LanguageServer
             _workspace = MSBuildWorkspace.Create();
             _workspace.RegisterWorkspaceFailedHandler(e => Log($"MSBuild: {e.Diagnostic.Message}"));
             Project project = await _workspace.OpenProjectAsync(_projectPath);
+
+            // Un proyecto recién creado o clonado no está restaurado: sin referencias, cada tipo daría error.
+            // Se restaura aquí, igual que hace `compile`, para que quien escribe shaders no tenga que saberlo.
+            Compilation? opened = await project.GetCompilationAsync();
+            if (opened is not null && ProjectRestore.NeedsRestore(opened))
+            {
+                Log("Proyecto sin restaurar: ejecutando dotnet restore...");
+                if (await ProjectRestore.RestoreAsync(_projectPath, null, CancellationToken.None))
+                {
+                    _workspace.Dispose();
+                    _workspace = MSBuildWorkspace.Create();
+                    _workspace.RegisterWorkspaceFailedHandler(e => Log($"MSBuild: {e.Diagnostic.Message}"));
+                    project = await _workspace.OpenProjectAsync(_projectPath);
+                }
+            }
+
             lock (_stateLock) _project = project;
             Log($"Proyecto cargado: {_projectPath}");
             ScheduleAnalysis();
