@@ -24,8 +24,13 @@
     <ItemGroup>
         <Compile Include="..\YotsubaShader.Rules\**\*.cs" LinkBase="Rules" />
         <Compile Include="..\YotsubaShader.IDE.Analyzer\GraphicsApi\**\*.cs" LinkBase="Rules\GraphicsApi" />
-        <Compile Include="..\..\Syntax\YotsubaShader.Compiler.Metadata\Target.cs" LinkBase="Rules\Metadata" />
-        <Compile Include="..\..\Syntax\YotsubaShader.Compiler.Metadata\GameEngine.cs" LinkBase="Rules\Metadata" />
+    </ItemGroup>
+
+    <!-- Target and GameEngine come from the real assembly. Linking their sources would make this DLL define the same
+         public types, and a project that references both (YotsubaShader.Compiler.Library + any syntax package) would
+         fail with CS0433. The analyzer cannot reference it (it must be self-contained), so it links the sources. -->
+    <ItemGroup>
+        <ProjectReference Include="..\..\Syntax\YotsubaShader.Compiler.Metadata\YotsubaShader.Compiler.Metadata.csproj" />
     </ItemGroup>
 
     <ItemGroup>
