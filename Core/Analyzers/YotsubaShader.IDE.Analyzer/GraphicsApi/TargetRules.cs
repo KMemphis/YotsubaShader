@@ -30,14 +30,9 @@ internal static class TargetRules
             ? Location.Create(reference.SyntaxTree, reference.Span)
             : Location.None;
 
-        var withoutBackend = ApiRegistry.For(declared).Where(profile => !profile.HasBackend).ToList();
-        if (withoutBackend.Count > 0)
-        {
-            report(Diagnostic.Create(ShaderRules.TargetWithoutBackend, location,
-                Loc.F("No YotsubaShader backend generates {0} (the CLI does not produce that language or version). Remove that version from [ShaderTargets] or use a later one.",
-                    TargetSet.Describe(withoutBackend))));
-        }
-
+        // [ShaderTargets] only says which graphics APIs the shader must be valid for. Whether the CLI can emit code
+        // for one of them is not an error here: a shader can target Direct3D 9 for validation and still be compiled
+        // to another language.
         Target unknown = ApiRegistry.Unknown(declared);
         if (unknown != Target.None)
         {

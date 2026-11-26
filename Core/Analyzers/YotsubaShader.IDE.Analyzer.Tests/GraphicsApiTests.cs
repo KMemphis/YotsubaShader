@@ -132,8 +132,8 @@ public class GraphicsApiTests
     [InlineData("Target.DirectX_80")]
     [InlineData("Target.DirectX_90")]
     [InlineData("Target.Vulkan_13 | Target.DirectX_81")]
-    public void A_target_no_backend_generates_is_an_error(string targets) =>
-        Assert.Equal(DiagnosticSeverity.Error, Severity("[ShaderTargets(" + targets + ")] " + Compute, "YS0712"));
+    public void A_target_no_backend_generates_is_still_valid(string targets) =>
+        ExpectNone("[ShaderTargets(" + targets + ")] " + Compute, "YS0712");
 
     [Fact]
     public void Empty_declaration_is_the_default() =>
