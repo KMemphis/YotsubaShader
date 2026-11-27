@@ -38,6 +38,10 @@ jobs:
         with:
           node-version: 22
 
+      - name: Datos del MCP y llms.txt (desde reference/)
+        working-directory: Web/learn
+        run: node tools/gen-mcp-data.mjs
+
       - name: Construir learn
         working-directory: Web/learn
         run: node build.mjs --strict-i18n   # falla si falta una traducción o hay un enlace roto

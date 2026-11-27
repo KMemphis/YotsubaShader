@@ -51,8 +51,21 @@ jobs:
       - name: Build
         run: dotnet build Examples/YotsubaShader.Example/YotsubaShader.Example.csproj --configuration Release --no-restore -p:CompileYotsubaShaders=false
 
+      - name: Datos del MCP (referencia de learn y ejemplos)
+        uses: ./.github/actions/mcp-data
+        with:
+          token: ${{ secrets.WEB_REPO_TOKEN }}
+
       - name: Build CLI
         run: dotnet build Core/YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj --configuration Release
+
+      - name: Test the MCP server (yotsuba mcp)
+        run: dotnet test Core/YotsubaShader.Mcp.Tests/YotsubaShader.Mcp.Tests.csproj --configuration Release
+
+      - name: Smoke the MCP server over stdio
+        run: >
+          python3 scripts/mcp_smoke.py dotnet run --project Core/YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj
+          --configuration Release --no-build -- mcp
 
       - name: Run CLI against the example (compile)
         run: >
@@ -119,6 +132,8 @@ jobs:
             --add-source "$RUNNER_TEMP/nupkg" --version 0.1.0
           python3 scripts/verify_release.py smoke "$RUNNER_TEMP/yotsuba-tool/yotsuba" \
             Examples/YotsubaShader.Example/YotsubaShader.Example.csproj
+          # The MCP content is embedded in the package: the installed tool must serve it.
+          python3 scripts/mcp_smoke.py "$RUNNER_TEMP/yotsuba-tool/yotsuba" mcp
 
       # Load tests: each compiles a HLSL shader to the engine's effect format, loads it as a
       # real Effect and renders a triangle (software OpenGL under Xvfb). Verified on linux-x64.
@@ -220,6 +235,11 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: ./ThirdParty/ShadowDusk/tools/restore.ps1
+      - name: Datos del MCP (referencia de learn y ejemplos)
+        uses: ./.github/actions/mcp-data
+        with:
+          token: ${{ secrets.WEB_REPO_TOKEN }}
+
       - name: Publish and run outside checkout
         shell: bash
         run: |
@@ -237,6 +257,7 @@ jobs:
             chmod +x "$exe"
           fi
           python scripts/verify_release.py smoke "$exe" Examples/YotsubaShader.Example/YotsubaShader.Example.csproj
+          python scripts/mcp_smoke.py "$exe" mcp
 
   plugin-smoke:
     name: FNA, MonoGame and KNI plugins ${{ matrix.rid }}

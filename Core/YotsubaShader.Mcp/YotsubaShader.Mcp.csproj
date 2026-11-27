@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+        <IsPackable>false</IsPackable>
+        <RootNamespace>YotsubaShader.Mcp</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="ModelContextProtocol" Version="2.4.0" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+    </ItemGroup>
+
+    <!-- Datos del MCP (referencia de learn y 100 ejemplos). Se generan en el repo de la web (Web/learn/tools/gen-mcp-data.mjs
+         y Web/mcp/tools/build-examples.mjs); sin ellos el comando `yotsuba mcp` avisa de que falta el contenido. -->
+    <PropertyGroup>
+        <McpDataDir>$(MSBuildThisFileDirectory)..\..\Web\mcp\data\</McpDataDir>
+    </PropertyGroup>
+    <ItemGroup Condition="Exists('$(McpDataDir)examples.json') And Exists('$(McpDataDir)docs-en.json') And Exists('$(McpDataDir)docs-es.json')">
+        <EmbeddedResource Include="$(McpDataDir)docs-en.json" LogicalName="mcp-data/docs-en.json" />
+        <EmbeddedResource Include="$(McpDataDir)docs-es.json" LogicalName="mcp-data/docs-es.json" />
+        <EmbeddedResource Include="$(McpDataDir)examples.json" LogicalName="mcp-data/examples.json" />
+    </ItemGroup>
+
+</Project>

@@ -15,6 +15,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\YotsubaShader.Compiler.Library\YotsubaShader.Compiler.Library.csproj" />
+        <ProjectReference Include="..\YotsubaShader.Mcp\YotsubaShader.Mcp.csproj" />
     </ItemGroup>
     <ItemGroup>
         <None Include="..\..\ThirdParty\ShadowDusk\src\ShadowDusk.HLSL\THIRD-PARTY-NOTICES.txt" Pack="true" PackagePath="tools/net10.0/any/THIRD-PARTY-NOTICES.txt" Visible="false" />

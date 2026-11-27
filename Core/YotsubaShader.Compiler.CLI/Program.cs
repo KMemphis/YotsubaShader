@@ -86,6 +86,7 @@ const string usage = """
                        yotsuba add <proyecto.csproj> --target <destino> [--target <destino> ...]
                        yotsuba plugin list | install <nombre> | update [nombre] | remove <nombre>
                        yotsuba lsp <proyecto.csproj>     (servidor de lenguaje por stdio: diagnósticos en vivo para editores)
+                       yotsuba mcp                       (servidor MCP por stdio: la referencia y 100 ejemplos para asistentes de IA)
 
                      Destinos incluidos: spirv, hlsl, glsl, gles, msl, cpp, wgsl.
                      Versión del lenguaje de salida: --target <destino>:<versión>
@@ -121,6 +122,12 @@ if (args.Length == 1 && args[0] is "--version" or "version")
 if (args.Length > 0 && args[0].Equals("plugin", StringComparison.OrdinalIgnoreCase))
 {
     Environment.ExitCode = await PluginCommand.RunAsync(args[1..]);
+    return;
+}
+
+if (args.Length > 0 && args[0].Equals("mcp", StringComparison.OrdinalIgnoreCase))
+{
+    Environment.ExitCode = await YotsubaShader.Mcp.McpHost.RunAsync(args[1..], CliVersion.Informational);
     return;
 }
 
