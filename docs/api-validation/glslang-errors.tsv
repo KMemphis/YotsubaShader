@@ -1,0 +1,587 @@
+ParseHelper.cpp	optimize pragma syntax is incorrect
+ParseHelper.cpp	\"(\" expected after 'optimize' keyword
+ParseHelper.cpp	\")\" expected to end 'optimize' pragma
+ParseHelper.cpp	debug pragma syntax is incorrect
+ParseHelper.cpp	\"(\" expected after 'debug' keyword
+ParseHelper.cpp	\")\" expected to end 'debug' pragma
+ParseHelper.cpp	extra tokens
+ParseHelper.cpp	requires SPIR-V 1.3
+ParseHelper.cpp	truncated STDGL declaration
+ParseHelper.cpp	Invalid STDGL declaration
+ParseHelper.cpp	Invalid STDGL invariant declaration:
+ParseHelper.cpp	Unknown STDGL declaration:
+ParseHelper.cpp	member of nameless block was not redeclared
+ParseHelper.cpp	cannot be used (maybe an instance name is needed)
+ParseHelper.cpp	cannot be used (output primitive type mismatch)
+ParseHelper.cpp	variable name expected
+ParseHelper.cpp	 left of '[' is not of type array, matrix, or vector 
+ParseHelper.cpp	cannot index reference to buffer containing an unsized array
+ParseHelper.cpp	cannot index buffer reference
+ParseHelper.cpp	gl_ClipDistance
+ParseHelper.cpp	gl_CullDistance
+ParseHelper.cpp	gl_SampleMask
+ParseHelper.cpp	
+ParseHelper.cpp	tessellation input array size must be gl_MaxPatchVertices or implicitly sized
+ParseHelper.cpp	type must be an array:
+ParseHelper.cpp	inconsistent input primitive for array size of
+ParseHelper.cpp	inconsistent output number of vertices for array size of
+ParseHelper.cpp	 cannot be greater than 3 for pervertexEXT
+ParseHelper.cpp	inconsistent output array size of
+ParseHelper.cpp	does not operate on this type:
+ParseHelper.cpp	cannot apply to an array:
+ParseHelper.cpp	cannot apply to a cooperative matrix type:
+ParseHelper.cpp	no such field in structure
+ParseHelper.cpp	does not apply to this type:
+ParseHelper.cpp	type cast has to be either scalar, vector, matrix or buffer reference
+ParseHelper.cpp	'spirv_literal' can only be used on functions defined with 'spirv_instruction' for argument
+ParseHelper.cpp	overloaded functions must have the same qualifiers
+ParseHelper.cpp	overloaded functions must have the same parameter storage qualifiers for argument
+ParseHelper.cpp	overloaded functions must have the same parameter precision qualifiers for argument
+ParseHelper.cpp	overloaded functions must have the same return type
+ParseHelper.cpp	function attributes are incompatible
+ParseHelper.cpp	function name is redeclaration of existing name
+ParseHelper.cpp	can't find function
+ParseHelper.cpp	function already has a body
+ParseHelper.cpp	function cannot take any parameter(s)
+ParseHelper.cpp	main function cannot be exported
+ParseHelper.cpp	redefinition
+ParseHelper.cpp	cannot construct with these arguments
+ParseHelper.cpp	requires exactly two parameters
+ParseHelper.cpp	expected a result matrix, an input matrix, and a per-element function
+ParseHelper.cpp	input and result component types must match
+ParseHelper.cpp	input and result Use must be Accumulator
+ParseHelper.cpp	incomplete cooperative matrix type parameters
+ParseHelper.cpp	input and result scopes must match
+ParseHelper.cpp	reduceMask must be a constant expression
+ParseHelper.cpp	reduceMask must be a valid cooperative matrix reduction value
+ParseHelper.cpp	result rows must match input rows for a row reduction
+ParseHelper.cpp	result columns must match input columns for a column reduction
+ParseHelper.cpp	result rows and columns must be half the input rows and columns for a 2x2 reduction
+ParseHelper.cpp	function parameters must all be qualified 'const in'
+ParseHelper.cpp	must have two parameters
+ParseHelper.cpp	parameter types must match cooperative matrix component type
+ParseHelper.cpp	return type must match cooperative matrix component type
+ParseHelper.cpp	cooperative matrix input and result types must match
+ParseHelper.cpp	not enough parameters
+ParseHelper.cpp	number of parameters must match call to cooperative matrix per-element operation
+ParseHelper.cpp	row/column parameters must be uint32_t
+ParseHelper.cpp	third parameter must match cooperative matrix component type
+ParseHelper.cpp	optional cooperative matrix types must match the input matrix type
+ParseHelper.cpp	parameters corresponding to cooperative matrices must match the matrix component type
+ParseHelper.cpp	parameter types must match or be cooperative matrix component type
+ParseHelper.cpp	must have three parameters
+ParseHelper.cpp	first parameter must be buffer reference type
+ParseHelper.cpp	coordinate parameters must be uint32_t
+ParseHelper.cpp	decodeFunc return type must be the cooperative matrix component type (scalar)
+ParseHelper.cpp	decodeVectorFunc return type must be a vector of the matrix component type
+ParseHelper.cpp	decodeVectorFunc return type component must match cooperative matrix component type
+ParseHelper.cpp	decodeVectorFunc return vector length must be 2, 4, or 8
+ParseHelper.cpp	cannot multiply coop matrices with incompatible sizes
+ParseHelper.cpp	cannot add coop matrices with incompatible sizes
+ParseHelper.cpp	coop matrix A in MulAdd operation has incompatible usage property,
+ParseHelper.cpp	coop matrix B in MulAdd operation has incompatible usage property,
+ParseHelper.cpp	coop matrix C in MulAdd operation has incompatible usage property,
+ParseHelper.cpp	source and target arrays have different bit sizes
+ParseHelper.cpp	the byte size of the target array must be 32
+ParseHelper.cpp	source and destination element types are not compatible
+ParseHelper.cpp	destination cooperative matrix has an unsupported type
+ParseHelper.cpp	cooperative matrix has unsupported scope; gl_SubgroupScope is expected
+ParseHelper.cpp	cooperative matrix use must be one of gl_MatrixUseA, gl_MatrixUseB, gl_MatrixUseAccumulator
+ParseHelper.cpp	source cooperative matrix has an unsupported type
+ParseHelper.cpp	unsupported element type
+ParseHelper.cpp	unsupported destination array length
+ParseHelper.cpp	source cooperative matrix has an unexpected cooperative matrix use
+ParseHelper.cpp	can't resolve types (ambiguous long vector overload)
+ParseHelper.cpp	 wrong operand type
+ParseHelper.cpp	void function cannot return a value
+ParseHelper.cpp	cannot convert return value to function return type
+ParseHelper.cpp	type does not match, or is not convertible to, the function's return type
+ParseHelper.cpp	sampler or image cannot be used as return type when generating SPIR-V
+ParseHelper.cpp	sampler or image can be used as return type only when the extension GL_ARB_bindless_texture enabled
+ParseHelper.cpp	tessellation control barrier() cannot be placed within flow control
+ParseHelper.cpp	tessellation control barrier() must be in main()
+ParseHelper.cpp	tessellation control barrier() cannot be placed after a return from main()
+ParseHelper.cpp	beginInvocationInterlockARB() must be in a fragment shader
+ParseHelper.cpp	beginInvocationInterlockARB() must be in main()
+ParseHelper.cpp	beginInvocationInterlockARB() cannot be placed after a return from main()
+ParseHelper.cpp	beginInvocationInterlockARB() cannot be placed within flow control
+ParseHelper.cpp	beginInvocationInterlockARB() must only be called once
+ParseHelper.cpp	beginInvocationInterlockARB() must be called before endInvocationInterlockARB()
+ParseHelper.cpp	endInvocationInterlockARB() must be in a fragment shader
+ParseHelper.cpp	endInvocationInterlockARB() must be in main()
+ParseHelper.cpp	endInvocationInterlockARB() cannot be placed after a return from main()
+ParseHelper.cpp	endInvocationInterlockARB() cannot be placed within flow control
+ParseHelper.cpp	endInvocationInterlockARB() must only be called once
+ParseHelper.cpp	method does not accept any arguments
+ParseHelper.cpp	.length()
+ParseHelper.cpp	argument must be a compile-time constant
+ParseHelper.cpp	Invalid semantics value
+ParseHelper.cpp	Invalid storage class semantics value
+ParseHelper.cpp	Semantics must not include multiple of gl_SemanticsRelease, gl_SemanticsAcquire, or 
+ParseHelper.cpp	Storage class semantics must not be zero when used with gl_SemanticsRelease, 
+ParseHelper.cpp	Semantics must be gl_SemanticsRelease, gl_SemanticsAcquire, or gl_SemanticsAcquireRelease when used 
+ParseHelper.cpp	Semantics must be gl_SemanticsRelease (optionally with gl_SemanticsMakeAvailable) when used 
+ParseHelper.cpp	Semantics must be gl_SemanticsAcquire (optionally with gl_SemanticsMakeVisible) when used 
+ParseHelper.cpp	gl_SemanticsMakeAvailable requires gl_SemanticsRelease or gl_SemanticsAcquireRelease
+ParseHelper.cpp	gl_SemanticsMakeVisible requires gl_SemanticsAcquire or gl_SemanticsAcquireRelease
+ParseHelper.cpp	gl_SemanticsAcquire must not be used with (image) atomic store
+ParseHelper.cpp	gl_SemanticsRelease must not be used with (image) atomic load
+ParseHelper.cpp	gl_SemanticsAcquireRelease must not be used with (image) atomic load/store
+ParseHelper.cpp	Semantics must include exactly one of gl_SemanticsRelease, gl_SemanticsAcquire, or 
+ParseHelper.cpp	gl_SemanticsVolatile must not be used with memoryBarrier or controlBarrier
+ParseHelper.cpp	gl_SemanticsVolatile must not be used with controlBarrierArrive
+ParseHelper.cpp	gl_SemanticsVolatile must not be used with controlBarrierWait
+ParseHelper.cpp	semUnequal must not be gl_SemanticsRelease or gl_SemanticsAcquireRelease
+ParseHelper.cpp	semUnequal must not be gl_SemanticsAcquire unless semEqual is gl_SemanticsAcquire 
+ParseHelper.cpp	semUnequal must not include gl_SemanticsMakeVisible unless semEqual also includes 
+ParseHelper.cpp	semStorageUnequal must not include any option that is not present in semStorageEqual
+ParseHelper.cpp	semEqual and semUnequal must either both include gl_SemanticsVolatile or neither
+ParseHelper.cpp	requires a derivative_group_quads* or derivative_group_linear* layout qualifier
+ParseHelper.cpp	argument must be compile-time constant
+ParseHelper.cpp	with layout(location =
+ParseHelper.cpp	must be a compile-time constant:
+ParseHelper.cpp	must be 0, 1, 2, or 3:
+ParseHelper.cpp	GL_EXT_texture_shadow_lod not supported for this ES version
+ParseHelper.cpp	components must be in the range [0, 3]
+ParseHelper.cpp	components must be in the range [0, 31]
+ParseHelper.cpp	value is out of range:
+ParseHelper.cpp	TextureOffset does not support sampler2DArrayShadow : 
+ParseHelper.cpp	only supported on image with format r32i or r32ui
+ParseHelper.cpp	only supported on image with format r64i
+ParseHelper.cpp	only supported on image with format r64ui
+ParseHelper.cpp	f16vec2/4 operation not supported on: 
+ParseHelper.cpp	only supported on integer images
+ParseHelper.cpp	only supported on image with format r32f
+ParseHelper.cpp	not supported on this image type
+ParseHelper.cpp	argument must be qualified as __explicitInterpAMD in
+ParseHelper.cpp	must be in the range [0, 2]
+ParseHelper.cpp	argument must be at least 1
+ParseHelper.cpp	argument must be a power of 2
+ParseHelper.cpp	incomplete type parameters
+ParseHelper.cpp	scope must match
+ParseHelper.cpp	rows/columns must be swapped
+ParseHelper.cpp	Cooperative matrix source Use must be Accumulator
+ParseHelper.cpp	Cooperative matrix result Use must not be Accumulator
+ParseHelper.cpp	Cooperative matrix result Use must be B
+ParseHelper.cpp	first parameter must have floate5m2 or floate4m3 basic type
+ParseHelper.cpp	second parameter must not have floate5m2 or floate4m3 basic type
+ParseHelper.cpp	first parameter must be scalar, vector, or cooperative matrix
+ParseHelper.cpp	second parameter must be scalar, vector, or cooperative matrix
+ParseHelper.cpp	types must match other than scalar type and coopmat Use
+ParseHelper.cpp	number of coordinates does not match tensor rank
+ParseHelper.cpp	tensor operands argument must be a constant integral expression
+ParseHelper.cpp	out-of-bounds value is only valid with tensorReadARM
+ParseHelper.cpp	expecting out-of-bounds value as next argument
+ParseHelper.cpp	argument following gl_TensorOperandsOutOfBoundsValueARM must be constant
+ParseHelper.cpp	dimension argument exceeds tensor rank
+ParseHelper.cpp	dimension argument must be constant
+ParseHelper.cpp	first argument must be a string literal
+ParseHelper.cpp	argument cannot be a string, only the message may be a string
+ParseHelper.cpp	argument cannot be an opaque type
+ParseHelper.cpp	argument cannot be a run-time sized array
+ParseHelper.cpp	argument cannot be an aggregate containing a bool
+ParseHelper.cpp	sampler constructor must appear at point of use
+ParseHelper.cpp	function not supported in this version; use texture() instead
+ParseHelper.cpp	cannot construct this type
+ParseHelper.cpp	 wrong operand types:
+ParseHelper.cpp	tessellation-control per-vertex output l-value must be indexed with gl_InvocationID
+ParseHelper.cpp	 l-value of swizzle cannot have duplicate components
+ParseHelper.cpp	 l-value required
+ParseHelper.cpp	can't read from explicitly-interpolated object: 
+ParseHelper.cpp	can't read from gl_WorkGroupSize before a fixed workgroup size has been declared
+ParseHelper.cpp	not allowed in nested scope
+ParseHelper.cpp	identifiers starting with \"gl_\" are reserved
+ParseHelper.cpp	identifiers containing consecutive underscores (\"__\") are reserved, and an error if version < 300
+ParseHelper.cpp	array argument must be sized
+ParseHelper.cpp	cannot convert a string
+ParseHelper.cpp	constructor argument must be a non-spec constant
+ParseHelper.cpp	array constructor must have at least one argument
+ParseHelper.cpp	array constructor needs one argument per array element
+ParseHelper.cpp	array constructor argument not correct type to construct array element
+ParseHelper.cpp	constructing non-array constituent from array argument
+ParseHelper.cpp	matrix constructed from matrix can only have one argument
+ParseHelper.cpp	too many arguments
+ParseHelper.cpp	Number of constructor parameters does not match the number of structure fields
+ParseHelper.cpp	not enough data provided for construction
+ParseHelper.cpp	wrong number of arguments
+ParseHelper.cpp	Cooperative matrix constructor argument must be scalar or cooperative matrix
+ParseHelper.cpp	constructor argument does not have a type
+ParseHelper.cpp	Cooperative matrix type parameters mismatch
+ParseHelper.cpp	cannot convert a sampler
+ParseHelper.cpp	cannot convert an atomic_uint
+ParseHelper.cpp	cannot convert a void
+ParseHelper.cpp	sampler-constructor requires the extension GL_ARB_bindless_texture enabled
+ParseHelper.cpp	sampler-constructor requires the input to be ivec2 or uvec2
+ParseHelper.cpp	sampler-constructor requires two arguments
+ParseHelper.cpp	sampler-constructor cannot make an array of samplers
+ParseHelper.cpp	sampler-constructor first argument must be a scalar *texture* type
+ParseHelper.cpp	sampler-constructor first argument must be a *texture* type
+ParseHelper.cpp	sampler-constructor second argument must be a scalar sampler or samplerShadow
+ParseHelper.cpp	illegal use of type 'void'
+ParseHelper.cpp	boolean expression expected
+ParseHelper.cpp	non-uniform struct contains a sampler or image:
+ParseHelper.cpp	can only be used in tileImageEXT variables or function parameters:
+ParseHelper.cpp	sampler/image types can only be used in uniform variables or function parameters:
+ParseHelper.cpp	tensorARM types can only be used in uniform variables or function parameters:
+ParseHelper.cpp	non-uniform struct contains an atomic_uint:
+ParseHelper.cpp	atomic_uints can only be used in uniform variables or function parameters:
+ParseHelper.cpp	non-uniform struct contains an accelerationStructureNV:
+ParseHelper.cpp	accelerationStructureNV can only be used in uniform variables or function parameters:
+ParseHelper.cpp	struct is not allowed to contain hitObjectEXT:
+ParseHelper.cpp	hitObjectEXT can only be declared in global or function scope with no storage qualifier:
+ParseHelper.cpp	struct is not allowed to contain hitObjectNV:
+ParseHelper.cpp	hitObjectNV can only be declared in global or function scope with no storage qualifier:
+ParseHelper.cpp	non-opaque uniform variables need a layout(location=L)
+ParseHelper.cpp	not allowed on block or structure members
+ParseHelper.cpp	cannot use 'inout' at global scope
+ParseHelper.cpp	for non-parameter, can only apply to 'in' or no storage qualifier
+ParseHelper.cpp	can only apply to parameter
+ParseHelper.cpp	can only apply to input layout
+ParseHelper.cpp	memory qualifiers cannot be used on this type
+ParseHelper.cpp	buffers can be declared only as blocks
+ParseHelper.cpp	can only be applied to a standalone 'out'
+ParseHelper.cpp	must be qualified as flat
+ParseHelper.cpp	cannot use interpolation qualifiers with patch
+ParseHelper.cpp	only 'patch in' is supported in this stage:
+ParseHelper.cpp	taskPayloadSharedEXT variables should not be declared as interface blocks
+ParseHelper.cpp	taskNV variables can be declared only as blocks
+ParseHelper.cpp	cannot be a structure
+ParseHelper.cpp	vertex input cannot be further qualified
+ParseHelper.cpp	global storage input qualifier cannot be used in a compute shader
+ParseHelper.cpp	can only use on output in tessellation-control shader
+ParseHelper.cpp	cannot be a matrix
+ParseHelper.cpp	can't use auxiliary qualifier on a fragment output
+ParseHelper.cpp	can't use interpolation qualifier on a fragment output
+ParseHelper.cpp	cannot contain a double, int64, or uint64
+ParseHelper.cpp	global storage output qualifier cannot be used in a compute shader
+ParseHelper.cpp	can only use on input in tessellation-evaluation shader
+ParseHelper.cpp	can only have one auxiliary qualifier (centroid, patch, and sample)
+ParseHelper.cpp	can only have one interpolation qualifier (flat, smooth, noperspective, __explicitInterpAMD)
+ParseHelper.cpp	precise qualifier must appear first
+ParseHelper.cpp	invariant qualifier must appear before interpolation, storage, and precision qualifiers 
+ParseHelper.cpp	interpolation qualifiers must appear before storage and precision qualifiers
+ParseHelper.cpp	Auxiliary qualifiers (centroid, patch, and sample) must appear before storage and precision qualifiers
+ParseHelper.cpp	precision qualifier must appear as last qualifier
+ParseHelper.cpp	in/out must appear before const
+ParseHelper.cpp	too many storage qualifiers
+ParseHelper.cpp	only one precision qualifier allowed
+ParseHelper.cpp	only one coherent/devicecoherent/queuefamilycoherent/workgroupcoherent/subgroupcoherent/shadercallcoherent qualifier allowed
+ParseHelper.cpp	too many SPIR-V decorate qualifiers
+ParseHelper.cpp	replicated qualifiers
+ParseHelper.cpp	can only apply highp to atomic_uint
+ParseHelper.cpp	cannot apply precision statement to this type; use 'float', 'int' or a sampler type
+ParseHelper.cpp	atomic counters can only be highp
+ParseHelper.cpp	type requires declaration of default precision qualifier
+ParseHelper.cpp	type cannot have precision qualifier
+ParseHelper.cpp	samplers and atomic_uints cannot be output parameters
+ParseHelper.cpp	array size required
+ParseHelper.cpp	array initializer must be sized
+ParseHelper.cpp	only outermost dimension of an array of arrays can be implicitly sized
+ParseHelper.cpp	only outermost dimension of an array of arrays can be a specialization constant
+ParseHelper.cpp	cannot redeclare a user-block member array
+ParseHelper.cpp	array variable name expected
+ParseHelper.cpp	redeclaring non-array as array
+ParseHelper.cpp	redeclaration of array with a different element type
+ParseHelper.cpp	redeclaration of array with a different array dimensions or sizes
+ParseHelper.cpp	redeclaration of array with size
+ParseHelper.cpp	cannot declare runtime sizeable array for the non-last field of the heap
+ParseHelper.cpp	mesh view output array size must be gl_MaxMeshViewCountNV or implicitly sized
+ParseHelper.cpp	requires a view array dimension
+ParseHelper.cpp	variables with qualifier 'const' must be initialized
+ParseHelper.cpp	cannot redeclare after another member of its block was declared
+ParseHelper.cpp	cannot redeclare after use
+ParseHelper.cpp	cannot apply layout qualifier to
+ParseHelper.cpp	cannot change storage, memory, or auxiliary qualification of
+ParseHelper.cpp	cannot change interpolation qualification of
+ParseHelper.cpp	cannot change qualification of
+ParseHelper.cpp	can only change layout qualification of
+ParseHelper.cpp	cannot change input storage qualification of
+ParseHelper.cpp	cannot redeclare with different qualification:
+ParseHelper.cpp	cannot change output storage qualification of
+ParseHelper.cpp	all redeclarations must use the same depth layout on
+ParseHelper.cpp	all redeclarations must use the same stencil layout on
+ParseHelper.cpp	redeclaration only allowed for override_coverage layout
+ParseHelper.cpp	redeclaration only allowed for viewport_relative or secondary_view_offset layout
+ParseHelper.cpp	cannot restate the type or specify a value with constant_id; use 
+ParseHelper.cpp	can only be redeclared as 'const bool gl_EnableOpacityMicromapEXT = <true|false>;' 
+ParseHelper.cpp	cannot redeclare block: 
+ParseHelper.cpp	cannot redeclare a built-in block with a user name
+ParseHelper.cpp	no declaration found for redeclaration
+ParseHelper.cpp	can only redeclare a built-in block once, and before any use
+ParseHelper.cpp	cannot redeclare a non block as a block
+ParseHelper.cpp	cannot redeclare block member with a different type
+ParseHelper.cpp	cannot change arrayness of redeclared block member
+ParseHelper.cpp	cannot change array size of redeclared block member
+ParseHelper.cpp	missing perviewNV qualifier to redeclared block member
+ParseHelper.cpp	cannot add perviewNV qualifier to redeclared block member
+ParseHelper.cpp	missing perprimitiveNV qualifier to redeclared block member
+ParseHelper.cpp	cannot add perprimitiveNV qualifier to redeclared block member
+ParseHelper.cpp	cannot add memory qualifier to redeclared block member
+ParseHelper.cpp	cannot add non-XFB layout to redeclared block member
+ParseHelper.cpp	cannot add patch to redeclared block member
+ParseHelper.cpp	member cannot contradict block (or what block inherited from global)
+ParseHelper.cpp	block redeclaration has extra members
+ParseHelper.cpp	cannot change arrayness of redeclared block
+ParseHelper.cpp	cannot change array size of redeclared block
+ParseHelper.cpp	storage qualifier not allowed on function parameter
+ParseHelper.cpp	cannot use auxiliary or interpolation qualifiers on a function parameter
+ParseHelper.cpp	cannot use layout qualifiers on a function parameter
+ParseHelper.cpp	cannot use invariant qualifier on a function parameter
+ParseHelper.cpp	cannot use spirv_literal qualifier
+ParseHelper.cpp	cannot nest a block definition inside a structure or block
+ParseHelper.cpp	cannot nest a structure definition inside a structure or block
+ParseHelper.cpp	can't use with samplers or structs containing samplers
+ParseHelper.cpp	can't use with reference types
+ParseHelper.cpp	can't use with types containing arrays sized with a specialization constant
+ParseHelper.cpp	cannot use storage or interpolation qualifiers on structure members
+ParseHelper.cpp	cannot use memory qualifiers on structure members
+ParseHelper.cpp	cannot use layout qualifiers on structure members
+ParseHelper.cpp	cannot use invariant qualifier on structure members
+ParseHelper.cpp	inductive-loop init-declaration requires the form \"type-specifier loop-index = constant-expression\"
+ParseHelper.cpp	inductive loop requires a scalar 'int' or 'float' loop index
+ParseHelper.cpp	inductive-loop condition requires the form \"loop-index <comparison-op> constant-expression\"
+ParseHelper.cpp	inductive-loop termination requires the form \"loop-index++, loop-index--, loop-index += constant-expression, or loop-index -= constant-expression\"
+ParseHelper.cpp	must be less than or equal to
+ParseHelper.cpp	unknown blend equation
+ParseHelper.cpp	can only apply to compute shaders
+ParseHelper.cpp	unrecognized layout identifier, or qualifier requires assignment (e.g., binding = 4)
+ParseHelper.cpp	constant expression required
+ParseHelper.cpp	cannot be negative
+ParseHelper.cpp	needs a literal integer
+ParseHelper.cpp	must be a power of 2
+ParseHelper.cpp	location is too large
+ParseHelper.cpp	set is too large
+ParseHelper.cpp	binding is too large
+ParseHelper.cpp	specialization-constant id is too large
+ParseHelper.cpp	specialization-constant id already used
+ParseHelper.cpp	component is too large
+ParseHelper.cpp	buffer is too large:
+ParseHelper.cpp	offset is too large:
+ParseHelper.cpp	1/4 stride is too large:
+ParseHelper.cpp	stride is too large:
+ParseHelper.cpp	attachment index is too large
+ParseHelper.cpp	bank out of range
+ParseHelper.cpp	must be equal or greater than 0
+ParseHelper.cpp	must be a literal or read-only variable value
+ParseHelper.cpp	must be greater than 0
+ParseHelper.cpp	must be at least 1
+ParseHelper.cpp	too large, must be less than gl_MaxGeometryOutputVertices
+ParseHelper.cpp	value must be 0 or 1
+ParseHelper.cpp	must be a positive value
+ParseHelper.cpp	there is no such layout identifier for this stage taking an assigned value
+ParseHelper.cpp	can only be used on variable declaration
+ParseHelper.cpp	SPIR-V requires location for user input/output
+ParseHelper.cpp	cannot specify matrix layout on a variable declaration
+ParseHelper.cpp	cannot specify packing on a variable declaration
+ParseHelper.cpp	cannot specify on a variable declaration
+ParseHelper.cpp	can only specify on a uniform block
+ParseHelper.cpp	can only specify on a buffer block
+ParseHelper.cpp	cannot specify on atomic counter
+ParseHelper.cpp	cannot use in a block array where new locations are needed for each block element
+ParseHelper.cpp	too large for fragment output
+ParseHelper.cpp	type overflows the available 4 components
+ParseHelper.cpp	cannot apply to a matrix, structure, or block
+ParseHelper.cpp	doubles cannot start on an odd-numbered component
+ParseHelper.cpp	cannot apply to taskNV in/out blocks
+ParseHelper.cpp	cannot apply to uniform or buffer block
+ParseHelper.cpp	only applies to
+ParseHelper.cpp	cannot apply to taskPayloadSharedEXT
+ParseHelper.cpp	can only apply to uniform, buffer, in, or out storage qualifiers
+ParseHelper.cpp	overlapping use of location
+ParseHelper.cpp	the aliases sharing the location
+ParseHelper.cpp	unsized array
+ParseHelper.cpp	overlapping offsets at
+ParseHelper.cpp	type contains double or 64-bit integer; xfb_offset must be a multiple of 8
+ParseHelper.cpp	must be a multiple of size of first component
+ParseHelper.cpp	type contains half float or 16-bit integer; xfb_offset must be a multiple of 2
+ParseHelper.cpp	all stride settings must match for xfb buffer
+ParseHelper.cpp	requires block, or sampler/image, or atomic-counter type
+ParseHelper.cpp	sampler binding not less than gl_MaxCombinedTextureImageUnits
+ParseHelper.cpp	atomic_uint binding is too large; see gl_MaxAtomicCounterBindings
+ParseHelper.cpp	layout(binding=X) is required
+ParseHelper.cpp	uniform/buffer blocks require layout(binding=X)
+ParseHelper.cpp	sampler/texture/image requires layout(binding=X)
+ParseHelper.cpp	only applies to block members, not blocks
+ParseHelper.cpp	only apply to images
+ParseHelper.cpp	does not apply to floating point images
+ParseHelper.cpp	does not apply to signed integer images
+ParseHelper.cpp	does not apply to unsigned integer images
+ParseHelper.cpp	format requires readonly or writeonly memory qualifier
+ParseHelper.cpp	can only be used with a block
+ParseHelper.cpp	Push constants blocks can't be an array
+ParseHelper.cpp	cannot contain any structs with buffer_reference.
+ParseHelper.cpp	cannot be used with GL_EXT_shader_tile_image enabled
+ParseHelper.cpp	requires an input_attachment_index layout qualifier
+ParseHelper.cpp	can only be used with a subpass
+ParseHelper.cpp	can only be applied to 'const'-qualified scalar
+ParseHelper.cpp	can only be applied to a scalar
+ParseHelper.cpp	cannot be applied to this type
+ParseHelper.cpp	shared block requires at least SPIR-V 1.4
+ParseHelper.cpp	must specify 'location' to use 'component'
+ParseHelper.cpp	can only be used on an output
+ParseHelper.cpp	can only be used with an explicit location
+ParseHelper.cpp	requires uniform or buffer or tile image storage qualifier
+ParseHelper.cpp	matrix or packing qualifiers can only be used on a uniform or buffer
+ParseHelper.cpp	offset/align can only be used on a uniform or buffer
+ParseHelper.cpp	can only be used with a uniform
+ParseHelper.cpp	cannot be used with push_constant
+ParseHelper.cpp	can only be used with buffer
+ParseHelper.cpp	can only be used with uniform or buffer
+ParseHelper.cpp	can only be used with a buffer
+ParseHelper.cpp	cannot be used with shaderRecordNV
+ParseHelper.cpp	cannot be used with tileImageEXT
+ParseHelper.cpp	cannot apply layout qualifiers to hitAttributeNV variable
+ParseHelper.cpp	can only be used with push_constant
+ParseHelper.cpp	must specify 'descriptor_heap' to use 'descriptor_stride'
+ParseHelper.cpp	must specify 'descriptor_heap' to use 'heap_offset'
+ParseHelper.cpp	can only be applied as standalone
+ParseHelper.cpp	atomic counters offset should align based on 4:
+ParseHelper.cpp	array must be explicitly sized
+ParseHelper.cpp	atomic counters sharing the same offset:
+ParseHelper.cpp	can't use function syntax on variable
+ParseHelper.cpp	no matching overloaded function found
+ParseHelper.cpp	ambiguous function signature match: multiple signatures match under implicit type conversion
+ParseHelper.cpp	ambiguous best function under implicit type conversion
+ParseHelper.cpp	atomic_uint binding is too large
+ParseHelper.cpp	expect an array name
+ParseHelper.cpp	can only be used when declaring a variable
+ParseHelper.cpp	structure type not allowed as type parameter
+ParseHelper.cpp	coopmat missing type parameters
+ParseHelper.cpp	coopmat invalid basic type
+ParseHelper.cpp	coopmat incorrect number of type parameters
+ParseHelper.cpp	coopmat invalid matrix Use
+ParseHelper.cpp	tensorLayout missing type parameters
+ParseHelper.cpp	tensorLayout incorrect number of type parameters
+ParseHelper.cpp	tensorView missing type parameters
+ParseHelper.cpp	tensorView incorrect number of type parameters
+ParseHelper.cpp	tensor type is missing type parameters
+ParseHelper.cpp	tensor type is missing rank information
+ParseHelper.cpp	tensor type requires exactly 1 rank specifier
+ParseHelper.cpp	tensor rank must be greater than or equal to 1
+ParseHelper.cpp	array param error
+ParseHelper.cpp	error adding uniform to default uniform block
+ParseHelper.cpp	error adding atomic counter to atomic counter block
+ParseHelper.cpp	ray queries can only be initialized by using the rayQueryInitializeEXT intrinsic:
+ParseHelper.cpp	hit objects cannot be initialized using initializers
+ParseHelper.cpp	unexpected number type parameters
+ParseHelper.cpp	expected 8, 16, 32, or 64 bit signed or unsigned integer or 16, 32, or 64 bit float type
+ParseHelper.cpp	expected four type parameters
+ParseHelper.cpp	expected 16, 32, or 64 bits for first type parameter
+ParseHelper.cpp	expected 8, 16, or 32 bits for first type parameter
+ParseHelper.cpp	expected 1-2 type parameters
+ParseHelper.cpp	expected 1-7 type parameters
+ParseHelper.cpp	expected two type parameters
+ParseHelper.cpp	expected positive number of components
+ParseHelper.cpp	expected bool, integer or floating point type parameter
+ParseHelper.cpp	unexpected type parameters
+ParseHelper.cpp	variables with reference type can't have qualifier 'const'
+ParseHelper.cpp	qualifier
+ParseHelper.cpp	A per vertex structure containing an array is not allowed as input in ES
+ParseHelper.cpp	A structure containing an array is not allowed as input in ES
+ParseHelper.cpp	A structure containing an struct is not allowed as input in ES
+ParseHelper.cpp	can only apply origin_upper_left and pixel_center_origin to gl_FragCoord
+ParseHelper.cpp	can only apply depth layout to gl_FragDepth
+ParseHelper.cpp	can only apply depth layout to gl_FragStencilRefARB
+ParseHelper.cpp	cannot change the type of
+ParseHelper.cpp	initializer requires a variable, not a member
+ParseHelper.cpp	initializer can only be a null initializer ('{}')
+ParseHelper.cpp	 cannot initialize this type of qualifier 
+ParseHelper.cpp	null initializers can't size unsized arrays
+ParseHelper.cpp	null initializers can't be used on opaque values
+ParseHelper.cpp	uniform initializers must be constant
+ParseHelper.cpp	global const initializers must be constant
+ParseHelper.cpp	non-matching or non-convertible constant type for const initializer
+ParseHelper.cpp	cannot be applied to a constant computed from other specialization constants
+ParseHelper.cpp	array initializer must be non-empty
+ParseHelper.cpp	wrong number of structure members
+ParseHelper.cpp	wrong number of matrix columns:
+ParseHelper.cpp	wrong vector size (or rows in a matrix column):
+ParseHelper.cpp	type mismatch in initializer list
+ParseHelper.cpp	unexpected initializer-list type:
+ParseHelper.cpp	unsupported construction
+ParseHelper.cpp	can't convert
+ParseHelper.cpp	variadic argument specifier is only available for builtins
+ParseHelper.cpp	default argument values are only available for builtins
+ParseHelper.cpp	array arguments cannot be default-initialized
+ParseHelper.cpp	layout(descriptor_heap) decorated block should be explicitly 
+ParseHelper.cpp	layout(descriptor_heap) cannot be used with combined image samplers.
+ParseHelper.cpp	layout(descriptor_heap) decorated variable could only be declared as an array.
+ParseHelper.cpp	resourceheap / samplerheap block cannot itself be an array.
+ParseHelper.cpp	can only be used on resourceheap or samplerheap block members
+ParseHelper.cpp	member storage qualifier cannot contradict block storage qualifier
+ParseHelper.cpp	member cannot have a spirv_storage_class qualifier
+ParseHelper.cpp	member cannot have a spirv_decorate_id qualifier
+ParseHelper.cpp	member of uniform or buffer block cannot have an auxiliary or interpolation qualifier
+ParseHelper.cpp	member of block cannot be or contain a sampler, image, or atomic_uint type
+ParseHelper.cpp	member of block cannot be or contain a cooperative matrix type
+ParseHelper.cpp	member of block cannot be or contain a cooperative vector type
+ParseHelper.cpp	member of block cannot be or contain a sub-byte type
+ParseHelper.cpp	can only be used with std140, std430, or scalar layout packing
+ParseHelper.cpp	member cannot contradict block
+ParseHelper.cpp	member of block cannot have a packing layout qualifier
+ParseHelper.cpp	can only use in an in/out block
+ParseHelper.cpp	block name cannot be redefined
+ParseHelper.cpp	Cannot reuse block name within the same interface:
+ParseHelper.cpp	block name cannot redefine a non-block name
+ParseHelper.cpp	nameless block contains a member that already has a name at global scope
+ParseHelper.cpp	block instance name redefinition
+ParseHelper.cpp	input blocks cannot be used in a mesh shader
+ParseHelper.cpp	can only use on input blocks in mesh shader
+ParseHelper.cpp	output blocks cannot be used in a task shader
+ParseHelper.cpp	only uniform, buffer, in, or out blocks are supported
+ParseHelper.cpp	cannot use interpolation qualifiers on an interface block
+ParseHelper.cpp	cannot use centroid qualifier on an interface block
+ParseHelper.cpp	cannot use sample qualifier on an interface block
+ParseHelper.cpp	cannot use invariant qualifier on an interface block
+ParseHelper.cpp	cannot have an instance name
+ParseHelper.cpp	cannot be used with buffer_type
+ParseHelper.cpp	either the block needs a location, or all members need a location, or no members have a location
+ParseHelper.cpp	cannot apply to a block
+ParseHelper.cpp	must be a multiple of the member's alignment
+ParseHelper.cpp	cannot lie in previous members
+ParseHelper.cpp	identifier not previously declared
+ParseHelper.cpp	cannot re-qualify a function name
+ParseHelper.cpp	cannot add storage, auxiliary, memory, interpolation, layout, or precision qualifier to an existing variable
+ParseHelper.cpp	cannot change qualification after another member of its block was declared
+ParseHelper.cpp	cannot change qualification after use
+ParseHelper.cpp	can only apply to an output
+ParseHelper.cpp	can only apply to an output, or to an input in a non-vertex stage\n
+ParseHelper.cpp	can only apply to 'out'
+ParseHelper.cpp	cannot change previously set layout value
+ParseHelper.cpp	can only apply to 'in'
+ParseHelper.cpp	cannot apply to input
+ParseHelper.cpp	cannot change previously set input primitive
+ParseHelper.cpp	cannot apply to 'out'
+ParseHelper.cpp	cannot change previously set output primitive
+ParseHelper.cpp	cannot apply to:
+ParseHelper.cpp	cannot change previously set vertex spacing
+ParseHelper.cpp	cannot change previously set vertex order
+ParseHelper.cpp	cannot change previously set size
+ParseHelper.cpp	too large; see gl_MaxComputeWorkGroupSize
+ParseHelper.cpp	cannot change previously set fragment shader interlock ordering
+ParseHelper.cpp	cannot be both specified
+ParseHelper.cpp	layout qualifier cannot have storage qualifiers
+ParseHelper.cpp	cannot use auxiliary, memory, interpolation, or precision qualifier in a default qualifier declaration (declaration with no type)
+ParseHelper.cpp	cannot use offset or align qualifiers in a default qualifier declaration (declaration with no type)
+ParseHelper.cpp	default qualifier requires 'uniform', 'buffer', 'in', 'out' or 'shared' storage qualification
+ParseHelper.cpp	cannot declare a default, include a type or full declaration
+ParseHelper.cpp	cannot declare a default, use a full declaration
+ParseHelper.cpp	cannot declare a default, can only be used on a block
+ParseHelper.cpp	cannot declare a default, can only be used on a scalar
+ParseHelper.cpp	condition must be a scalar integer expression
+ParseHelper.cpp	last case/default label not followed by statements
+Versions.cpp	not supported in this stage:
+Versions.cpp	not supported with this profile:
+Versions.cpp	not supported for this version or the enabled extensions
+Versions.cpp	feature not yet implemented
+Versions.cpp	deprecated, may be removed in future release
+Versions.cpp	no longer supported in
+Versions.cpp	required extension not requested:
+Versions.cpp	GL_EXT_mesh_shader is already turned on, and not allowed with
+Versions.cpp	GL_NV_mesh_shader is already turned on, and not allowed with
+Versions.cpp	not allowed when using generating SPIR-V codes
+Versions.cpp	not allowed when generating SPIR-V
+Versions.cpp	not allowed when using GLSL for Vulkan
+Versions.cpp	only allowed when using GLSL for Vulkan
+Versions.cpp	only allowed when generating SPIR-V
+Versions.cpp	not supported for current targeted SPIR-V version

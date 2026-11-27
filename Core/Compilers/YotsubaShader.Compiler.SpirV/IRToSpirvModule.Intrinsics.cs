@@ -35,11 +35,7 @@ public partial class IRToSpirvModule
         if (name.StartsWith("ImageLoad")) capabilities.Add(SpirVCapability.StorageImageReadWithoutFormat);
         if (name.StartsWith("ImageStore")) capabilities.Add(SpirVCapability.StorageImageWriteWithoutFormat);
 
-        // Un offset de texels dinámico (MSL, HLSL) usa el operando Offset de la imagen.
-        bool hasOffset = name.StartsWith("SampleOffset") ||
-                         ((name.StartsWith("Sample") || name.StartsWith("Gather")) &&
-                          argumentTypes.Any(t => t is Vector { ComponentsType: VectorComponentsType.Int } or Int { Signed: true }));
-        if (hasOffset) capabilities.Add(SpirVCapability.ImageGatherExtended);
+        // Los offsets de texels son siempre constantes (ConstOffset): no necesitan ImageGatherExtended.
 
         foreach (Storage? type in argumentTypes)
         {

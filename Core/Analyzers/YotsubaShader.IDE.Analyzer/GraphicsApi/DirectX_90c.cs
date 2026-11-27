@@ -7,5 +7,6 @@ internal static class DirectX_90c
 {
     public static readonly ApiProfile Profile = DirectX_90.Profile.Next(Target.DirectX_90c, "9.0c")
         .Emits("hlsl", "3.0")
-        .Limits(colorAttachments: 4, vertexInputs: 16);
+        .Limits(colorAttachments: 4, vertexInputs: 16)
+        .Limits(uniformBufferBytes: 3584);
 }

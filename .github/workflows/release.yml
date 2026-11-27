@@ -83,11 +83,17 @@ jobs:
             mkdir -p "Core/YotsubaShader.Compiler.CLI/Native/naga/runtimes/$rid/native"
             cp "$dir"/* "Core/YotsubaShader.Compiler.CLI/Native/naga/runtimes/$rid/native/"
           done
+      - name: Datos del MCP (referencia de learn y ejemplos)
+        uses: ./.github/actions/mcp-data
+        with:
+          token: ${{ secrets.WEB_REPO_TOKEN }}
+
       - name: Build and test
         run: |
           bash ThirdParty/ShadowDusk/tools/restore.sh
           dotnet build Core/YotsubaShader.Compiler.CLI/YotsubaShader.Compiler.CLI.csproj -c Release
           dotnet test Examples/YotsubaShader.Example/YotsubaShader.Example.csproj -c Release -p:CompileYotsubaShaders=false
+          dotnet test Core/YotsubaShader.Mcp.Tests/YotsubaShader.Mcp.Tests.csproj -c Release
       - name: Pack every public and support package
         env:
           VERSION: ${{ needs.validate.outputs.version }}
@@ -129,6 +135,7 @@ jobs:
           dotnet tool install YotsubaShader.Compiler.CLI --tool-path "$RUNNER_TEMP/tool" --add-source "$PWD/nupkg" --version "$VERSION"
           test -x "$RUNNER_TEMP/tool/yotsuba"
           python3 scripts/verify_release.py smoke "$RUNNER_TEMP/tool/yotsuba" Examples/YotsubaShader.Example/YotsubaShader.Example.csproj
+          python3 scripts/mcp_smoke.py "$RUNNER_TEMP/tool/yotsuba" mcp
       - uses: actions/upload-artifact@v4
         with:
           name: nupkg
@@ -178,6 +185,11 @@ jobs:
         with:
           name: nupkg
           path: nupkg
+      - name: Datos del MCP (referencia de learn y ejemplos)
+        uses: ./.github/actions/mcp-data
+        with:
+          token: ${{ secrets.WEB_REPO_TOKEN }}
+
       - name: Build example project for workspace smoke test
         shell: bash
         run: dotnet build Examples/YotsubaShader.Example/YotsubaShader.Example.csproj -c Release -p:CompileYotsubaShaders=false
@@ -218,6 +230,7 @@ jobs:
             chmod +x "$exe"
           fi
           python scripts/verify_release.py smoke "$exe" Examples/YotsubaShader.Example/YotsubaShader.Example.csproj
+          python scripts/mcp_smoke.py "$exe" mcp
       - name: Archive Windows executable
         if: runner.os == 'Windows'
         shell: pwsh

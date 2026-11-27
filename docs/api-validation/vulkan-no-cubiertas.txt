@@ -1,0 +1,212 @@
+StandaloneSpirv-None-04636 Scope for execution must be limited to Workgroup or Subgroup
+StandaloneSpirv-None-04637 If the Scope for execution is Workgroup, then it must only be used in the task, mesh, tessellation control, or compute Execution Model
+StandaloneSpirv-None-07321 If the Scope for memory is Workgroup, then it must only be used in the task, mesh, tessellation control, or compute Execution Model
+StandaloneSpirv-None-04641 If the Scope for memory is Invocation, then MemorySemantics must use Relaxed memory order
+StandaloneSpirv-None-04642 Scope for group operations must be limited to Subgroup
+StandaloneSpirv-SubgroupVoteKHR-07951 If none of the SubgroupVoteKHR, GroupNonUniform, or SubgroupBallotKHR capabilities are declared, Scope for memory must not be Subgroup
+StandaloneSpirv-None-04645 If the Storage Class is Workgroup, then it must only be used in the task, mesh, or compute Execution Model
+StandaloneSpirv-MemorySemantics-10865 MemorySemantics must have at most one non-relaxed memory order bit set (Acquire, Release, or AcquireRelease)
+StandaloneSpirv-MemorySemantics-10866 MemorySemantics with SequentiallyConsistent memory order must not be used in the Vulkan API
+StandaloneSpirv-MemorySemantics-10867 MemorySemantics must not use Acquire or AcquireRelease memory order with OpAtomicStore
+StandaloneSpirv-MemorySemantics-10868 MemorySemantics must not use Release or AcquireRelease memory order with OpAtomicLoad
+StandaloneSpirv-MemorySemantics-10869 MemorySemantics must not use Relaxed memory order with OpMemoryBarrier
+StandaloneSpirv-MemorySemantics-10870 MemorySemantics with a non-relaxed memory order (Acquire, Release, or AcquireRelease) must have at least one Vulkan-supported storage class 
+StandaloneSpirv-MemorySemantics-10871 MemorySemantics with at least one Vulkan-supported storage class semantics bit set (UniformMemory, WorkgroupMemory, ImageMemory, or OutputMe
+StandaloneSpirv-MemorySemantics-10872 MemorySemantics with MakeAvailable bit set must use Release or AcquireRelease memory order
+StandaloneSpirv-MemorySemantics-10873 MemorySemantics with MakeVisible bit set must use Acquire or AcquireRelease memory order
+StandaloneSpirv-MemorySemantics-13551 MemorySemantics with Volatile bit set must not be used with barrier instructions (OpControlBarrier, OpControlBarrierArriveEXT, OpControlBarr
+StandaloneSpirv-UnequalMemorySemantics-10875 UnequalMemorySemantics of OpAtomicCompareExchange must not use Release or AcquireRelease memory order
+StandaloneSpirv-UnequalMemorySemantics-10876 UnequalMemorySemantics of OpAtomicCompareExchange must not use a stronger memory order than the corresponding EqualMemorySemantics
+StandaloneSpirv-UnequalMemorySemantics-10877 UnequalMemorySemantics of OpAtomicCompareExchange must not have any Vulkan-supported storage class semantics bit set (UniformMemory, Workgro
+StandaloneSpirv-UnequalMemorySemantics-10878 UnequalMemorySemantics of OpAtomicCompareExchange must not have MakeVisible bit set unless this bit is also set in the corresponding EqualMe
+StandaloneSpirv-UnequalMemorySemantics-10879 UnequalMemorySemantics of OpAtomicCompareExchange must have Volatile bit set if and only if this bit is also set in the corresponding EqualM
+StandaloneSpirv-OpVariable-04651 Any variable with an Initializer operand must have Output, Private, Function, or Workgroup as its Storage Class operand
+StandaloneSpirv-OpVariable-04734 Any variable with an Initializer operand and Workgroup as its Storage Class operand must use OpConstantNull as the initializer
+StandaloneSpirv-OpReadClockKHR-04652 Scope for OpReadClockKHR must be limited to Subgroup or Device
+StandaloneSpirv-OriginLowerLeft-04653 The OriginLowerLeft Execution Mode must not be used; fragment entry points must declare OriginUpperLeft
+StandaloneSpirv-PixelCenterInteger-04654 The PixelCenterInteger Execution Mode must not be used (pixels are always centered at half-integer coordinates)
+StandaloneSpirv-PushConstant-06808 Any variable in the PushConstant Storage Class must be typed as OpTypeStruct
+StandaloneSpirv-OpTypeImage-04656 OpTypeImage must declare a scalar 32-bit float, 64-bit integer, or 32-bit integer type for the "Sampled Type" (RelaxedPrecision can be appli
+StandaloneSpirv-OpTypeImage-04657 OpTypeImage must have a "Sampled" operand of 1 (sampled image) or 2 (storage image)
+StandaloneSpirv-OpTypeSampledImage-06671 OpTypeSampledImage must have a OpTypeImage with a "Sampled" operand of 1 (sampled image)
+StandaloneSpirv-Image-04965 The SPIR-V Type of the Image Format operand of an OpTypeImage must match the Sampled Type, as defined in Image Format and Type Matching
+StandaloneSpirv-OpImageTexelPointer-04658 If an OpImageTexelPointer is used in an atomic operation, the image type of the image parameter to OpImageTexelPointer must have an image fo
+StandaloneSpirv-OpImageQuerySizeLod-04659 OpImageQuerySizeLod, OpImageQueryLod, and OpImageQueryLevels must only consume an "Image" operand whose type has its "Sampled" operand set t
+StandaloneSpirv-OpTypeImage-09638 An OpTypeImage must not have a "Dim" operand of Rect
+StandaloneSpirv-OpTypeImage-06214 An OpTypeImage with a "Dim" operand of SubpassData must have an "Arrayed" operand of 0 (non-arrayed) and a "Sampled" operand of 2 (storage i
+StandaloneSpirv-SubpassData-04660 The (u,v) coordinates used for a SubpassData must be the id of a constant vector (0,0)
+StandaloneSpirv-Offset-04865 Any image instruction which uses an Offset, ConstOffset, or ConstOffsets image operand, must only consume a "Sampled Image" operand whose ty
+StandaloneSpirv-OpImage-04777 OpImage*Dref* instructions must not consume an image whose Dim is 3D
+StandaloneSpirv-Location-04918 If a user-defined variable has a Location decoration, and the variable is a pointer to a OpTypeStruct, then the members of that structure mu
+StandaloneSpirv-Location-04919 If a user-defined variable does not have a Location decoration, and the variable is a pointer to a Block decorated OpTypeStruct, then each m
+StandaloneSpirv-Component-04920 The Component decoration value must not be greater than 3
+StandaloneSpirv-Component-04921 If the Component decoration is used on a variable that has a vector type with a Component Type with a Width that is less than or equal to 32
+StandaloneSpirv-Component-04922 If the Component decoration is used on a variable that has a vector type with a Component Type with a Width that is equal to 64, the sum of 
+StandaloneSpirv-Component-04923 The Component decorations value must not be 1 or 3 for scalar or two-component 64-bit data types
+StandaloneSpirv-Component-07703 The Component decorations must not be used for a 64-bit vector type with more than two components
+StandaloneSpirv-Component-10583 The Component decorations must not be used with any type that is not a scalar, vector, array of scalars or vectors, or an array of arrays of
+StandaloneSpirv-Output-10587 Variables in the Output storage class in the Fragment execution model must not have both identical Index decorations and overlapping Compone
+StandaloneSpirv-None-10684 All variables must have valid explicit layout decorations as described in Shader Interfaces
+StandaloneSpirv-GLSLShared-04669 The GLSLShared and GLSLPacked decorations must not be used
+StandaloneSpirv-TessLevelInner-10880 Any variable decorated with TessLevelInner or TessLevelOuter must also be decorated with Patch
+StandaloneSpirv-Flat-04670 The Flat, NoPerspective, Sample, and Centroid decorations must only be used on variables with the Output or Input Storage Class
+StandaloneSpirv-Flat-06201 The Flat, NoPerspective, Sample, and Centroid decorations must not be used on variables with the Output storage class in a fragment shader
+StandaloneSpirv-Flat-06202 The Flat, NoPerspective, Sample, and Centroid decorations must not be used on variables with the Input storage class in a vertex shader
+StandaloneSpirv-Flat-04744 Any variable with integer or double-precision floating-point type and with Input Storage Class in a fragment shader, must be decorated Flat
+StandaloneSpirv-FPRoundingMode-04675 Rounding modes other than round-to-nearest-even and round-towards-zero must not be used for the FPRoundingMode decoration
+StandaloneSpirv-Invariant-04677 Variables decorated with Invariant and variables with structure types that have any members decorated with Invariant must be in the Output o
+StandaloneSpirv-Function-04681 A type T that is an array sized with a specialization constant must neither be, nor be contained in, the type T2 of a variable V, unless eit
+StandaloneSpirv-Function-12294 A type T that is a vector sized with a specialization constant must neither be, nor be contained in, the type T2 of a variable V, unless eit
+StandaloneSpirv-OpControlBarrier-04682 If OpControlBarrier is used in ray generation, intersection, any-hit, closest hit, miss, fragment, vertex, tessellation evaluation, or geome
+StandaloneSpirv-OpControlBarrierArriveEXT-13553 The execution Scope for OpControlBarrierArriveEXT and OpControlBarrierWaitEXT must be Workgroup or Subgroup
+StandaloneSpirv-MemorySemantics-13556 The MemorySemantics for OpControlBarrierArriveEXT must not have any non-relaxed memory order set other than Release
+StandaloneSpirv-MemorySemantics-13557 The MemorySemantics for OpControlBarrierWaitEXT must not have any non-relaxed memory order set other than Acquire
+StandaloneSpirv-DerivativeGroupQuadsNV-04684 For compute shaders using the DerivativeGroupQuadsNV execution mode, the first two dimensions of the local workgroup size must be a multiple
+StandaloneSpirv-DerivativeGroupLinearNV-04778 For compute shaders using the DerivativeGroupLinearNV execution mode, the product of the dimensions of the local workgroup size must be a mu
+StandaloneSpirv-DerivativeGroupQuadsKHR-10151 For compute, mesh, or task shaders using the DerivativeGroupQuadsKHR execution mode, the first two dimensions of the local workgroup size mu
+StandaloneSpirv-DerivativeGroupLinearKHR-10152 For compute, mesh, or task shaders using the DerivativeGroupLinearKHR execution mode, the product of the dimensions of the local workgroup s
+StandaloneSpirv-OpGroupNonUniformBallotBitCount-04685 If OpGroupNonUniformBallotBitCount is used, the group operation must be limited to Reduce, InclusiveScan, or ExclusiveScan
+StandaloneSpirv-Offset-04687 Output variables or block members decorated with Offset that have a 64-bit type, or a composite type containing a 64-bit type, must specify 
+StandaloneSpirv-Offset-04689 The size of any output block containing any member decorated with Offset that is a 64-bit type must be a multiple of 8
+StandaloneSpirv-Offset-04690 The first member of an output block specifying a Offset decoration must specify a Offset value that is aligned to an 8 byte boundary if that
+StandaloneSpirv-Offset-04691 Output variables or block members decorated with Offset that have a 32-bit type, or a composite type contains a 32-bit type, must specify an
+StandaloneSpirv-Offset-04692 Output variables, blocks, or block members decorated with Offset must only contain base types that have components that are either 32-bit or
+StandaloneSpirv-Result-04780 The Result Type operand of any OpImageRead or OpImageSparseRead instruction must be a vector of four components
+StandaloneSpirv-InputAttachmentIndex-06678 Variables decorated with InputAttachmentIndex must be in the UniformConstant Storage Class
+StandaloneSpirv-DescriptorSet-06491 If a variable is decorated by DescriptorSet or Binding, the Storage Class must correspond to an entry in Shader Resource and Storage Class C
+StandaloneSpirv-UniformBufferArrayDynamicIndexing-10127 If the UniformBufferArrayDynamicIndexing capability is not declared, and an instruction accesses memory through a uniform buffer, the unifor
+StandaloneSpirv-SampledImageArrayDynamicIndexing-10128 If the SampledImageArrayDynamicIndexing capability is not declared, and an instruction accesses memory through a sampled image or sampler, t
+StandaloneSpirv-StorageBufferArrayDynamicIndexing-10129 If the StorageBufferArrayDynamicIndexing capability is not declared, and an instruction accesses memory through a storage buffer, the storag
+StandaloneSpirv-StorageImageArrayDynamicIndexing-10130 If the StorageImageArrayDynamicIndexing capability is not declared, and an instruction accesses memory through a storage image, the storage 
+StandaloneSpirv-InputAttachmentArrayDynamicIndexing-10131 If the InputAttachmentArrayDynamicIndexing capability is not declared, and an instruction accesses memory through an input attachment, the i
+StandaloneSpirv-UniformTexelBufferArrayDynamicIndexing-10132 If the UniformTexelBufferArrayDynamicIndexing capability is not declared, and an instruction accesses memory through a uniform texel buffer,
+StandaloneSpirv-StorageTexelBufferArrayDynamicIndexing-10133 If the StorageTexelBufferArrayDynamicIndexing capability is not declared, and an instruction accesses memory through a storage texel buffer,
+StandaloneSpirv-Base-12469 The Base operand of OpBitcastExtractEXT must be a scalar or vector integer type
+RuntimeSpirv-vulkanMemoryModel-06265 If the vulkanMemoryModel feature is enabled and the vulkanMemoryModelDeviceScope feature is not enabled, Device memory scope must not be use
+RuntimeSpirv-vulkanMemoryModel-06266 If the vulkanMemoryModel feature is not enabled, QueueFamily memory scope must not be used
+RuntimeSpirv-shaderSubgroupClock-06267 If the shaderSubgroupClock feature is not enabled, the Subgroup scope must not be used for OpReadClockKHR
+RuntimeSpirv-shaderDeviceClock-06268 If the shaderDeviceClock feature is not enabled, the Device scope must not be used for OpReadClockKHR
+RuntimeSpirv-shaderRelaxedExtendedInstruction-10773 If the shaderRelaxedExtendedInstruction feature is not enabled, the OpExtInstWithForwardRefsKHR must not be used
+RuntimeSpirv-None-09558 If the dynamicRenderingLocalRead feature is not enabled, any variable created with a "Type" of OpTypeImage that has a "Dim" operand of Subpa
+RuntimeSpirv-OpTypeImage-09644 Any variable declared as an OpTypeArray where the Element Type is an OpTypeImage with a "Dim" operand of SubpassData must be decorated with 
+RuntimeSpirv-apiVersion-07954 If VkPhysicalDeviceProperties::apiVersion is less than Vulkan 1.3, the VK_KHR_format_feature_flags2 extension is not supported, and the shad
+RuntimeSpirv-apiVersion-07955 If VkPhysicalDeviceProperties::apiVersion is less than Vulkan 1.3, the VK_KHR_format_feature_flags2 extension is not supported, and the shad
+RuntimeSpirv-OpImageWrite-07112 OpImageWrite to any Image whose Image Format is not Unknown must have the Texel operand contain at least as many components as the correspon
+RuntimeSpirv-UniformBufferArrayNonUniformIndexing-10134 If the UniformBufferArrayNonUniformIndexing capability is not declared, and an instruction accesses memory through a uniform buffer, the uni
+RuntimeSpirv-SampledImageArrayNonUniformIndexing-10135 If the SampledImageArrayNonUniformIndexing capability is not declared, and an instruction accesses memory through a sampled image or sampler
+RuntimeSpirv-StorageBufferArrayNonUniformIndexing-10136 If the StorageBufferArrayNonUniformIndexing capability is not declared, and an instruction accesses memory through a storage buffer, the sto
+RuntimeSpirv-StorageImageArrayNonUniformIndexing-10137 If the StorageImageArrayNonUniformIndexing capability is not declared, and an instruction accesses memory through a storage image, the stora
+RuntimeSpirv-InputAttachmentArrayNonUniformIndexing-10138 If the InputAttachmentArrayNonUniformIndexing capability is not declared, and an instruction accesses memory through an input attachment, th
+RuntimeSpirv-UniformTexelBufferArrayNonUniformIndexing-10139 If the UniformTexelBufferArrayNonUniformIndexing capability is not declared, and an instruction accesses memory through a uniform texel buff
+RuntimeSpirv-StorageTexelBufferArrayNonUniformIndexing-10140 If the StorageTexelBufferArrayNonUniformIndexing capability is not declared, and an instruction accesses memory through a storage texel buff
+RuntimeSpirv-subgroupSize-10141 If the effective subgroup size is 1, the UniformBufferArrayNonUniformIndexing capability is not declared, and an instruction accesses memory
+RuntimeSpirv-subgroupSize-10142 If the effective subgroup size is 1, the SampledImageArrayNonUniformIndexing capability is not declared, and an instruction accesses memory 
+RuntimeSpirv-subgroupSize-10143 If the effective subgroup size is 1, the StorageBufferArrayNonUniformIndexing capability is not declared, and an instruction accesses memory
+RuntimeSpirv-subgroupSize-10144 If the effective subgroup size is 1, the StorageImageArrayNonUniformIndexing capability is not declared, and an instruction accesses memory 
+RuntimeSpirv-subgroupSize-10145 If the effective subgroup size is 1, the InputAttachmentArrayNonUniformIndexing capability is not declared, and an instruction accesses memo
+RuntimeSpirv-subgroupSize-10146 If the effective subgroup size is 1, the UniformTexelBufferArrayNonUniformIndexing capability is not declared, and an instruction accesses m
+RuntimeSpirv-subgroupSize-10147 If the effective subgroup size is 1, the StorageTexelBufferArrayNonUniformIndexing capability is not is not declared, and an instruction acc
+RuntimeSpirv-maxClipDistances-00708 If VkPhysicalDeviceLimits::maxClipDistances is not zero, then any entry point interface variable declared with the ClipDistance BuiltIn deco
+RuntimeSpirv-maxCullDistances-00709 If VkPhysicalDeviceLimits::maxCullDistances is not zero, then any entry point interface variable declared with the CullDistance BuiltIn deco
+RuntimeSpirv-maxCombinedClipAndCullDistances-00710 If VkPhysicalDeviceLimits::maxCombinedClipAndCullDistances is not zero, then any entry point interface variable declared with the ClipDistan
+RuntimeSpirv-maxClipDistances-08448 If VkPhysicalDeviceLimits::maxClipDistances is zero, then entry point interface variables declared with the ClipDistance BuiltIn decoration 
+RuntimeSpirv-maxCullDistances-08449 If VkPhysicalDeviceLimits::maxCullDistances is zero, then entry point interface variables declared with the CullDistance BuiltIn decoration 
+RuntimeSpirv-None-04745 If the maintenance12 feature is not enabled, any index used to access a value within a variable with a Storage Class of PushConstant must be
+RuntimeSpirv-None-06275 shaderSubgroupExtendedTypes must be enabled for group operations to use 8-bit integer, 16-bit integer, 64-bit integer, 16-bit floating-point
+RuntimeSpirv-subgroupBroadcastDynamicId-06276 If subgroupBroadcastDynamicId is VK_TRUE, and the shader module version is 1.5 or higher, the "Index" for OpGroupNonUniformQuadBroadcast mus
+RuntimeSpirv-subgroupBroadcastDynamicId-06277 If subgroupBroadcastDynamicId is VK_TRUE, and the shader module version is 1.5 or higher, the "Id" for OpGroupNonUniformBroadcast must be dy
+RuntimeSpirv-None-06278 shaderBufferInt64Atomics must be enabled for 64-bit integer atomic operations to be supported on a Pointer with a Storage Class of StorageBu
+RuntimeSpirv-None-06279 shaderSharedInt64Atomics must be enabled for 64-bit integer atomic operations to be supported on a Pointer with a Storage Class of Workgroup
+RuntimeSpirv-None-06286 shaderImageFloat32Atomics, or shaderImageFloat32AtomicAdd, or shaderImageFloat32AtomicMinMax, must be enabled for 32-bit floating-point atom
+RuntimeSpirv-None-06287 sparseImageFloat32Atomics, or sparseImageFloat32AtomicAdd, or sparseImageFloat32AtomicMinMax, must be enabled for 32-bit floating-point atom
+RuntimeSpirv-None-06288 shaderImageInt64Atomics must be enabled for 64-bit integer atomic operations to be supported on a Pointer with a Storage Class of Image
+RuntimeSpirv-denormBehaviorIndependence-06289 If denormBehaviorIndependence is VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_32_BIT_ONLY, then the entry point must use the same denormals Executi
+RuntimeSpirv-denormBehaviorIndependence-06290 If denormBehaviorIndependence is VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_NONE, then the entry point must use the same denormals Execution Mode
+RuntimeSpirv-roundingModeIndependence-06291 If roundingModeIndependence is VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_32_BIT_ONLY, then the entry point must use the same rounding Execution 
+RuntimeSpirv-roundingModeIndependence-06292 If roundingModeIndependence is VK_SHADER_FLOAT_CONTROLS_INDEPENDENCE_NONE, then the entry point must use the same rounding Execution Mode fo
+RuntimeSpirv-shaderSignedZeroInfNanPreserveFloat16-06293 If shaderSignedZeroInfNanPreserveFloat16 is VK_FALSE, then SignedZeroInfNanPreserve for 16-bit floating-point type must not be used
+RuntimeSpirv-shaderSignedZeroInfNanPreserveFloat32-06294 If shaderSignedZeroInfNanPreserveFloat32 is VK_FALSE, then SignedZeroInfNanPreserve for 32-bit floating-point type must not be used
+RuntimeSpirv-shaderDenormPreserveFloat16-06296 If shaderDenormPreserveFloat16 is VK_FALSE, then DenormPreserve for 16-bit floating-point type must not be used
+RuntimeSpirv-shaderDenormPreserveFloat32-06297 If shaderDenormPreserveFloat32 is VK_FALSE, then DenormPreserve for 32-bit floating-point type must not be used
+RuntimeSpirv-shaderDenormFlushToZeroFloat16-06299 If shaderDenormFlushToZeroFloat16 is VK_FALSE, then DenormFlushToZero for 16-bit floating-point type must not be used
+RuntimeSpirv-shaderDenormFlushToZeroFloat32-06300 If shaderDenormFlushToZeroFloat32 is VK_FALSE, then DenormFlushToZero for 32-bit floating-point type must not be used
+RuntimeSpirv-shaderRoundingModeRTEFloat16-06302 If shaderRoundingModeRTEFloat16 is VK_FALSE, then RoundingModeRTE for 16-bit floating-point type must not be used
+RuntimeSpirv-shaderRoundingModeRTEFloat32-06303 If shaderRoundingModeRTEFloat32 is VK_FALSE, then RoundingModeRTE for 32-bit floating-point type must not be used
+RuntimeSpirv-shaderRoundingModeRTZFloat16-06305 If shaderRoundingModeRTZFloat16 is VK_FALSE, then RoundingModeRTZ for 16-bit floating-point type must not be used
+RuntimeSpirv-shaderRoundingModeRTZFloat32-06306 If shaderRoundingModeRTZFloat32 is VK_FALSE, then RoundingModeRTZ for 32-bit floating-point type must not be used
+RuntimeSpirv-shaderSignedZeroInfNanPreserveFloat16-09559 If shaderSignedZeroInfNanPreserveFloat16 is VK_FALSE then any FPFastMathDefault execution mode with a type of 16-bit float must include the 
+RuntimeSpirv-shaderSignedZeroInfNanPreserveFloat16-09560 If shaderSignedZeroInfNanPreserveFloat16 is VK_FALSE then any FPFastMathMode decoration on an instruction with result type or any operand ty
+RuntimeSpirv-shaderSignedZeroInfNanPreserveFloat32-09561 If shaderSignedZeroInfNanPreserveFloat32 is VK_FALSE then any FPFastMathDefault execution mode with a type of 32-bit float must include the 
+RuntimeSpirv-shaderSignedZeroInfNanPreserveFloat32-09562 If shaderSignedZeroInfNanPreserveFloat32 is VK_FALSE then any FPFastMathMode decoration on an instruction with result type or any operand ty
+RuntimeSpirv-shaderFmaFloat16-10977 shaderFmaFloat16 must be enabled for OpFmaKHR to be supported with a result type that includes a 16-bit float
+RuntimeSpirv-shaderFmaFloat32-10978 shaderFmaFloat32 must be enabled for OpFmaKHR to be supported with a result type that includes a 32-bit float
+RuntimeSpirv-transformFeedbackStreamsLinesTriangles-06311 If the geometry shader emits to more than one vertex stream and VkPhysicalDeviceTransformFeedbackPropertiesEXT::transformFeedbackStreamsLine
+RuntimeSpirv-shaderSampleRateInterpolationFunctions-06325 If the VK_KHR_portability_subset extension is enabled, and VkPhysicalDevicePortabilitySubsetFeaturesKHR::shaderSampleRateInterpolationFuncti
+RuntimeSpirv-tessellationShader-06326 If the tessellationShader feature is enabled, and the VK_KHR_portability_subset extension is enabled, and VkPhysicalDevicePortabilitySubsetF
+RuntimeSpirv-tessellationShader-06327 If the tessellationShader feature is enabled, and the VK_KHR_portability_subset extension is enabled, and VkPhysicalDevicePortabilitySubsetF
+RuntimeSpirv-storageInputOutput16-11162 If storageInputOutput16 is VK_FALSE, then objects containing 16-bit integer or 16-bit floating-point elements must not have storage class of
+RuntimeSpirv-None-10980 Objects containing 8-bit integer or 8-bit floating-point elements must not have storage class of Input or Output
+RuntimeSpirv-None-06337 shaderBufferFloat16Atomics, or shaderBufferFloat16AtomicAdd, or shaderBufferFloat16AtomicMinMax, or shaderSharedFloat16Atomics, or shaderSha
+RuntimeSpirv-None-06338 shaderBufferFloat32Atomics, or shaderBufferFloat32AtomicAdd, or shaderSharedFloat32Atomics, or shaderSharedFloat32AtomicAdd, or shaderImageF
+RuntimeSpirv-shaderFloat16VectorAtomics-09581 shaderFloat16VectorAtomics, must be enabled for 16-bit floating-point, 2- and 4-component vector atomic operations to be supported
+RuntimeSpirv-NonWritable-06340 If the fragmentStoresAndAtomics feature is not enabled, then all storage image, storage texel buffer, storage tensor, and storage buffer var
+RuntimeSpirv-NonWritable-06341 If the vertexPipelineStoresAndAtomics feature is not enabled, then all storage image, storage texel buffer, storage tensor, and storage buff
+RuntimeSpirv-None-06342 If subgroupQuadOperationsInAllStages is VK_FALSE, then quad subgroup operations must not be used except for in fragment and compute stages
+RuntimeSpirv-None-06343 Group operations with subgroup scope must not be used if the shader stage is not in subgroupSupportedStages
+RuntimeSpirv-Offset-06344 The first element of the Offset operand of InterpolateAtOffset must be greater than or equal to: fragwidth × minInterpolationOffset where fr
+RuntimeSpirv-Offset-06345 The first element of the Offset operand of InterpolateAtOffset must be less than or equal to fragwidth × (maxInterpolationOffset + ULP ) - U
+RuntimeSpirv-Offset-06346 The second element of the Offset operand of InterpolateAtOffset must be greater than or equal to fragheight × minInterpolationOffset where f
+RuntimeSpirv-Offset-06347 The second element of the Offset operand of InterpolateAtOffset must be less than or equal to fragheight × (maxInterpolationOffset + ULP ) -
+RuntimeSpirv-OpReportIntersectionKHR-06998 The value of the "Hit Kind" operand of OpReportIntersectionKHR must be in the range [0,127]
+RuntimeSpirv-LocalSizeId-06434 If Execution Mode LocalSizeId is used, maintenance4 must be enabled
+RuntimeSpirv-maintenance4-06817 If the maintenance4 feature is not enabled, any vector type output interface variables must not have a higher Component Count than a matchin
+RuntimeSpirv-Workgroup-06530 The sum of size in bytes for variables and padding in the Workgroup Storage Class in the GLCompute Execution Model must be less than or equa
+RuntimeSpirv-shaderZeroInitializeWorkgroupMemory-06372 If the shaderZeroInitializeWorkgroupMemory feature is not enabled, any variable with Workgroup as its Storage Class must not have an Initial
+RuntimeSpirv-Size-11165 The Size operand of OpCopyMemorySized must be a multiple of 4 If 16-bit storage is enabled for the storage classes of both the Target and So
+RuntimeSpirv-OpImageSample-06435 If an OpImageSample* or OpImageFetch* operation has an image operand of Offset or ConstOffset then the offset value must be greater than or 
+RuntimeSpirv-OpImageSample-06436 If an OpImageSample* or OpImageFetch* operation has an image operand of Offset or ConstOffset then the offset value must be less than or equ
+RuntimeSpirv-samples-08725 If an OpTypeImage has an MS operand 0, its bound image must have been created with VkImageCreateInfo::samples as VK_SAMPLE_COUNT_1_BIT
+RuntimeSpirv-samples-08726 If an OpTypeImage has an MS operand 1, its bound image must not have been created with VkImageCreateInfo::samples as VK_SAMPLE_COUNT_1_BIT
+RuntimeSpirv-SampleRateShading-06378 If the subpass description contains VK_SUBPASS_DESCRIPTION_FRAGMENT_REGION_BIT_EXT, then the SPIR-V fragment shader Capability SampleRateSha
+RuntimeSpirv-SubgroupUniformControlFlowKHR-06379 The Execution Mode SubgroupUniformControlFlowKHR must not be applied to an entry point unless the shaderSubgroupUniformControlFlow feature i
+RuntimeSpirv-shaderEarlyAndLateFragmentTests-06767 If the shaderEarlyAndLateFragmentTests feature is not enabled, the EarlyAndLateFragmentTestsAMD Execution Mode must not be used
+RuntimeSpirv-shaderEarlyAndLateFragmentTests-06768 If the shaderEarlyAndLateFragmentTests feature is not enabled, the StencilRefUnchangedFrontAMD Execution Mode must not be used
+RuntimeSpirv-shaderEarlyAndLateFragmentTests-06769 If the shaderEarlyAndLateFragmentTests feature is not enabled, the StencilRefUnchangedBackAMD Execution Mode must not be used
+RuntimeSpirv-shaderEarlyAndLateFragmentTests-06770 If the shaderEarlyAndLateFragmentTests feature is not enabled, the StencilRefGreaterFrontAMD Execution Mode must not be used
+RuntimeSpirv-shaderEarlyAndLateFragmentTests-06771 If the shaderEarlyAndLateFragmentTests feature is not enabled, the StencilRefGreaterBackAMD Execution Mode must not be used
+RuntimeSpirv-shaderEarlyAndLateFragmentTests-06772 If the shaderEarlyAndLateFragmentTests feature is not enabled, the StencilRefLessFrontAMD Execution Mode must not be used
+RuntimeSpirv-shaderEarlyAndLateFragmentTests-06773 If the shaderEarlyAndLateFragmentTests feature is not enabled, the StencilRefLessBackAMD Execution Mode must not be used
+RuntimeSpirv-OpEntryPoint-08727 Each OpEntryPoint must not have more than one variable decorated with InputAttachmentIndex per image aspect of the attachment image bound to
+RuntimeSpirv-minSampleShading-08731 If sample shading is enabled and minSampleShading is 1.0, the sample operand of any OpColorAttachmentReadEXT, OpDepthAttachmentReadEXT, or O
+RuntimeSpirv-minSampleShading-08732 If sample shading is enabled and any of the OpColorAttachmentReadEXT, OpDepthAttachmentReadEXT, or OpStencilAttachmentReadEXT operations are
+RuntimeSpirv-maintenance5-09190 If the maintenance5 feature is enabled and a PointSize decorated variable is written to, all execution paths must write to a PointSize decor
+RuntimeSpirv-OpControlBarrierArriveEXT-13558 If a OpControlBarrierArriveEXT or OpControlBarrierWaitEXT instruction is executed with an execution scope equal to Workgroup, its execution 
+RuntimeSpirv-OpControlBarrierWaitEXT-13559 If a OpControlBarrierWaitEXT instruction is executed, a OpControlBarrierArriveEXT instruction with the same execution scope must have been e
+RuntimeSpirv-OpControlBarrierWaitEXT-13560 If a OpControlBarrierWaitEXT instruction is executed, another OpControlBarrierWaitEXT instruction with the same execution scope must not hav
+RuntimeSpirv-OpControlBarrierArriveEXT-13561 If a OpControlBarrierArriveEXT instruction is executed, another OpControlBarrierArriveEXT instruction with the same execution scope must not
+RuntimeSpirv-OpControlBarrierArriveEXT-13562 If the module uses OpControlBarrierArriveEXT or OpControlBarrierWaitEXT, the sum of size in bytes for variables and padding in the Workgroup
+RuntimeSpirv-shaderSubgroupRotateClustered-09566 If shaderSubgroupRotateClustered is VK_FALSE, then the ClusterSize operand to OpGroupNonUniformRotateKHR must not be used
+RuntimeSpirv-OpTypeSampler-12203 If a variable with type OpTypeSampler is declared in the Shader Resource Interface, it must not be backed by a sampler that requires sampler
+RuntimeSpirv-OpTypeImage-12204 If a variable with type OpTypeImage is declared in the Shader Resource Interface, it must not be backed by an image view that requires sampl
+RuntimeSpirv-None-12205 If an image view or sampler that requires sampler Y′CBCR conversion is accessed in a shader, it must be determined by constant integral expr
+RuntimeSpirv-OpTypeSampledImage-12206 If an OpTypeSampledImage variable backed by an image view and sampler that require sampler Y′CBCR conversion is statically used in a shader,
+RuntimeSpirv-OpTypeImage-12207 If a OpTypeImage variable backed by an image view that requires sampler Y′CBCR conversion is statically used in a shader, it must only be us
+RuntimeSpirv-ConstOffset-10718 If an OpTypeSampledImage variable backed by an image view and sampler that require sampler Y′CBCR conversion is statically used in a shader 
+RuntimeSpirv-OpTypeSampledImage-12208 If an OpTypeSampledImage variable backed by an image view and sampler that require sampler Y′CBCR conversion is statically used in a shader,
+RuntimeSpirv-shaderUniformBufferUnsizedArray-11806 If the shaderUniformBufferUnsizedArray feature is not enabled, OpTypeRuntimeArray must not be used for the last member of a Block-decorated 
+RuntimeSpirv-None-10824 If the maintenance9 feature is not enabled, the Base operand of any OpBitCount, OpBitReverse, OpBitFieldInsert, OpBitFieldSExtract, or OpBit
+RuntimeSpirv-None-10834 Buffer indexing calculations must not wrap 32 bits if the pipeline or shader was not created with the VK_PIPELINE_CREATE_2_64_BIT_INDEXING_B
+RuntimeSpirv-OpConstantSizeOfEXT-11475 The result type of OpConstantSizeOfEXT must not be a 64-bit integer type if the pipeline or shader was not compiled with the VK_PIPELINE_CRE
+RuntimeSpirv-longVector-12296 If the longVector feature is enabled, the Component Count of any vector type must be less than or equal to maxVectorComponents
+RuntimeSpirv-samplerDescriptorAlignment-11476 If a OpTypeSampler member of a struct is decorated with Offset or OffsetIdEXT, the Byte Offset value must be a multiple of samplerDescriptor
+RuntimeSpirv-imageDescriptorAlignment-11477 If a OpTypeImage member of a struct is decorated with Offset or OffsetIdEXT, the Byte Offset value must be a multiple of imageDescriptorAlig
+RuntimeSpirv-bufferDescriptorAlignment-11478 If a OpTypeBufferEXT member of a struct is decorated with Offset or OffsetIdEXT, the Byte Offset value must be a multiple of bufferDescripto
+RuntimeSpirv-bufferDescriptorAlignment-11479 If a OpTypeAccelerationStructureKHR member of a struct is decorated with Offset or OffsetIdEXT, the Byte Offset value must be a multiple of 
+RuntimeSpirv-DescriptorSet-11385 If an instruction accesses memory through any resource with a DescriptorSet and Binding that are mapped using VK_DESCRIPTOR_MAPPING_SOURCE_P
+RuntimeSpirv-source-11387 All possible values of a variable pointer to a resource that are not OpConstantNull must either all be pointers to resources with Descriptor
+RuntimeSpirv-DescriptorSet-11388 All possible values of a variable pointer to a resource must not be resources with a DescriptorSet and Binding that are mapped using VK_DESC
+RuntimeSpirv-Result-11342 The Buffer operand of OpBufferPointerEXT must correspond to accessing a descriptor matching one of the descriptor types listed in Heap Resou
+RuntimeSpirv-maxPushDataSize-12455 The size of the PushConstant Storage Class block must be less than or equal to maxPushDataSize
+RuntimeSpirv-None-12551 If the maintenance12 feature is not enabled InputAttachmentIndex decorations must have values less than maxPerStageDescriptorInputAttachment
+RuntimeSpirv-maxInputAttachmentIndex-12552 The value of any InputAttachmentIndex decoration must be less than maxInputAttachmentIndex
+RuntimeSpirv-pMessageData-12568 For each OpAbortKHR instruction, the size in bytes of its Message Type plus 8 bytes for the 64-bit size value that precedes the payload in V

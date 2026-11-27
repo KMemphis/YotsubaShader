@@ -171,6 +171,10 @@ internal static class ResourceRules
             if (kind is ResourceKind.UniformBuffer or ResourceKind.StorageBuffer && WrapperElement(type) is { } element)
             {
                 BufferRules.AnalyzeWrapper(member, element, kind, targets, report);
+                if (kind == ResourceKind.UniformBuffer && GpuType.Of(element).Kind == GpuTypeKind.Struct)
+                {
+                    UniformLayout.CheckSize(member, (INamedTypeSymbol)element, targets, report);
+                }
             }
             else if (kind is ResourceKind.UniformBuffer or ResourceKind.StorageBuffer)
             {
@@ -182,6 +186,7 @@ internal static class ResourceRules
                 else
                 {
                     BufferRules.Analyze(member, (INamedTypeSymbol)type, kind, targets, report);
+                    if (kind == ResourceKind.UniformBuffer) UniformLayout.CheckSize(member, (INamedTypeSymbol)type, targets, report);
                 }
             }
 

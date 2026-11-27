@@ -14,5 +14,12 @@ internal static class Metal_1
         .Feature(ApiFeature.StorageBuffer, Availability.Guaranteed)
         .Feature(ApiFeature.StorageTexture, Availability.Guaranteed)
         .Feature(ApiFeature.StorageTextureWithoutFormat, Availability.Guaranteed)
-        .Limits(colorAttachments: 8, vertexInputs: 31);
+        .Limits(colorAttachments: 8, vertexInputs: 31)
+        .Feature(ApiFeature.UnsignedInt, Availability.Guaranteed)
+        .Feature(ApiFeature.IntegerBitOps, Availability.Guaranteed)
+        .Feature(ApiFeature.TexelFetch, Availability.Guaranteed)
+        .Feature(ApiFeature.TextureGather, Availability.Guaranteed)
+        .Feature(ApiFeature.TextureOffset, Availability.Guaranteed)
+        .Feature(ApiFeature.TextureQuerySize, Availability.Guaranteed)
+        .Feature(ApiFeature.Derivatives, Availability.Guaranteed);
 }

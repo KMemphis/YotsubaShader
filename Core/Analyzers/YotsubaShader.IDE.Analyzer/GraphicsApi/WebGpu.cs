@@ -16,5 +16,13 @@ internal static class WebGpu
         .Feature(ApiFeature.StorageTexture, Availability.Guaranteed)
         .Feature(ApiFeature.StorageTextureWithoutFormat, Availability.Unavailable, "WGSL requires the texture format")
         .Limits(colorAttachments: 8, vertexInputs: 16, interStageVariables: 16, descriptorSets: 4,
-            workgroup: new WorkgroupLimits(256, 256, 64, 256));
+            workgroup: new WorkgroupLimits(256, 256, 64, 256))
+        .Feature(ApiFeature.UnsignedInt, Availability.Guaranteed)
+        .Feature(ApiFeature.IntegerBitOps, Availability.Guaranteed)
+        .Feature(ApiFeature.TexelFetch, Availability.Guaranteed)
+        .Feature(ApiFeature.TextureGather, Availability.Guaranteed)
+        .Feature(ApiFeature.TextureOffset, Availability.Guaranteed)
+        .Feature(ApiFeature.TextureQuerySize, Availability.Guaranteed)
+        .Feature(ApiFeature.Derivatives, Availability.Guaranteed)
+        .Limits(uniformBufferBytes: 65536);
 }

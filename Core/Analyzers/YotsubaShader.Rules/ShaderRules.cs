@@ -223,6 +223,8 @@ internal static class ShaderRules
         "{0} {1}. Affects: {2}.");
     public static readonly DiagnosticDescriptor TargetWithoutBackend = Error("YS0712", "Graphics API version without a backend",
         "{0}");
+    public static readonly DiagnosticDescriptor UniformBufferTooLarge = Portability("YS0713", "Uniform buffer too large",
+        "The uniform buffer '{0}' takes {1} bytes (std140), more than what is guaranteed by {2}. Affects: {3}.");
     public static readonly DiagnosticDescriptor NotInGodot = Portability("YS0710", "Not available in Godot",
         "'{0}' {1}. Affects: Godot.");
 

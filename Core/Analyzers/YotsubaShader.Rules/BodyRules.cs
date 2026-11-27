@@ -352,6 +352,7 @@ internal sealed class BodyRules
             GpuScalar.Half => ApiFeature.Float16,
             GpuScalar.Int16 or GpuScalar.UInt16 => ApiFeature.Int16,
             GpuScalar.Int64 or GpuScalar.UInt64 => ApiFeature.Int64,
+            GpuScalar.UInt32 => ApiFeature.UnsignedInt,
             _ => null
         };
 
@@ -376,10 +377,45 @@ internal sealed class BodyRules
             Report(facts, ShaderRules.IntegerDivisionByZero, binary.Syntax.GetLocation());
         }
 
+        if (binary.OperatorKind is BinaryOperatorKind.And or BinaryOperatorKind.Or or BinaryOperatorKind.ExclusiveOr
+                or BinaryOperatorKind.LeftShift or BinaryOperatorKind.RightShift &&
+            binary.Type is { } bitType && GpuType.Of(bitType).IsInteger)
+        {
+            RequireFeature(ApiFeature.IntegerBitOps, Loc.T("bitwise operator"), binary.Syntax.GetLocation(), facts);
+        }
+
         if (binary.OperatorMethod is { } method && !IsGpuMethod(method))
         {
             Report(facts, ShaderRules.NoGpuTranslation, binary.Syntax.GetLocation(), method.ToDisplayString());
         }
+    }
+
+    private readonly HashSet<ApiFeature> _featuresReported = new();
+
+    /// <summary>
+    /// YS0703: lo que el shader usa no está en alguna API declarada. Error si la API no lo tiene y el shader declaró sus
+    /// destinos; aviso si es opcional. Se avisa una vez por característica y método raíz.
+    /// </summary>
+    private void RequireFeature(ApiFeature feature, string subject, Location location, MethodFacts facts)
+    {
+        if (_set.Check(feature) is not { } issue) return;
+        if (!_featuresReported.Add(feature)) return;
+
+        DiagnosticDescriptor descriptor = issue.Unavailable ? ShaderRules.AsError(ShaderRules.PortableIntrinsic) : ShaderRules.PortableIntrinsic;
+        Report(facts, descriptor, location, subject, Loc.F("is not available in all graphics APIs: {0}", issue.Reasons), issue.Targets);
+    }
+
+    private static ApiFeature? FeatureOf(string intrinsic)
+    {
+        if (intrinsic.StartsWith("InterpolateAt")) return null;
+        if (intrinsic.StartsWith("TexelFetch")) return ApiFeature.TexelFetch;
+        if (intrinsic.StartsWith("Gather")) return ApiFeature.TextureGather;
+        if (intrinsic.StartsWith("TextureSize") || intrinsic.StartsWith("QueryLevels") || intrinsic.StartsWith("QuerySamples") ||
+            intrinsic.StartsWith("QueryLayers")) return ApiFeature.TextureQuerySize;
+        if (intrinsic.Contains("Offset")) return ApiFeature.TextureOffset;
+        if (intrinsic is "CountOneBits" or "CountLeadingZeros" or "CountTrailingZeros" or "FindLeastSignificantBit" or
+            "FindMostSignificantBit" or "ReverseBits" or "ExtractBits" or "InsertBits" or "AddCarry" or "SubtractBorrow") return ApiFeature.IntegerBitOps;
+        return null;
     }
 
     private void CheckObjectCreation(IObjectCreationOperation creation, MethodFacts facts)
@@ -715,6 +751,9 @@ internal sealed class BodyRules
             facts.StageUsages.Add(new StageUsage(StageRequirement.ComputeOnly, name, "", location));
         }
 
+        if (implicitLod || derivative) RequireFeature(ApiFeature.Derivatives, name, location, facts);
+        if (FeatureOf(intrinsic) is { } required) RequireFeature(required, name, location, facts);
+
         if ((implicitLod || derivative || intrinsic == "ThreadGroupBarrier") && context.NonUniformDepth > 0)
         {
             ShaderTargets affected = _targets;
@@ -758,20 +797,17 @@ internal sealed class BodyRules
             ITypeSymbol? type = argument.Parameter?.Type;
             if (type is null) continue;
             GpuType gpuType = GpuType.Of(type);
-            bool isOffset = gpuType.Kind == GpuTypeKind.Vector && gpuType.Scalar == GpuScalar.Int32 ||
-                            gpuType.IsScalar(GpuScalar.Int32) && argument.Parameter!.Name.IndexOf("offset", StringComparison.OrdinalIgnoreCase) >= 0;
+            // Solo el parámetro llamado offset: el int3 de Load(location) es la coordenada, no un offset.
+            bool isOffset = (gpuType.Kind == GpuTypeKind.Vector && gpuType.Scalar == GpuScalar.Int32 || gpuType.IsScalar(GpuScalar.Int32)) &&
+                            argument.Parameter!.Name.IndexOf("offset", StringComparison.OrdinalIgnoreCase) >= 0;
             if (!isOffset) continue;
             offsets++;
+            RequireFeature(ApiFeature.TextureOffset, invocation.TargetMethod.Name, argument.Syntax.GetLocation(), facts);
 
             if (!IsConstant(argument.Value))
             {
-                ShaderTargets affected = _targets & (ShaderTargets.D3D12 | ShaderTargets.WebGPU | ShaderTargets.OpenGL);
-                if (affected != ShaderTargets.None)
-                {
-                    Report(facts, ShaderRules.PortableIntrinsic, argument.Syntax.GetLocation(), invocation.TargetMethod.Name,
-                        Loc.T("uses a texel offset that is not constant: HLSL, WGSL and GLSL require a value known at compile time"),
-                        ShaderTargetsParser.Describe(affected));
-                }
+                Report(facts, ShaderRules.UnsupportedIntrinsic, argument.Syntax.GetLocation(), invocation.TargetMethod.Name,
+                    Loc.T("uses a texel offset that is not constant: dynamic texture offsets are not supported; use a value known at compile time"));
             }
         }
 

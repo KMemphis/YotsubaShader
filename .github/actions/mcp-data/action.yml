@@ -1,0 +1,34 @@
+name: Datos del MCP
+description: >
+  Clona el repo de la web (Web/) y genera el contenido que `yotsuba mcp` incrusta: la referencia de learn (en/es)
+  y los 100 ejemplos. Hay que ejecutarlo antes de compilar el CLI; sin estos datos el CLI compila igual, pero
+  `yotsuba mcp` avisa de que falta el contenido.
+
+inputs:
+  token:
+    description: Token con acceso de lectura al repo de la web.
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        repository: KMemphis/YotsubaShader-Web
+        token: ${{ inputs.token || github.token }}
+        ref: main
+        path: Web
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    - name: Generar docs-en/es.json y examples.json
+      shell: bash
+      run: |
+        node Web/learn/tools/gen-mcp-data.mjs
+        node Web/mcp/tools/build-examples.mjs
+        test -s Web/mcp/data/docs-en.json
+        test -s Web/mcp/data/docs-es.json
+        test -s Web/mcp/data/examples.json

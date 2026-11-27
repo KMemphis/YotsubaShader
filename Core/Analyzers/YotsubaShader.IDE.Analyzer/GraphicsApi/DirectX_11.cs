@@ -12,5 +12,6 @@ internal static class DirectX_11
         .Feature(ApiFeature.StorageBuffer, Availability.Guaranteed)
         .Feature(ApiFeature.StorageTexture, Availability.Guaranteed)
         .Feature(ApiFeature.StorageTextureWithoutFormat, Availability.Optional, "loading typed UAVs without a format is optional")
-        .Limits(vertexInputs: 32, interStageVariables: 32);
+        .Limits(vertexInputs: 32, interStageVariables: 32)
+        .Feature(ApiFeature.TextureGather, Availability.Guaranteed);
 }

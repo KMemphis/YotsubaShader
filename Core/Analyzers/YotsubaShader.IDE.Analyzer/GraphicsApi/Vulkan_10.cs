@@ -15,5 +15,13 @@ internal static class Vulkan_10
         .Feature(ApiFeature.StorageTexture, Availability.Guaranteed)
         .Feature(ApiFeature.StorageTextureWithoutFormat, Availability.Optional, "needs shaderStorageImageReadWithoutFormat/WriteWithoutFormat")
         .Limits(colorAttachments: 4, vertexInputs: 16, interStageVariables: 16, descriptorSets: 4,
-            workgroup: new WorkgroupLimits(128, 128, 64, 128));
+            workgroup: new WorkgroupLimits(128, 128, 64, 128))
+        .Feature(ApiFeature.UnsignedInt, Availability.Guaranteed)
+        .Feature(ApiFeature.IntegerBitOps, Availability.Guaranteed)
+        .Feature(ApiFeature.TexelFetch, Availability.Guaranteed)
+        .Feature(ApiFeature.TextureGather, Availability.Guaranteed)
+        .Feature(ApiFeature.TextureOffset, Availability.Guaranteed)
+        .Feature(ApiFeature.TextureQuerySize, Availability.Guaranteed)
+        .Feature(ApiFeature.Derivatives, Availability.Guaranteed)
+        .Limits(uniformBufferBytes: 16384);
 }

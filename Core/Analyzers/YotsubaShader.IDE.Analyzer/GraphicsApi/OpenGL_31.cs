@@ -6,5 +6,6 @@ namespace YotsubaShader.Rules;
 internal static class OpenGL_31
 {
     public static readonly ApiProfile Profile = OpenGL_30.Profile.Next(Target.OpenGL_31, "3.1")
-        .Emits("glsl", "140");
+        .Emits("glsl", "140")
+        .Limits(uniformBufferBytes: 16384);
 }

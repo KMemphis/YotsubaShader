@@ -15,7 +15,28 @@ internal enum ApiFeature
     StorageTexture,
 
     /// <summary>Leer o escribir una textura de almacenamiento sin declarar su formato.</summary>
-    StorageTextureWithoutFormat
+    StorageTextureWithoutFormat,
+
+    /// <summary>Tipos <c>uint</c> y <c>uint</c> vectoriales.</summary>
+    UnsignedInt,
+
+    /// <summary>Operadores de bits (<c>&amp; | ^ ~ &lt;&lt; &gt;&gt;</c>) y funciones como CountOneBits sobre enteros.</summary>
+    IntegerBitOps,
+
+    /// <summary>Leer un texel por índice entero (<c>texelFetch</c>, <c>Load</c>).</summary>
+    TexelFetch,
+
+    /// <summary>Gather: los cuatro texels del filtro bilineal.</summary>
+    TextureGather,
+
+    /// <summary>Muestreo con desplazamiento constante en texels.</summary>
+    TextureOffset,
+
+    /// <summary>Preguntar el tamaño, niveles o capas de una textura.</summary>
+    TextureQuerySize,
+
+    /// <summary>Derivadas de pantalla (<c>ddx</c>/<c>ddy</c>, <c>fwidth</c>) y muestreo con LOD implícito.</summary>
+    Derivatives
 }
 
 internal enum Availability
@@ -106,6 +127,9 @@ internal sealed class ApiProfile
     public int? MaxVertexInputs { get; private set; }
     public int? MaxInterStageVariables { get; private set; }
     public int? MaxDescriptorSets { get; private set; }
+
+    /// <summary>Bytes que caben en un uniform buffer (o en los registros de constantes, en Direct3D 8/9).</summary>
+    public int? MaxUniformBufferBytes { get; private set; }
     public WorkgroupLimits? Workgroup { get; private set; }
 
     public bool HasBackend => OutputTarget is not null;
@@ -125,6 +149,7 @@ internal sealed class ApiProfile
             MaxVertexInputs = MaxVertexInputs,
             MaxInterStageVariables = MaxInterStageVariables,
             MaxDescriptorSets = MaxDescriptorSets,
+            MaxUniformBufferBytes = MaxUniformBufferBytes,
             Workgroup = Workgroup
         };
         return next;
@@ -144,13 +169,14 @@ internal sealed class ApiProfile
     }
 
     public ApiProfile Limits(int? colorAttachments = null, int? vertexInputs = null, int? interStageVariables = null,
-        int? descriptorSets = null, WorkgroupLimits? workgroup = null)
+        int? descriptorSets = null, WorkgroupLimits? workgroup = null, int? uniformBufferBytes = null)
     {
         if (colorAttachments is not null) MaxColorAttachments = colorAttachments;
         if (vertexInputs is not null) MaxVertexInputs = vertexInputs;
         if (interStageVariables is not null) MaxInterStageVariables = interStageVariables;
         if (descriptorSets is not null) MaxDescriptorSets = descriptorSets;
         if (workgroup is not null) Workgroup = workgroup;
+        if (uniformBufferBytes is not null) MaxUniformBufferBytes = uniformBufferBytes;
         return this;
     }
 

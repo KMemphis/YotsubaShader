@@ -1,4 +1,5 @@
 using YotsubaShader.HlslSyntax;
+using YotsubaShader.HlslSyntax.Methods;
 using YotsubaShader.HlslSyntax.Resources;
 using YotsubaShader.HlslSyntax.Resources.Types;
 using YotsubaShader.HlslSyntax.Types;
@@ -62,4 +63,85 @@ public class StorageBuffer
     [ShaderStage(Stage.Fragment)]
     [return: SV_Target]
     public float4 FS() => new float4(Items[0].Value);
+}
+
+/// <summary>uint: GLSL 1.30 / GLSL ES 3.00; Shader Model 2/3 lo emula con floats.</summary>
+public class UnsignedInt
+{
+    [ShaderStage(Stage.Fragment)]
+    [return: SV_Target]
+    public float4 FS()
+    {
+        uint a = 3u;
+        uint b = a * 2u;
+        return new float4((float)b);
+    }
+}
+
+/// <summary>Operadores de bits: GLSL 1.30 / GLSL ES 3.00 / Shader Model 4.</summary>
+public class IntegerBitOps
+{
+    [ShaderStage(Stage.Fragment)]
+    [return: SV_Target]
+    public float4 FS()
+    {
+        int a = 3;
+        int b = a << 2;
+        return new float4((float)b);
+    }
+}
+
+/// <summary>Leer un texel por índice (texelFetch / Load): GLSL 1.30, GLSL ES 3.00, Shader Model 4.</summary>
+public class TexelFetch
+{
+    [register("t0")] public Texture2D Tex;
+
+    [ShaderStage(Stage.Fragment)]
+    [return: SV_Target]
+    public float4 FS() => Tex.Load(new int3(0, 0, 0));
+}
+
+/// <summary>Gather: GLSL 4.0, GLSL ES 3.10, Shader Model 4.1.</summary>
+public class TextureGather
+{
+    [register("t0")] public Texture2D Tex;
+    [register("s0")] public SamplerState Smp;
+
+    [ShaderStage(Stage.Fragment)]
+    [return: SV_Target]
+    public float4 FS() => Tex.Gather(Smp, new float2(0.5f, 0.5f));
+}
+
+/// <summary>Muestreo con offset constante: GLSL 1.30, GLSL ES 3.00, Shader Model 4.</summary>
+public class TextureOffset
+{
+    [register("t0")] public Texture2D Tex;
+    [register("s0")] public SamplerState Smp;
+
+    [ShaderStage(Stage.Fragment)]
+    [return: SV_Target]
+    public float4 FS() => Tex.Sample(Smp, new float2(0.5f, 0.5f), new int2(1, 1));
+}
+
+/// <summary>Tamaño de una textura: GLSL 1.30, GLSL ES 3.00, Shader Model 4.</summary>
+public class TextureQuerySize
+{
+    [register("t0")] public Texture2D Tex;
+
+    [ShaderStage(Stage.Fragment)]
+    [return: SV_Target]
+    public float4 FS()
+    {
+        uint width, height;
+        Tex.GetDimensions(out width, out height);
+        return new float4((float)width, (float)height, 0f, 1f);
+    }
+}
+
+/// <summary>Derivadas de pantalla: no existen en ps_1_x; OpenGL ES 2.0 las pide por extensión.</summary>
+public class Derivatives
+{
+    [ShaderStage(Stage.Fragment)]
+    [return: SV_Target]
+    public float4 FS([TEXCOORD(0)] float x) => new float4(Intrinsic.ddx(x));
 }
