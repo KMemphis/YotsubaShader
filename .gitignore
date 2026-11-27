@@ -9,3 +9,7 @@
 
 # The website is its own repository (https://github.com/KMemphis/YotsubaShader-Web) cloned here as Web/
 /Web/
+
+# Output of scripts/hub/pack.sh
+/publish/
+/Apps/YotsubaShader.Community/data/

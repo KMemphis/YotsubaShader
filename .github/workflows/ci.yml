@@ -387,3 +387,30 @@ jobs:
           python3 scripts/api_conformance.py
           Core/YotsubaShader.Compiler.CLI/bin/Debug/net10.0/YotsubaShader.Compiler.CLI
           "$RUNNER_TEMP/api-matrix.json" --only '${{ matrix.only }}'
+
+  # Yotsuba Shader Hub: the Svelte interface and the three .NET projects behind it (Hub, community server, shared contracts).
+  # Packaging per platform happens in release.yml; this catches a broken interface or build on every pull request.
+  hub:
+    name: Hub build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Apps/YotsubaShader.Hub/ui/package-lock.json
+      - name: Interface (type check and build)
+        working-directory: Apps/YotsubaShader.Hub/ui
+        run: |
+          npm ci
+          npx svelte-check
+          npx vite build
+      - name: Hub and community server
+        run: |
+          dotnet build Apps/YotsubaShader.Hub/YotsubaShader.Hub.csproj -c Release
+          dotnet build Apps/YotsubaShader.Community/YotsubaShader.Community.csproj -c Release
