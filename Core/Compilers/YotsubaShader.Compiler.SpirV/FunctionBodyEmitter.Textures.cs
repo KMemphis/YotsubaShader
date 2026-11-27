@@ -2,6 +2,7 @@ using YotsubaShader.Compiler.SpirV.Builder;
 using YotsubaShader.Compiler.SpirV.YS_Types;
 using YotsubaShader.IR.Intermediate;
 using YotsubaShader.IR.Intermediate.FunctionBody;
+using YotsubaShader.IR.Intermediate.FunctionBody.Expressions;
 using YotsubaShader.IR.Intermediate.FunctionBody.Expressions.Literals;
 using IRTypes = YotsubaShader.IR.Intermediate.Types;
 
@@ -10,7 +11,7 @@ namespace YotsubaShader.Compiler.SpirV;
 /// <summary>Intrínsecas de texturas: muestreo, gather, fetch, imágenes de almacenamiento y consultas.</summary>
 internal sealed partial class FunctionBodyEmitter
 {
-    private const uint OperandBias = 0x1, OperandLod = 0x2, OperandGrad = 0x4, OperandOffset = 0x10, OperandSample = 0x40;
+    private const uint OperandBias = 0x1, OperandLod = 0x2, OperandGrad = 0x4, OperandConstOffset = 0x8, OperandSample = 0x40;
 
     /// <summary>La textura de un argumento: preferimos la variable real (con su formato) al tipo del parámetro del stub.</summary>
     private IRTypes.Texture TextureOf(IntrinsicCall c, int index) =>
@@ -148,6 +149,7 @@ internal sealed partial class FunctionBodyEmitter
         next++;
 
         // Los argumentos restantes, en orden, con sus tipos.
+        int restStart = next;
         var rest = new List<(string Id, Storage Type)>();
         for (int i = next; i < c.Args.Count; i++) rest.Add((EmitValue(c.Args[i], ref function), ArgType(c, i)));
 
@@ -214,7 +216,7 @@ internal sealed partial class FunctionBodyEmitter
                     throw new NotSupportedException($"'{name}' con cuatro offsets (ConstOffsets) todavía no está soportada.");
                 }
 
-                offset = extra.Id;
+                offset = ConstantOffset(c.Args[restStart + takeIndex - 1], name, f);
             }
         }
 
@@ -229,7 +231,7 @@ internal sealed partial class FunctionBodyEmitter
         if (bias is not null) { mask |= OperandBias; operands.Add(P(bias)); }
         if (lod is not null) { mask |= OperandLod; operands.Add(P(lod)); }
         if (ddx is not null) { mask |= OperandGrad; operands.Add(P(ddx)); operands.Add(P(ddy!)); }
-        if (offset is not null) { mask |= OperandOffset; operands.Add(P(offset)); }
+        if (offset is not null) { mask |= OperandConstOffset; operands.Add(P(offset)); }
 
         // Las variantes sin LOD explícito en un contexto explícito (Compare Level con lod 0) usan Lod = 0.
         if (explicitLod && lod is null && ddx is null)
@@ -357,6 +359,18 @@ internal sealed partial class FunctionBodyEmitter
         coordType = TypeOfNum(Num.Int, WidthOf(coordType));
         coord = MergeArrayIndex(coord, coordType, texture, restArgs, Num.Int, f);
 
+        // HLSL Load(int3(x, y, mip)): el nivel (o la muestra, en multisample) va en la última componente de la coordenada.
+        // SPIR-V quiere solo las componentes de la coordenada y el nivel como operando Lod/Sample: una coordenada más
+        // larga la acepta spirv-val pero ignora el nivel (siempre leería el 0) y naga la rechaza.
+        int needed = CoordinateComponents(texture);
+        if (restArgs.Count == 0 && WidthOf(coordType) == needed + 1)
+        {
+            string level = EmitRaw(f, SpirVOpTable.OpCompositeExtract, ScalarTypeId(Num.Int, f), P(coord), Lit((uint)needed));
+            coord = ShuffleHead(coord, Num.Int, needed + 1, needed, f);
+            coordType = TypeOfNum(Num.Int, needed);
+            restArgs.Add((level, TypeOfNum(Num.Int, 1)));
+        }
+
         if (restArgs.Count > 0)
         {
             string extra = restArgs[0].Id;
@@ -482,5 +496,35 @@ internal sealed partial class FunctionBodyEmitter
         int width = wanted > 0 && wanted <= dims ? wanted : dims;
         if (NumOf(c.Result) == Num.Uint) return ConvertNum(trimmed, Num.Int, Num.Uint, width, f);
         return trimmed;
+    }
+
+    /// <summary>
+    /// El offset de texels de un muestreo o gather. SPIR-V lo pide como constante (<c>ConstOffset</c>): un offset que
+    /// se calcula en ejecución necesitaría <c>Offset</c> + ImageGatherExtended y HLSL, GLSL y WGSL tampoco lo admiten.
+    /// </summary>
+    private string ConstantOffset(Expression expression, string name, Function function)
+    {
+        if (expression is IntLiteral) return EmitValue(expression, ref function);
+
+        if (expression is VectorExpression vector && vector.Values.All(value => value is IntLiteral))
+        {
+            string typeId = _module.DeclareType(new IRTypes.Vector("vector", StorageKind.Local, null)
+            {
+                ComponentsLength = vector.Values.Count,
+                ComponentsType = vector.ComponentsType
+            }, function.Stage);
+
+            var components = vector.Values.Select(value => EmitValue(value, ref function)).ToList();
+            string compositeId = "%constoffset_" + string.Join("_", components.Select(id => id.TrimStart('%')));
+            if (!_module.IsDefined(compositeId))
+            {
+                _module.AddResultLine(compositeId, SpirVOpTable.OpConstantComposite,
+                    [SpirVModuleHelpers.Id(typeId), .. components.Select(SpirVModuleHelpers.Id)]);
+            }
+
+            return compositeId;
+        }
+
+        throw new NotSupportedException($"'{name}' con un offset que no es constante: los offsets de textura dinámicos no están soportados. Usa un valor conocido al compilar.");
     }
 }

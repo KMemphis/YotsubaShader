@@ -7,5 +7,6 @@ internal static class OpenGL_40
 {
     public static readonly ApiProfile Profile = OpenGL_33.Profile.Next(Target.OpenGL_40, "4.0")
         .Emits("glsl", "400")
-        .Feature(ApiFeature.Float64, Availability.Guaranteed);
+        .Feature(ApiFeature.Float64, Availability.Guaranteed)
+        .Feature(ApiFeature.TextureGather, Availability.Guaranteed);
 }

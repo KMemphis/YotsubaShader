@@ -200,6 +200,9 @@ public record CompiledCode(
 
         // OpenGL has no separate textures and samplers: join each pair into one combined sampler,
         // named after the texture and with the texture's binding.
+        // A texture read by index (texelFetch / Load, size queries) has no sampler to join: give it SPIRV-Cross's
+        // dummy one, or the translation fails with "texelFetch without sampler".
+        compiler.build_dummy_sampler_for_combined_images();
         compiler.build_combined_image_samplers();
         foreach (CombinedImageSampler pair in compiler.get_combined_image_samplers())
         {

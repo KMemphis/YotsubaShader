@@ -138,4 +138,64 @@ public class GraphicsApiTests
     [Fact]
     public void Empty_declaration_is_the_default() =>
         Assert.Equal(DiagnosticSeverity.Warning, Severity(Double, "YS0701", "Target.None"));
+
+    private const string BitOps = "public class S { [ShaderStage(Stage.Fragment)] [return: SV_Target] public float4 FS() { int a = 3; int b = a << 2; return new float4(b); } }";
+    private const string Fetch = "public class S { public Texture2D T; [ShaderStage(Stage.Fragment)] [return: SV_Target] public float4 FS() { return T.Load(new int3(0, 0, 0)); } }";
+
+    [Theory]
+    [InlineData("Target.OpenGL_20", DiagnosticSeverity.Error)]
+    [InlineData("Target.OpenGLES_20", DiagnosticSeverity.Error)]
+    [InlineData("Target.DirectX_90c", DiagnosticSeverity.Error)]
+    [InlineData("Target.DirectX_80", DiagnosticSeverity.Error)]
+    [InlineData("Target.OpenGL_30 | Target.OpenGLES_30 | Target.DirectX_10 | Target.Vulkan_10 | Target.Metal_1 | Target.WebGpu", null)]
+    public void Bitwise_operators_need_integer_support(string targets, DiagnosticSeverity? expected)
+    {
+        if (expected is null) ExpectNone(BitOps, "YS0703", targets);
+        else Assert.Equal(expected.Value, Severity(BitOps, "YS0703", targets));
+    }
+
+    [Theory]
+    [InlineData("Target.OpenGLES_20", true)]
+    [InlineData("Target.DirectX_90", true)]
+    [InlineData("Target.OpenGL_33", false)]
+    [InlineData("Target.DirectX_11", false)]
+    public void Texel_fetch_needs_integer_texture_addressing(string targets, bool error)
+    {
+        if (error) Assert.Equal(DiagnosticSeverity.Error, Severity(Fetch, "YS0703", targets));
+        else ExpectNone(Fetch, "YS0703", targets);
+    }
+
+    private static string Cbuffer(int vectors) =>
+        "public struct B { [ArrayLength(" + vectors + ")] public float4[] V; } " +
+        "public class S { [register(\"b0\")] public ConstantBuffer<B> Data; [ShaderStage(Stage.Fragment)] [return: SV_Target] public float4 FS() { return Data.Value.V[0]; } }";
+
+    [Theory]
+    [InlineData(2000, "Target.Vulkan_13", true)]   // 32000 bytes > 16384
+    [InlineData(1000, "Target.Vulkan_13", false)]  // 16000 < 16384
+    [InlineData(1000, "Target.DirectX_90c", true)] // 16000 > 3584
+    [InlineData(3000, "Target.DirectX_11", false)] // 48000 < 65536
+    [InlineData(5000, "Target.WebGpu", true)]      // 80000 > 65536
+    public void Uniform_buffer_size_is_checked_per_api(int vectors, string targets, bool error)
+    {
+        bool fits = vectors * 16 <= (targets.Contains("Vulkan") ? 16384 : targets.Contains("90c") ? 3584 : 65536);
+        Assert.Equal(!fits, error);
+        if (fits) ExpectNone(Cbuffer(vectors), "YS0713", targets);
+        else Assert.Equal(DiagnosticSeverity.Error, Severity(Cbuffer(vectors), "YS0713", targets));
+    }
+
+    [Fact]
+    public void Dynamic_texture_offset_is_not_supported()
+    {
+        const string code = "public class S { [register(\"t0\")] public Texture2D Tex; [register(\"s0\")] public SamplerState Smp; " +
+            "[ShaderStage(Stage.Fragment)] [return: SV_Target] public float4 FS([TEXCOORD(0)] float2 uv, [TEXCOORD(1)] int k) { return Tex.Sample(Smp, uv, new int2(k, 0)); } }";
+        Assert.Equal(DiagnosticSeverity.Error, Severity(code, "YS0508"));
+    }
+
+    [Fact]
+    public void A_variable_Load_coordinate_is_not_a_texture_offset()
+    {
+        const string code = "public class S { [register(\"t0\")] public Texture2D Tex; " +
+            "[ShaderStage(Stage.Fragment)] [return: SV_Target] public float4 FS([TEXCOORD(1)] int k) { return Tex.Load(new int3(k, 0, 0)); } }";
+        ExpectNone(code, "YS0508");
+    }
 }

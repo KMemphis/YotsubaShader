@@ -10,5 +10,6 @@ internal static class OpenGLES_31
         .Feature(ApiFeature.Compute, Availability.Guaranteed)
         .Feature(ApiFeature.StorageBuffer, Availability.Guaranteed)
         .Feature(ApiFeature.StorageTexture, Availability.Guaranteed)
-        .Limits(workgroup: new WorkgroupLimits(128, 128, 64, 128));
+        .Limits(workgroup: new WorkgroupLimits(128, 128, 64, 128))
+        .Feature(ApiFeature.TextureGather, Availability.Guaranteed);
 }

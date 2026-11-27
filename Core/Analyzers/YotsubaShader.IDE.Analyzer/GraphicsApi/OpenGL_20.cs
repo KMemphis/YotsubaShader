@@ -14,5 +14,12 @@ internal static class OpenGL_20
         .Feature(ApiFeature.Compute, Availability.Unavailable, "compute shaders arrive in OpenGL 4.3")
         .Feature(ApiFeature.StorageBuffer, Availability.Unavailable, "storage buffers arrive in OpenGL 4.3")
         .Feature(ApiFeature.StorageTexture, Availability.Unavailable, "images (load/store) arrive in OpenGL 4.2")
-        .Feature(ApiFeature.StorageTextureWithoutFormat, Availability.Optional, "needs EXT_shader_image_load_formatted");
+        .Feature(ApiFeature.StorageTextureWithoutFormat, Availability.Optional, "needs EXT_shader_image_load_formatted")
+        .Feature(ApiFeature.UnsignedInt, Availability.Unavailable, "needs GLSL 1.30 (OpenGL 3.0)")
+        .Feature(ApiFeature.IntegerBitOps, Availability.Unavailable, "needs GLSL 1.30 (OpenGL 3.0)")
+        .Feature(ApiFeature.TexelFetch, Availability.Unavailable, "needs GLSL 1.30 (OpenGL 3.0)")
+        .Feature(ApiFeature.TextureOffset, Availability.Unavailable, "needs GLSL 1.30 (OpenGL 3.0)")
+        .Feature(ApiFeature.TextureQuerySize, Availability.Unavailable, "needs GLSL 1.30 (OpenGL 3.0)")
+        .Feature(ApiFeature.TextureGather, Availability.Unavailable, "needs GLSL 1.30 (OpenGL 3.0)")
+        .Feature(ApiFeature.Derivatives, Availability.Guaranteed);
 }

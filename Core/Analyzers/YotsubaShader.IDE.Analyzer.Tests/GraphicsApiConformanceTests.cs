@@ -25,11 +25,27 @@ public class GraphicsApiConformanceTests
         ApiFeature.StorageTexture =>
             $"public class W{n} {{ [register(\"u0\")] public RWTexture2D<float4> Img; " +
             $"[ShaderStage(Stage.Fragment)] [return: SV_Target] public float4 FS() {{ return new float4(1f); }} }}",
+        ApiFeature.UnsignedInt =>
+            $"public class W{n} {{ [ShaderStage(Stage.Fragment)] [return: SV_Target] public float4 FS() {{ uint a = 3u; uint b = a * 2u; return new float4((float)b); }} }}",
+        ApiFeature.IntegerBitOps =>
+            $"public class W{n} {{ [ShaderStage(Stage.Fragment)] [return: SV_Target] public float4 FS() {{ int a = 3; int b = a << 2; return new float4((float)b); }} }}",
+        ApiFeature.TexelFetch =>
+            $"public class W{n} {{ [register(\"t0\")] public Texture2D Tex; [ShaderStage(Stage.Fragment)] [return: SV_Target] public float4 FS() => Tex.Load(new int3(0, 0, 0)); }}",
+        ApiFeature.TextureGather =>
+            $"public class W{n} {{ [register(\"t0\")] public Texture2D Tex; [register(\"s0\")] public SamplerState Smp; [ShaderStage(Stage.Fragment)] [return: SV_Target] public float4 FS() => Tex.Gather(Smp, new float2(0.5f, 0.5f)); }}",
+        ApiFeature.TextureOffset =>
+            $"public class W{n} {{ [register(\"t0\")] public Texture2D Tex; [register(\"s0\")] public SamplerState Smp; [ShaderStage(Stage.Fragment)] [return: SV_Target] public float4 FS() => Tex.Sample(Smp, new float2(0.5f, 0.5f), new int2(1, 1)); }}",
+        ApiFeature.TextureQuerySize =>
+            $"public class W{n} {{ [register(\"t0\")] public Texture2D Tex; [ShaderStage(Stage.Fragment)] [return: SV_Target] public float4 FS() {{ uint w, h; Tex.GetDimensions(out w, out h); return new float4((float)w); }} }}",
+        ApiFeature.Derivatives =>
+            $"public class W{n} {{ [ShaderStage(Stage.Fragment)] [return: SV_Target] public float4 FS([TEXCOORD(0)] float x) => new float4(Intrinsic.ddx(x)); }}",
         _ => ""
     };
 
     /// <summary>Las características que el shader testigo puede usar: no hay forma de escribir las demás.</summary>
-    internal static readonly ApiFeature[] Witnessed = { ApiFeature.Float64, ApiFeature.Compute, ApiFeature.StorageBuffer, ApiFeature.StorageTexture };
+    internal static readonly ApiFeature[] Witnessed = { ApiFeature.Float64, ApiFeature.Compute, ApiFeature.StorageBuffer, ApiFeature.StorageTexture,
+        ApiFeature.UnsignedInt, ApiFeature.IntegerBitOps, ApiFeature.TexelFetch, ApiFeature.TextureGather, ApiFeature.TextureOffset,
+        ApiFeature.TextureQuerySize, ApiFeature.Derivatives };
 
     /// <summary>El shader más completo que <paramref name="profile"/> garantiza.</summary>
     internal static string MaximalShader(ApiProfile profile)

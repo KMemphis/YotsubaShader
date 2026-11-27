@@ -32,7 +32,10 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 PROJECT = ROOT / "scripts/conformance/ApiConformance/ApiConformance.csproj"
 
 # Witness class -> feature it needs (None = must work everywhere).
-WITNESSES = {"Baseline": None, "Float64": "Float64", "Compute": "Compute", "StorageBuffer": "StorageBuffer"}
+WITNESSES = {"Baseline": None, "Float64": "Float64", "Compute": "Compute", "StorageBuffer": "StorageBuffer",
+            "UnsignedInt": "UnsignedInt", "IntegerBitOps": "IntegerBitOps", "TexelFetch": "TexelFetch",
+            "TextureGather": "TextureGather", "TextureOffset": "TextureOffset", "TextureQuerySize": "TextureQuerySize",
+            "Derivatives": "Derivatives"}
 ENTRY = {"Vertex": "VS", "Fragment": "FS", "Compute": "CS"}
 EXTENSION = {"spirv": ".spv", "glsl": ".glsl", "gles": ".gles", "wgsl": ".wgsl", "hlsl": ".hlsl", "msl": ".msl"}
 

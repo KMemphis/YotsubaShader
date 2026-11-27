@@ -1,0 +1,115 @@
+3017 ERR_UNSUPPORTED_CAST: The conversion from one type to another type is unsupported.
+3037 ERR_UNSUPPORTED_TYPE_EXPR: Constructors only defined for numeric base types.
+3039 ERR_PARSE_VERSION: Can't be specific to the target.
+3041 ERR_SHADER_VERSION: The compiler target is unsupported.
+3089 ERR_TARGETUSAGE_INVALID: The shader target or usage is invalid.
+3096 ERR_NOT_TEMPLATE_TYPE: The specified variable isn't a template type.
+3115 ERR_CONFLICTING_REGISTER_SEMANTICS: The specified register is used more than once.
+3204 WAR_INT_TOO_LARGE: Unsigned integer literal is too large so is truncated.
+3506 ERR_UNRECOGNIZED_VERSION: The compiler target isn't recognized.
+3511 ERR_CANT_UNROLL: The loop is unable to unroll, the loop doesn't appear to terminate in a timely manner (in the specified number of iterat
+3512 ERR_ARRAY_INDEX_MUST_BE_LITERAL: The index of the sampler array must be a literal expression.
+3515 ERR_TARGET_INVALID: The target is invalid. For example, user-defined buffers can't be target specific, and the register specification expect
+3516 ERR_TEXCUBE_OFFSET_INVALID: Texcube instructions can't have integer offsets.
+3522 ERR_TEXTURE_OBJECTS_UNSUPPORTED: Texture objects or streams aren't supported on legacy targets.
+3523 ERR_COMPAT_MAKETEXTURE: DirectX 9-style intrinsic functions are disabled when not running in DirectX 9 compatibility mode.
+3525 ERR_NOT_SIMPLE_LOOP: The loop can't be mapped to a shader target because the target doesn't support breaks.
+3526 ERR_GRADIENT_WITH_BREAK: Gradient instructions can't be used in loops with breaks.
+3527 ERR_TEXTURE_OFFSET: Texture access requires literal offset and multisample index.
+3528 ERR_CANT_BRANCH: Flow control (branching) can't be used on this profile.
+3530 ERR_BIND_INVALID: Invalid binding operation was performed. For example, buffers can only be bound to one slot or one constant offset; inva
+3534 ERR_LOW_PRECISION: Partial precision isn't supported for the specified target. Min-precision types might offer similar functionality.
+3535 ERR_UNSUPPORTED_OPERATION: An unsupported operation was performed. For example, bitwise operations aren't supported on legacy targets; CheckAccessF
+3542 ERR_PACK_OFFSET_CANT_HAVE_TARGET: A packoffset variable can't have a target qualifier.
+3543 ERR_REINTERPRET_UNSUPPORTED: The operation can't reinterpret the supplied datatype.
+3544 ERR_NO_INTERFACE_SUPPORT: Abstract interfaces aren't supported on the specified target; interface references must resolve to specific instances.
+3546 ERR_TBUFFER_UNSUPPORTED: Reading from texture buffers is unsupported on the specified target.
+3549 ERR_INTERLOCKED_TARGET: Interlocked targets must be groupshared or UAV elements. Or, the specified target doesn't support interlocked operations
+3550 WAR_ARRAY_INDEX_MUST_BE_LITERAL: The index of the sampler array must be a literal expression, so the loop is forced to unroll.
+3552 WAR_NOT_SIMPLE_LOOP: The loop can't be mapped to a shader target because the target doesn't support breaks.
+3553 WAR_GRADIENT_WITH_BREAK: Can't use gradient instructions in loops with break.
+3567 WAR_IGNORING_REGISTER_SEMANTIC: The register semantic is ignored.
+3569 WAR_LOOP_TOO_LONG: The loop executes for more than the maximum number of iterations for the specified shader target, which forces the loop 
+3575 WAR_BREAK_FROM_UAV: Automatic unrolling has been disabled for the loop, consider using the [unroll] attribute or manual unrolling. Or, loop 
+3579 WAR_GROUPSHARED_UNSUPPORTED: The specified variable doesn't support groupshared so groupshared is ignored.
+3582 WAR_TEXTURE_OFFSET: Texture access must have literal offset and multisample index.
+3583 WAR_POTENTIAL_RACE_CONDITION_UAV: A race condition writing to a shared resource was detected, note that threads are writing the same value, but performanc
+3586 WAR_NO_INTERFACE_SUPPORT: Abstract interfaces aren't supported on the specified target so interface references must resolve to specific instances.
+3587 WAR_MIN10_RCP: The target emulates A / B with A * reciprocal(B). If the reciprocal of B is not representable in your min-precision type
+3589 ERR_PRAGMA_DEF_OBSOLETE: The '#pragma def' directive is no longer supported on DirectX 10+ and 10_level_9 (9_x feature levels) targets. Use compa
+3650 ERR_NO_32_BIT_HALF: Global variables can't use the 'half' type in the specified target. To treat this variable as a float, use the backwards
+3652 ERR_NO_SMALL_INT: The specified target doesn't support 8-bit or 16-bit integers.
+3661 ERR_GROUPSHARED_UNSUPPORTED: The specified variable doesn't support groupshared.
+3665 ERR_NO_APPEND_CONSUME: The specified target doesn't support Append/Consume buffers.
+3668 ERR_INDEX_IS_NOT_GROUP_INDEX: Stores to group shared memory for specified targets must be indexed by an SV_GroupIndex only.
+3671 ERR_BREAK_FROM_UAV: Loop termination conditions in varying flow control so can't depend on data read from a UAV.
+3672 ERR_NO_PULL_MODEL: The specified target doesn't support pull-model attribute evaluation.
+3673 ERR_CANT_PULL_POSITION: The specified target doesn't support pull-model evaluation of position.
+3676 ERR_TYPED_UAV_LOAD_MULTI_COMP: Typed UAV loads are only supported for single-component 32-bit element types.
+3677 ERR_MULTIPLE_DEPTH_OUT: The specified target only allows one depth output.
+3681 ERR_ATOMIC_REQUIRES_INT: The specified target only supports interlocked operations on scalar int or uint data.
+3686 ERR_UNSUPPORTED_THIS_OBJECT: The specified object isn't supported.
+3692 ERR_NO_ABORT: The specified target doesn't support aborts.
+3693 ERR_NO_MESSAGES: The specified target doesn't support messages.
+3694 ERR_GUARANTEED_RACE_CONDITION_UAV: A race condition writing to a shared resource was detected so consider making this operation write conditional.
+3697 ERR_TEMPLATE_VAR_CONFLICT: The specified variable matches a variable in the template shader but the type layout doesn't match.
+3699 ERR_COMPLEX_TEMPLATE_RESOURCE: Place-holder template resources can only be simple resources so structs and arrays aren't supported.
+3700 ERR_RESOURCE_NOT_IN_TEMPLATE: For the specified resource, binding isn't present in the template shader.
+3701 ERR_RESINDEX_UNSUPPORTED: The specified target doesn't support indexing resources.
+3703 ERR_NO_MIN_PRECISION: The specified target doesn't support minimum-precision data.
+3704 ERR_NO_F32_F16: The specified target doesn't support 16-bit float conversions.
+3709 ERR_DEBUG_NOT_SUPPORTED_FOR_MODERN: Debug isn't supported.
+3710 ERR_UNSUPPORTED_PARAM_TYPE: The specified function parameters are unsupported.
+3712 ERR_LIBRARY_FUNC_UNSUPPORTED: Library functions are supported only for pixel shaders and vertex shaders.
+3719 ERR_RES_MAY_ALIAS_ONLY_IN_CS_5: The 'resources_may_alias' option is only valid for cs_5_0+ targets.
+4016 ERR_INVALID_SEMANTIC: The semantic is invalid. For example, the SV_InstanceID semantic can't be used with 10_level_9 (9_x feature levels) targ
+4017 ERR_MID_INVALID_REGISTER_SEMANTIC: The same variable can't be bound to multiple constants in the same constant bank.
+4018 ERR_TOO_MANY_PHASES: The shader uses texture addressing operations in a dependency chain that is too complex for the specific target shader m
+4505 ERR_MAX_TEMP_EXCEEDED: The maximum temp register index was exceeded.
+4506 ERR_MAX_INPUT_EXCEEDED: The maximum number of inputs was exceeded.
+4507 ERR_MAX_CONST_EXCEEDED: The maximum constant register index was exceeded. Try to reduce the number of constants that are referenced.
+4508 ERR_MAX_ADDR_EXCEEDED: The maximum address register index was exceeded.
+4509 ERR_GEN_INVALID_REGISTER_SEMANTIC: An invalid register semantic was used, or a variable must be bound to multiple register banks.
+4510 ERR_MAX_SAMPLER_EXCEEDED: The maximum number of samplers was exceeded.
+4511 ERR_REL_ADDRESS_NOT_SUP: The target doesn't support relative addressing.
+4519 ERR_TOO_MANY_TEXREADS: Too many texture loads and reads occurred from texcoords.
+4521 ERR_OUT_OF_TEMP: The program is too complex and is out of temporary registers.
+4528 ERR_DEPTH_SCALAR: DEPTH must be a scalar.
+4529 ERR_COLOR_4COMP: The semantic (SV_Target or COLOR) value must be a four-component vector.
+4530 ERR_WRITE_TO_COLOR0: The pixel shader must minimally write all four components of the semantic (SV_Target0 or COLOR0) value.
+4536 ERR_TEXRGB_NOT_SUPPORTED: The expression can only be mapped to texreg2rgb, but this instruction isn't supported on 1_x.
+4537 ERR_CANT_EMMULLATE_WRITE: Write masks can't be emulated for the ps_1_x shader model.
+4538 ERR_COLOR_CONT: SV_Target outputs must be contiguous from SV_Target0 to SV_TargetN, or COLOR outputs must be contiguous from COLOR0 to C
+4545 ERR_TEXTURE_NOT_SUPPORTED: An unsupported texture type for the specified target was encountered.
+4546 ERR_MAX_SAMP_EXCEEDED: The maximum sampler register index was exceeded.
+4549 ERR_MAX_PRED_EXCEEDED: The maximum predicate register index was exceeded.
+4550 ERR_MAX_BOOL_EXCEEDED: Try reducing the number of constant branches, take bools out of structs/arrays, or move them to the start of the struct.
+4551 ERR_MAX_LOOP_EXCEEDED: Try reducing the number of loops, take loop counters out of structs/arrays, or move them to the start of the struct.
+4554 ERR_CND_SCALAR: Vector conditionals can't be emulated in ps_1_x shader model.
+4565 ERR_MAX_TEXTURE_EXCEEDED: The maximum number of texture slots is exceeded for a library.
+4567 ERR_MAX_CBUFFER_EXCEEDED: The maximum number of constant buffer slots is exceeded for a library.
+4568 ERR_INCORRECT_USAGE: The usage is unsupported on the target. For example, the sample interpolation, nointerpolation, noperspective, or intege
+4570 ERR_MULTIPLE_STREAMS: The target can only emit to a specific amount of streams.
+4571 ERR_MAX_OUTPUT_EXCEEDED: The output limit was exceeded.
+4581 ERR_AUTOSAMPLER_ARRAY_UNIMPL: Using sampler arrays with texture objects on 10_level_9 (9_x feature level) targets isn't implemented yet.
+4583 ERR_INVALID_10L9_SEMANTIC: The specified semantic isn't supported on the 10_level_9 (9_x feature level) target.
+4584 ERR_MAX_IFACE_EXCEEDED: The maximum number of interface pointers was exceeded.
+4585 ERR_MAX_UAV_EXCEEDED: The maximum number of UAV slots was exceeded for a library.
+4586 ERR_MAX_GROUP_SHARED_MEMORY_EXCEEDED: The total amount, in bytes, of group shared memory exceeded the target's limit.
+4587 ERR_TOO_MANY_GROUP_SHARED_DATA: Shaders compiled for the specified target can only have a single group shared data item.
+4588 ERR_INCORRECT_NUM_GROUP_SHARED_ELEMENTS: Group shared data for the specified target must have a count of elements that is equal to the number of threads in the t
+4589 ERR_CONTROL_POINT_COUNT_EXCEEDED: The maximum control point count for the target was exceeded
+4590 ERR_GROUP_SHARED_DATA_ELEMENT_TOO_LARGE: Group shared data for the specified target is too large and must have an element size of at most the specified amount of
+4591 ERR_GROUP_SHARED_DATA_NOT_AN_ARRAY: Group shared data for the specified target must be an array of elements.
+4593 ERR_INVALID_SNAP_OFFSET: The target's snap offset must be in the range -8 to 7.
+4594 ERR_CLIPPLANE_TOO_COMPLICATED: Clip planes can't be addressed in the specified target; or, clip planes must be non-literal constants with identity swiz
+4596 ERR_TYPED_UAV_WRITE_MASK_MISMATCH: Typed UAV stores must write all declared components.
+4596 ERR_TEX1D_UNSUPPORTED: Texture1D types are unsupported on the specified target.
+4598 ERR_RESINFO_Z_UNDEFINED_CUBEARRAY: The array element count of GetDimensions on TextureCubeArray objects is unavailable on the specified target.
+4599 ERR_INVALID_STRUCTURED_ELEMENT_SIZE: The structured buffer element size is invalid. It must be a multiple of specified bytes in the specified target, or it c
+4600 ERR_MAX_ICB_REG_EXCEEDED: The shader's indexable literal values were exceeded. The shader uses too many indexable literal values so consider using
+4601 ERR_MAX_CBUFFER_SIZE_EXCEEDED: The size of the specified constant buffer is the specified number 16-byte entries, which exceeds maximum allowed size of
+4602 ERR_LIB_DEBUG_INST_UNSUPPORTED: Debug instructions are unsupported in shader libraries.
+4704 WAR_MAX_CONST_RANGE: Literal values outside range -1 to 1 are clamped on all ps_1_x shading models.
+4714 WAR_CS_TEMP_EXCEEDED: The sum of temp registers and indexable temp registers times the specified number of threads exceeds the recommended tot
+4716 WAR_PSIZE_HAS_NO_SPECIAL_MEANING: The specified semantic has no special meaning on 10_level_9 (9_x feature levels) targets.

@@ -1,0 +1,34 @@
+InvalidUsage: Usage isn't compatible with address space {0:?}
+InvalidType: Type isn't compatible with address space {0:?}
+MissingTypeFlags: Type flags {seen:?} do not meet the required {required:?}
+UnsupportedCapability: Capability {0:?} is not supported
+Alignment: Alignment requirements for address space {0:?} are not met by {1:?}
+InitializerExprType: Initializer must be an override-expression
+InitializerType: Initializer doesn't match the variable type
+InitializerNotAllowed: Initializer can't be used with address space {0:?}
+StorageAddressSpaceWriteOnlyNotSupported: Storage address space doesn't support write-only access
+InvalidImmediateType: Type is not valid for use as a immediate data
+InvalidMemoryDecorationsAddressSpace: Memory decorations (`@coherent`, `@volatile`) are only valid for variables in the `storage` address space
+CoherentNotSupported: `@coherent` requires the MEMORY_DECORATION_COHERENT capability
+VolatileNotSupported: `@volatile` requires the MEMORY_DECORATION_VOLATILE capability
+InvalidType: The type {0:?} does not match the varying
+InvalidInterpolationInStage: Interpolation {0:?} is only valid for stage {1:?}
+InvalidInterpolationSamplingCombination: Cannot combine {interpolation:?} interpolation with the {sampling:?} sample type
+InvalidInterpolationForInteger: `@interpolate(flat)` must be explicitly specified for integer I/O
+MissingInterpolation: Interpolation must be specified on vertex shader outputs and fragment shader inputs
+UnsupportedCapability: Capability {0:?} is not supported
+InvalidInputAttributeInStage: The attribute {0:?} is only valid as an output for stage {1:?}
+InvalidBlendSrcIndex: `@blend_src` can only be used at location 0, indices 0 and 1. Found `@location({location}) @blend_src({blend_src})`.
+IncompleteBlendSrcUsage: `@blend_src` structure must specify two sources. \ Found `@blend_src({present_blend_src})` but not `@blend_src({absent_blend_src})
+InvalidBlendSrcWithOtherBindings: Structure using `@blend_src` may not specify `@location` on any other members. Found a binding at `@location({location})`.
+BlendSrcOutputTypeMismatch: Both `@blend_src` structure members must have the same type. `blend_src(0)` has type {blend_src_0_type:?} and `blend_src(1)` has t
+BlendSrcNotOnStructMember: `@blend_src` can only be used on struct members, not directly on entry point I/O
+Conflict: Multiple conflicting entry points
+UnexpectedEarlyDepthTest: Early depth test is not applicable
+ForbiddenStageOperations: Uses operations forbidden at this stage
+InvalidGlobalUsage: Global variable {0:?} is used incorrectly as {1:?}
+Argument: Argument {0} varying error
+Result: 
+Function: 
+UnsupportedCapability: Capability {0:?} is not supported
+UnexpectedComputeShaderEntryResult: Compute shader entry point cannot have a return type
