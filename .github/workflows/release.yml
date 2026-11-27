@@ -245,6 +245,85 @@ jobs:
           path: YotsubaShader-${{ needs.validate.outputs.version }}-${{ matrix.rid }}.*
           if-no-files-found: error
 
+  # Yotsuba Shader Hub (Apps/YotsubaShader.Hub): the desktop installer, offline docs and playground. Its content does
+  # not depend on the platform, so it is built once and every runner packs it with its own native Hub.
+  hub-content:
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - name: Web repository (learn, site and playground sources)
+        uses: ./.github/actions/mcp-data
+        with:
+          token: ${{ secrets.WEB_REPO_TOKEN }}
+      - name: Native dependencies of the language projects the playground references
+        run: bash ThirdParty/ShadowDusk/tools/restore.sh
+      - name: Build the Hub interface, learn, the site and the playground
+        run: bash scripts/hub/build_content.sh hub-content
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hub-content
+          path: hub-content
+          if-no-files-found: error
+
+  publish-hub:
+    needs: [validate, hub-content]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {rid: win-x64, os: windows-2022}
+          - {rid: win-arm64, os: windows-11-arm}
+          - {rid: linux-x64, os: ubuntu-24.04}
+          - {rid: linux-arm64, os: ubuntu-24.04-arm}
+          - {rid: osx-x64, os: macos-15-intel}
+          - {rid: osx-arm64, os: macos-15}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/download-artifact@v4
+        with:
+          name: hub-content
+          path: hub-content
+      - name: Velopack CLI (same version as the Velopack package of the Hub)
+        shell: bash
+        run: |
+          dotnet tool install --global vpk --version 1.2.161
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+      - name: Publish, check and pack the Hub
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/hub/pack.sh '${{ needs.validate.outputs.version }}' '${{ matrix.rid }}' hub-content hub-out
+      - name: Check the package files of this platform
+        shell: bash
+        run: |
+          test -f 'hub-out/releases.${{ matrix.rid }}.json'
+          ls hub-out/*-'${{ matrix.rid }}'-full.nupkg
+          ls hub-out/*-'${{ matrix.rid }}'-Setup.*
+          # The Hub's Download button looks for exactly this name in the release.
+          ls hub-out/Yotsuba-Shader-Hub-'${{ matrix.rid }}'.*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hub-pkg-${{ matrix.rid }}
+          path: hub-out/*
+          if-no-files-found: error
+
   nuget-push:
     needs: [validate, pack, publish-cli]
     runs-on: ubuntu-24.04
@@ -309,3 +388,32 @@ jobs:
           find cli-artifacts -type f -print0 | while IFS= read -r -d '' archive; do
             gh release upload "$RELEASE_TAG" "$archive" --clobber
           done
+
+  # The Hub installers are attached after the packages are on NuGet, because the Hub installs the compiler from there.
+  # Velopack reads releases.<channel>.json to find updates, so the feeds go last: a half-uploaded release never
+  # advertises a package that is not there yet.
+  hub-release-assets:
+    needs: [validate, nuget-push, publish-hub]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: hub-pkg-*
+          path: hub-artifacts
+      - name: Attach the Hub packages of all six platforms
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          for rid in win-x64 win-arm64 linux-x64 linux-arm64 osx-x64 osx-arm64; do
+            test -f "hub-artifacts/hub-pkg-$rid/releases.$rid.json"
+            # Six installers in all (3 systems x 2 architectures), named Yotsuba-Shader-Hub-<rid>.<ext>.
+            ls hub-artifacts/hub-pkg-$rid/Yotsuba-Shader-Hub-$rid.* > /dev/null
+          done
+          find hub-artifacts -type f ! -name 'releases.*.json' ! -name 'RELEASES-*' ! -name 'assets.*.json' -print0 |
+            while IFS= read -r -d '' file; do gh release upload "$RELEASE_TAG" "$file" --clobber; done
+          find hub-artifacts -type f \( -name 'releases.*.json' -o -name 'RELEASES-*' \) -print0 |
+            while IFS= read -r -d '' file; do gh release upload "$RELEASE_TAG" "$file" --clobber; done

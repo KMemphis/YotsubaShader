@@ -51,3 +51,24 @@ bash ThirdParty/ShadowDusk/tools/restore.sh
 bash scripts/pack_release.sh 0.1.0 /tmp/yotsuba-nupkg
 python3 scripts/verify_release.py packages /tmp/yotsuba-nupkg 0.1.0
 ```
+
+## Yotsuba Shader Hub
+
+El mismo workflow construye la app de escritorio (`Apps/YotsubaShader.Hub`) y adjunta sus instaladores al Release, después de que los paquetes estén en nuget.org (el Hub instala el compilador desde allí):
+
+1. `hub-content` compila una sola vez lo que no depende de la plataforma: la interfaz del Hub, learn (`--strict-i18n`), la web con el playground y su backend WebAssembly. Lo hace `scripts/hub/build_content.sh`.
+2. `publish-hub` publica el Hub autocontenido en los seis RID, le añade ese contenido bajo `content/`, comprueba el resultado con `YotsubaShaderHub --selftest` (arranca los tres servidores locales sin abrir ventana y pide la UI, learn, la web y el backend del playground) y lo empaqueta con Velopack (`vpk`, versión fijada a la del paquete `Velopack` del Hub). Lo hace `scripts/hub/pack.sh`.
+3. `hub-release-assets` sube los instaladores y paquetes y, al final, los índices `releases.<canal>.json` que usa la actualización automática.
+
+El canal de Velopack es el RID (`osx-arm64`, `win-x64`...). El predeterminado solo distingue `osx`, `win` y `linux`, y las dos arquitecturas de un mismo sistema se pisarían los archivos. `Updates/AppUpdater.cs` pide el mismo canal.
+
+El audio de narración de learn (cientos de MB) no va dentro; si falta, el Hub lo pide a learn.yotsubashader.com cuando hay conexión. Para incluirlo, `HUB_INCLUDE_AUDIO=1` al ejecutar `build_content.sh`.
+
+Probar en local (macOS, con `vpk` instalado y Web/ clonado):
+
+```bash
+bash scripts/hub/build_content.sh /tmp/hub-content
+bash scripts/hub/pack.sh 0.0.0-local osx-arm64 /tmp/hub-content /tmp/hub-out
+```
+
+Pendiente: firma y notarización (Windows y macOS; sin ellas el sistema avisa al instalar), icono de la app (`--icon`) y la comprobación en Windows y Linux, que solo se ha preparado.
