@@ -315,8 +315,7 @@ jobs:
         run: |
           test -f 'hub-out/releases.${{ matrix.rid }}.json'
           ls hub-out/*-'${{ matrix.rid }}'-full.nupkg
-          ls hub-out/*-'${{ matrix.rid }}'-Setup.*
-          # The Hub's Download button looks for exactly this name in the release.
+          # The Hub's Download button looks for exactly this name in the release (pack.sh renames the Velopack installer).
           ls hub-out/Yotsuba-Shader-Hub-'${{ matrix.rid }}'.*
       - uses: actions/upload-artifact@v4
         with:
