@@ -65,10 +65,14 @@ vpk pack \
   --runtime "$rid" \
   --channel "$rid" \
   --outputDir "$output"
-# The Hub's "Download" button looks in the newest release for Yotsuba-Shader-Hub-<rid>.<ext> (Updates/InstallerDownload.cs),
-# so the installer is also published under that fixed name (one per system and architecture: 6 in all).
-for f in "$output"/*-"$rid"-Setup.*; do
-  [[ -f "$f" ]] || continue
-  cp "$f" "$output/Yotsuba-Shader-Hub-$rid.${f##*.}"
+# The Hub's "Download" button looks in the newest release for Yotsuba-Shader-Hub-<rid>.<ext> (Updates/InstallerDownload.cs), so
+# the installer is renamed to that fixed name (one per system and architecture: 6 in all). Velopack names it
+# <packId>-<rid>-Setup.exe / .pkg on Windows and macOS, and <packId>-<rid>.AppImage on Linux. The update feeds only
+# reference the .nupkg, so renaming the installer does not affect self-update.
+installer=""
+for f in "$output"/*-"$rid"-Setup.* "$output"/*"$rid".AppImage; do
+  [[ -f "$f" ]] && { installer="$f"; break; }
 done
+[[ -n "$installer" ]] || { echo "No installer found for $rid in $output"; ls -l "$output"; exit 1; }
+mv "$installer" "$output/Yotsuba-Shader-Hub-$rid.${installer##*.}"
 ls -lh "$output"
