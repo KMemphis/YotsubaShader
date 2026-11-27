@@ -111,7 +111,7 @@ internal sealed partial class FunctionBodyEmitter
     {
         _functionsById = otherFuncs.ToDictionary(d => d.Id);
         _otherFuncs = otherFuncs;
-        SpillArrayParameters(function);
+        SpillArrayParameters(function, statements);
         foreach (var statement in statements)
         {
             EmitStatement(statement, function, otherFuncs);
@@ -119,12 +119,16 @@ internal sealed partial class FunctionBodyEmitter
     }
 
     /// <summary>
-    /// Un array recibido por valor es un valor SPIR-V: para indexarlo con un índice variable hace falta una
-    /// variable. Se copia una vez al entrar en la función.
+    /// Un parámetro recibido por valor es un valor SPIR-V (SSA), no una variable. Hace falta una variable cuando el
+    /// método lo modifica (<c>q = q * 2;</c>, también dentro de un bucle) o, si es un array, lo indexa con un índice
+    /// variable. Se copia una vez al entrar en la función; el llamador no ve los cambios.
     /// </summary>
-    private void SpillArrayParameters(Function function)
+    private void SpillArrayParameters(Function function, IReadOnlyList<Statement> body)
     {
-        foreach (var (storage, valueId) in _values.Where(p => p.Key is IR.Intermediate.Types.Array).ToList())
+        var assigned = new HashSet<Storage>();
+        CollectAssignedStorages(body, assigned);
+
+        foreach (var (storage, valueId) in _values.Where(p => p.Key is IR.Intermediate.Types.Array || assigned.Contains(p.Key)).ToList())
         {
             string typeId = _module.DeclareType(storage, function.Stage);
             string pointerTypeId = _module.DeclarePointer(YS_Types.SpirVStorageClass.Function, typeId);
@@ -135,6 +139,39 @@ internal sealed partial class FunctionBodyEmitter
             _values.Remove(storage);
             _pointers[storage] = pointerId;
         }
+    }
+
+    /// <summary>La variable raíz de cada destino de una asignación, en cualquier nivel de anidamiento.</summary>
+    private static void CollectAssignedStorages(IEnumerable<Statement> statements, HashSet<Storage> into)
+    {
+        foreach (Statement statement in statements)
+        {
+            switch (statement)
+            {
+                case Assignment assignment:
+                    AddRoot(assignment.Target, into);
+                    break;
+                case Block block:
+                    CollectAssignedStorages(block.Statements, into);
+                    break;
+                case If ifStatement:
+                    CollectAssignedStorages(new[] { ifStatement.Then }, into);
+                    if (ifStatement.Else is not null) CollectAssignedStorages(new[] { ifStatement.Else }, into);
+                    break;
+                case Loop loop:
+                    CollectAssignedStorages(new[] { loop.Body, loop.Continuing }, into);
+                    break;
+                case Switch switchStatement:
+                    foreach (SwitchSection section in switchStatement.Sections) CollectAssignedStorages(new[] { section.Body }, into);
+                    break;
+            }
+        }
+    }
+
+    private static void AddRoot(Expression target, HashSet<Storage> into)
+    {
+        try { into.Add(GetRootStorage(target)); }
+        catch (NotSupportedException) { /* no es una ubicación: la reporta el emisor al emitir la asignación */ }
     }
 
     private void EmitStatement(Statement statement, Function function,  IReadOnlyList<Function> otherFuncs)
