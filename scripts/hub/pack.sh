@@ -54,7 +54,17 @@ case "$rid" in
   *)     icon="$repo/Apps/YotsubaShader.Hub/Assets/icon/icon.png" ;;
 esac
 
+# macOS: without a signature that covers the whole bundle, an app downloaded with a browser is reported as "damaged".
+# "-" is an ad-hoc signature (no Apple account needed): it seals the bundle but Gatekeeper still asks for right-click > Open
+# the first time. Set HUB_SIGN_IDENTITY to a "Developer ID Application" identity (and HUB_NOTARY_PROFILE) to remove that too.
+sign=()
+if [[ "$rid" == osx-* ]]; then
+  sign=(--signAppIdentity "${HUB_SIGN_IDENTITY:--}")
+  [[ -n "${HUB_NOTARY_PROFILE:-}" ]] && sign+=(--notaryProfile "$HUB_NOTARY_PROFILE")
+fi
+
 vpk pack \
+  ${sign[@]+"${sign[@]}"} \
   --icon "$icon" \
   --packId YotsubaShader.Hub \
   --packVersion "$version" \
